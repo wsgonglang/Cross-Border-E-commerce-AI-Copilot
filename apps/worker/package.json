@@ -1,0 +1,20 @@
+{
+  "name": "@cross-border/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --pool=threads --maxWorkers=1"
+  },
+  "dependencies": {
+    "@cross-border/shared": "0.1.0",
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "vitest": "^4.0.0"
+  }
+}

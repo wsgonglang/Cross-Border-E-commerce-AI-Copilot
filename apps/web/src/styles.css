@@ -1,0 +1,205 @@
+:root {
+  color: #18302e;
+  background: #edf3f1;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 85% 5%, rgb(20 184 166 / 14%), transparent 28rem),
+    #edf3f1;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  gap: 12px;
+}
+
+.brand-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 13px;
+  color: #fff;
+  background: #0f766e;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  box-shadow: 0 10px 26px rgb(15 118 110 / 22%);
+}
+
+.topbar h1,
+.topbar p {
+  margin: 0;
+}
+
+.topbar h1 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.eyebrow {
+  color: #64807c;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.health-tag {
+  margin-left: auto;
+  margin-right: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 32px;
+  align-items: end;
+  padding: 96px 0 72px;
+}
+
+.stage-label {
+  display: inline-flex;
+  padding: 7px 12px;
+  border: 1px solid rgb(15 118 110 / 20%);
+  border-radius: 999px;
+  color: #0f766e;
+  background: rgb(255 255 255 / 56%);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hero h2 {
+  max-width: 760px;
+  margin: 24px 0 20px;
+  color: #102a28;
+  font-size: clamp(42px, 6vw, 76px);
+  line-height: 1.03;
+  letter-spacing: -0.06em;
+}
+
+.hero-copy > p {
+  max-width: 680px;
+  margin: 0;
+  color: #58716d;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.milestone {
+  display: flex;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgb(15 118 110 / 14%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 70%);
+  box-shadow: 0 16px 40px rgb(41 75 70 / 8%);
+  backdrop-filter: blur(14px);
+}
+
+.milestone > span {
+  color: #0f766e;
+  font-size: 22px;
+}
+
+.milestone strong,
+.milestone span {
+  display: block;
+}
+
+.milestone strong {
+  margin-bottom: 5px;
+  color: #173b37;
+}
+
+.milestone div span {
+  color: #6d8581;
+  font-size: 13px;
+}
+
+.foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.foundation-card {
+  min-height: 220px;
+  padding: 28px;
+  border: 1px solid rgb(24 48 46 / 8%);
+  border-radius: 22px;
+  background: rgb(255 255 255 / 78%);
+}
+
+.card-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  color: #0f766e;
+  background: #dff3ef;
+  font-size: 19px;
+}
+
+.foundation-card h3 {
+  margin: 34px 0 10px;
+  font-size: 20px;
+}
+
+.foundation-card p {
+  margin: 0;
+  color: #6a817d;
+  line-height: 1.7;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100% - 28px, 1180px);
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 64px 0 48px;
+  }
+
+  .foundation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .foundation-card {
+    min-height: auto;
+  }
+}
