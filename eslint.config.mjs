@@ -30,6 +30,20 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/api/prisma.config.ts', 'apps/api/prisma/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: [
+            'apps/api/prisma.config.ts',
+            'apps/api/prisma/seed.ts',
+          ],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,

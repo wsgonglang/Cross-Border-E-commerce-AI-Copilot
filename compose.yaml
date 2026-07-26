@@ -1,0 +1,28 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: cross_border_copilot
+      MYSQL_USER: copilot
+      MYSQL_PASSWORD: copilot_dev
+      MYSQL_ROOT_PASSWORD: local_root_only
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '--host=127.0.0.1',
+          '--user=copilot',
+          '--password=copilot_dev',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mysql-data:

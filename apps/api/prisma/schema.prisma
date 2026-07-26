@@ -1,0 +1,89 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum LoginResult {
+  SUCCESS
+  FAILURE
+}
+
+model User {
+  id            String         @id @default(cuid()) @db.VarChar(30)
+  email         String         @unique @db.VarChar(191)
+  name          String         @db.VarChar(100)
+  passwordHash  String         @map("password_hash") @db.VarChar(255)
+  status        UserStatus     @default(ACTIVE)
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+  loginLogs     LoginLog[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  deletedAt     DateTime?      @map("deleted_at")
+
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id        String     @id @default(cuid()) @db.VarChar(30)
+  code      String     @unique @db.VarChar(32)
+  name      String     @db.VarChar(64)
+  userRoles UserRole[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId     String   @map("user_id") @db.VarChar(30)
+  roleId     String   @map("role_id") @db.VarChar(30)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid()) @db.VarChar(30)
+  userId    String    @map("user_id") @db.VarChar(30)
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  familyId  String    @map("family_id") @db.VarChar(36)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model LoginLog {
+  id        String      @id @default(cuid()) @db.VarChar(30)
+  userId    String?     @map("user_id") @db.VarChar(30)
+  email     String      @db.VarChar(191)
+  result    LoginResult
+  ipAddress String?     @map("ip_address") @db.VarChar(64)
+  userAgent String?     @map("user_agent") @db.VarChar(512)
+  createdAt DateTime    @default(now()) @map("created_at")
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+  @@map("login_logs")
+}

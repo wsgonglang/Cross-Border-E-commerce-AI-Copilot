@@ -1,6 +1,6 @@
 # Cross-Border E-commerce AI Copilot
 
-面向跨境电商运营人员的 AI 全栈业务应用。当前仓库正在把两个只读原型中的可复用能力，逐步重建到统一的业务工程中。
+面向跨境电商运营人员的 AI 全栈业务应用。当前已完成融合工程骨架和数据库认证/RBAC，后续将按“商家与商品 → 订单 → AI 会话 → 单商品 AI 优化闭环”的顺序推进。
 
 ## 工程结构
 
@@ -10,21 +10,27 @@ apps/
 ├── api/       NestJS 业务 API
 └── worker/    异步任务进程
 packages/
-└── shared/    共享环境 Schema 与基础类型
+└── shared/    共享环境 Schema、认证类型与基础类型
 ```
 
 `ai-chat/` 与 `ecommerce-admin/` 仅作为只读参考，不属于新工程工作区。
 
 ## 本地运行
 
-要求 Node.js 20 或更高版本。
+要求 Node.js 20 或更高版本，以及 MySQL 8。推荐使用仓库内的 Docker Compose 配置启动开发数据库：
 
 ```powershell
 npm install
 Copy-Item .env.example .env
+npm run build --workspace @cross-border/shared
+docker compose up -d mysql
+npm exec prisma -- migrate deploy --config apps/api/prisma.config.ts
+npm run prisma:seed --workspace @cross-border/api
 npm run dev:api
 npm run dev:web
 ```
+
+若本机已有 MySQL，可跳过 `docker compose up`，并修改 `.env` 中的 `DATABASE_URL`。`compose.yaml` 与种子账号中的密码仅供本地开发，不能用于生产环境。
 
 可选启动 Worker 骨架：
 
@@ -34,6 +40,18 @@ npm run dev:worker
 
 API 健康检查地址为 `http://localhost:3000/api/health`。
 
+## 演示账号
+
+执行种子脚本后可使用：
+
+| 角色     | 邮箱                     | 密码       |
+| -------- | ------------------------ | ---------- |
+| 管理员   | `admin@copilot.local`    | `Demo123!` |
+| 运营人员 | `operator@copilot.local` | `Demo123!` |
+| 只读用户 | `viewer@copilot.local`   | `Demo123!` |
+
+登录页为 `http://localhost:5173/login`。访问令牌由前端保存在内存状态中；刷新令牌通过 `HttpOnly` Cookie 轮换，退出时由服务端撤销。`GET /api/users` 仅允许 `admin` 角色访问，可用于演示服务端 RBAC。
+
 ## 验证
 
 ```powershell
@@ -42,3 +60,5 @@ npm run typecheck
 npm run test
 npm run build
 ```
+
+当前认证模块覆盖密码校验、失败登录、刷新令牌签发与轮换，以及角色守卫的自动化测试。
