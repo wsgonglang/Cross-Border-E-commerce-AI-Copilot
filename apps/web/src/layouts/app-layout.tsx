@@ -1,6 +1,7 @@
 import {
   AppstoreOutlined,
   LogoutOutlined,
+  ShoppingCartOutlined,
   ShopOutlined,
   TagsOutlined,
   TeamOutlined,
@@ -36,6 +37,10 @@ export function AppLayout() {
           <NavLink to="/" end>
             <AppstoreOutlined />
             工作台
+          </NavLink>
+          <NavLink to="/orders">
+            <ShoppingCartOutlined />
+            订单
           </NavLink>
           <NavLink to="/products">
             <TagsOutlined />

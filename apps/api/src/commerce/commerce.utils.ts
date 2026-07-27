@@ -1,6 +1,8 @@
 import { ConflictException } from '@nestjs/common'
 import type {
   MerchantSummary,
+  OrderItemSummary,
+  OrderSummary,
   ProductSummary,
   SkuSummary,
 } from '@cross-border/shared'
@@ -40,6 +42,34 @@ interface ProductSource {
   language: string
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
   skus: SkuSource[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface OrderItemSource {
+  id: string
+  orderId: string
+  productId: string | null
+  skuId: string | null
+  productName: string
+  skuName: string
+  quantity: number
+  unitPrice: { toString(): string }
+  subtotal: { toString(): string }
+  currency: string
+}
+
+export interface OrderSource {
+  id: string
+  merchantId: string
+  orderNo: string
+  status: string
+  customerName: string
+  customerEmail: string | null
+  totalAmount: { toString(): string }
+  currency: string
+  notes: string | null
+  items: OrderItemSource[]
   createdAt: Date
   updatedAt: Date
 }
@@ -87,4 +117,25 @@ export function rethrowUniqueConstraint(
 
 export function asJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
+
+export function toOrderItemSummary(
+  source: OrderItemSource,
+): OrderItemSummary {
+  return {
+    ...source,
+    unitPrice: source.unitPrice.toString(),
+    subtotal: source.subtotal.toString(),
+  }
+}
+
+export function toOrderSummary(source: OrderSource): OrderSummary {
+  return {
+    ...source,
+    status: source.status as OrderSummary['status'],
+    totalAmount: source.totalAmount.toString(),
+    items: source.items.map(toOrderItemSummary),
+    createdAt: source.createdAt.toISOString(),
+    updatedAt: source.updatedAt.toISOString(),
+  }
 }

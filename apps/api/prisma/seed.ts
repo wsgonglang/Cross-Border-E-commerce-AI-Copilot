@@ -176,6 +176,90 @@ async function seed(): Promise<void> {
       status: 'ACTIVE',
     },
   })
+
+  // Demo orders
+  const existingOrders = await prisma.order.count({
+    where: { merchantId: merchant.id },
+  })
+
+  if (existingOrders === 0) {
+    const now = new Date()
+    const orderData = [
+      {
+        orderNo: 'ORD-20260701-001',
+        status: 'COMPLETED' as const,
+        customerName: 'Alice Johnson',
+        customerEmail: 'alice@example.com',
+        totalAmount: '89.97',
+        createdAt: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
+        items: [
+          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 3, unitPrice: '29.99', subtotal: '89.97' },
+        ],
+      },
+      {
+        orderNo: 'ORD-20260705-002',
+        status: 'COMPLETED' as const,
+        customerName: 'Bob Smith',
+        customerEmail: 'bob@example.com',
+        totalAmount: '29.99',
+        createdAt: new Date(now.getTime() - 16 * 24 * 60 * 60 * 1000),
+        items: [
+          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 1, unitPrice: '29.99', subtotal: '29.99' },
+        ],
+      },
+      {
+        orderNo: 'ORD-20260710-003',
+        status: 'SHIPPED' as const,
+        customerName: 'Carol Davis',
+        customerEmail: 'carol@example.com',
+        totalAmount: '59.98',
+        createdAt: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000),
+        items: [
+          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 2, unitPrice: '29.99', subtotal: '59.98' },
+        ],
+      },
+      {
+        orderNo: 'ORD-20260715-004',
+        status: 'CONFIRMED' as const,
+        customerName: 'David Wilson',
+        customerEmail: null,
+        totalAmount: '29.99',
+        createdAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000),
+        items: [
+          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 1, unitPrice: '29.99', subtotal: '29.99' },
+        ],
+      },
+      {
+        orderNo: 'ORD-20260720-005',
+        status: 'PENDING' as const,
+        customerName: 'Eva Martinez',
+        customerEmail: 'eva@example.com',
+        totalAmount: '89.97',
+        createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
+        items: [
+          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 3, unitPrice: '29.99', subtotal: '89.97' },
+        ],
+      },
+    ]
+
+    for (const order of orderData) {
+      const { items, ...orderFields } = order
+      await prisma.order.create({
+        data: {
+          ...orderFields,
+          merchantId: merchant.id,
+          currency: 'USD',
+          items: {
+            create: items.map((item) => ({
+              ...item,
+              productId: product.id,
+              currency: 'USD',
+            })),
+          },
+        },
+      })
+    }
+  }
 }
 
 seed()
