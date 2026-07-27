@@ -7,6 +7,7 @@ export interface AuthenticatedUser {
   email: string
   name: string
   roles: RoleCode[]
+  merchantIds: string[]
 }
 
 export interface AuthSession {

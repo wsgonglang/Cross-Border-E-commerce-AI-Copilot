@@ -8,6 +8,8 @@ import { AppLayout } from './layouts/app-layout'
 import { DashboardPage } from './pages/dashboard.page'
 import { ForbiddenPage } from './pages/forbidden.page'
 import { LoginPage } from './pages/login.page'
+import { MerchantsPage } from './pages/merchants.page'
+import { ProductsPage } from './pages/products.page'
 import { UsersPage } from './pages/users.page'
 import { restoreSession } from './store/auth.slice'
 import { useAppDispatch, useAppSelector } from './store/hooks'
@@ -36,8 +38,10 @@ export function App() {
       <Route element={<AuthenticatedRoute />}>
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="products" element={<ProductsPage />} />
           <Route path="403" element={<ForbiddenPage />} />
           <Route element={<RoleRoute allow={['admin']} />}>
+            <Route path="merchants" element={<MerchantsPage />} />
             <Route path="users" element={<UsersPage />} />
           </Route>
         </Route>

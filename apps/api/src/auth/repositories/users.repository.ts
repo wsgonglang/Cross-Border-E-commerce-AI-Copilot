@@ -11,6 +11,11 @@ const authUserInclude = {
       role: true,
     },
   },
+  merchantUsers: {
+    select: {
+      merchantId: true,
+    },
+  },
 } as const
 
 @Injectable()
@@ -59,6 +64,7 @@ export class UsersRepository {
         email: record.email,
         name: record.name,
         roles: record.roles,
+        merchantIds: record.merchantIds,
       }
     })
   }

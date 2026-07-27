@@ -41,6 +41,11 @@ export class RefreshTokensRepository {
                   role: true,
                 },
               },
+              merchantUsers: {
+                select: {
+                  merchantId: true,
+                },
+              },
             },
           },
         },

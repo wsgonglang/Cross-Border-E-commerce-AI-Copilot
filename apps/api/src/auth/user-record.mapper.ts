@@ -13,6 +13,9 @@ interface UserRecordSource {
       code: string
     }
   }>
+  merchantUsers: Array<{
+    merchantId: string
+  }>
 }
 
 function isRoleCode(value: string): value is RoleCode {
@@ -27,5 +30,6 @@ export function toAuthUserRecord(source: UserRecordSource): AuthUserRecord {
     passwordHash: source.passwordHash,
     status: source.status,
     roles: source.userRoles.map(({ role }) => role.code).filter(isRoleCode),
+    merchantIds: source.merchantUsers.map(({ merchantId }) => merchantId),
   }
 }

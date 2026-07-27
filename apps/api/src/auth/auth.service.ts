@@ -149,6 +149,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       roles: user.roles,
+      merchantIds: user.merchantIds,
     }
   }
 

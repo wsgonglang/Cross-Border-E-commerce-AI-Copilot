@@ -55,6 +55,20 @@ const userSeeds: UserSeed[] = [
 ]
 
 async function seed(): Promise<void> {
+  const merchant = await prisma.merchant.upsert({
+    where: { code: 'DEMO-US' },
+    create: {
+      code: 'DEMO-US',
+      name: 'Demo 北美店铺',
+      defaultCurrency: 'USD',
+    },
+    update: {
+      name: 'Demo 北美店铺',
+      status: 'ACTIVE',
+      defaultCurrency: 'USD',
+    },
+  })
+
   const roles = await Promise.all(
     roleSeeds.map((role) =>
       prisma.role.upsert({
@@ -99,7 +113,69 @@ async function seed(): Promise<void> {
         }
       }),
     })
+
+    await prisma.merchantUser.upsert({
+      where: {
+        merchantId_userId: {
+          merchantId: merchant.id,
+          userId: user.id,
+        },
+      },
+      create: {
+        merchantId: merchant.id,
+        userId: user.id,
+      },
+      update: {},
+    })
   }
+
+  const product = await prisma.product.upsert({
+    where: {
+      merchantId_code: {
+        merchantId: merchant.id,
+        code: 'P-DEMO-001',
+      },
+    },
+    create: {
+      merchantId: merchant.id,
+      code: 'P-DEMO-001',
+      title: '便携式多口旅行充电器',
+      description: '适合跨境旅行场景的多口 USB 充电器。',
+      language: 'zh-CN',
+      status: 'ACTIVE',
+    },
+    update: {
+      title: '便携式多口旅行充电器',
+      description: '适合跨境旅行场景的多口 USB 充电器。',
+      status: 'ACTIVE',
+    },
+  })
+
+  await prisma.sku.upsert({
+    where: {
+      merchantId_code: {
+        merchantId: merchant.id,
+        code: 'SKU-DEMO-BLACK',
+      },
+    },
+    create: {
+      merchantId: merchant.id,
+      productId: product.id,
+      code: 'SKU-DEMO-BLACK',
+      name: '黑色 / 美规',
+      price: '29.99',
+      currency: 'USD',
+      stock: 120,
+    },
+    update: {
+      productId: product.id,
+      name: '黑色 / 美规',
+      price: '29.99',
+      currency: 'USD',
+      stock: 120,
+      status: 'ACTIVE',
+    },
+  })
 }
 
 seed()

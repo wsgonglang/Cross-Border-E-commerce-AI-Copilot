@@ -1,6 +1,8 @@
 import {
   AppstoreOutlined,
   LogoutOutlined,
+  ShopOutlined,
+  TagsOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
 import { Avatar, Button } from 'antd'
@@ -35,11 +37,21 @@ export function AppLayout() {
             <AppstoreOutlined />
             工作台
           </NavLink>
+          <NavLink to="/products">
+            <TagsOutlined />
+            商品与 SKU
+          </NavLink>
           {isAdmin ? (
-            <NavLink to="/users">
-              <TeamOutlined />
-              用户与权限
-            </NavLink>
+            <>
+              <NavLink to="/merchants">
+                <ShopOutlined />
+                商家管理
+              </NavLink>
+              <NavLink to="/users">
+                <TeamOutlined />
+                用户与权限
+              </NavLink>
+            </>
           ) : null}
         </nav>
         <div className="sidebar-user">

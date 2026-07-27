@@ -15,7 +15,9 @@ function isAuthenticatedUser(value: unknown): value is AuthenticatedUser {
     typeof candidate.email === 'string' &&
     typeof candidate.name === 'string' &&
     Array.isArray(candidate.roles) &&
-    candidate.roles.every((role) => typeof role === 'string')
+    candidate.roles.every((role) => typeof role === 'string') &&
+    Array.isArray(candidate.merchantIds) &&
+    candidate.merchantIds.every((merchantId) => typeof merchantId === 'string')
   )
 }
 

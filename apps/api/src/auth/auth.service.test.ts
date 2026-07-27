@@ -48,6 +48,7 @@ describe('AuthService', () => {
       passwordHash: await hash('Demo123!', 4),
       status: 'ACTIVE',
       roles: ['operator'],
+      merchantIds: ['merchant-1'],
     }
     service = new AuthService(
       usersRepository as unknown as UsersRepository,
