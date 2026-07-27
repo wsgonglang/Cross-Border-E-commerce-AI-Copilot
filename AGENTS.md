@@ -251,14 +251,14 @@ interface ProductOptimizationDraft {
 | 2. 认证与权限         | User、Role、JWT、Refresh Token、服务端 RBAC、登录接入    | 已完成   | 已实现 MySQL/Prisma 用户与角色模型、JWT、Refresh Token 轮换与撤销、登录日志、全局服务端鉴权和 RBAC；Web 已接入真实登录、会话恢复及管理员用户页，真实数据库联调通过 |
 | 3. 商家、商品与 SKU   | 数据模型、CRUD、分页筛选、库存、审计                     | 已完成   | 已实现 Merchant/MerchantUser/Product/SKU/AuditLog 模型、商家隔离 CRUD、商品分页筛选、SKU 与原子库存调整；Web 已接入真实商家和商品管理，写操作事务审计、负库存与跨商家失败路径均通过验证 |
 | 4. 订单与看板         | 订单查询、状态约束、经营数据接口                         | 已完成   | 已实现 Order/OrderItem Prisma 模型与迁移；订单 CRUD 与分页筛选；状态机约束（8 状态 9 允许转换）、角色权限验证；经营看板概览（今日订单/销售额/商品数/库存预警）、14 天趋势图、销售分析与订单分析；前后端真实连通，5 条演示种子订单；8 个新增自动化测试覆盖商家隔离、状态拒绝、角色权限和聚合指标 |
-| 5. AI 会话底座迁移    | 服务端会话、消息树、流式输出、停止生成、历史记录         | 未开始   | `ai-chat` 有可复用原型资产，但迁移、融合和服务端持久化均未开始                                                         |
+| 5. AI 会话底座迁移    | 服务端会话、消息树、流式输出、停止生成、历史记录         | 已完成   | 已实现 AiSession/AiMessage Prisma 模型与迁移；NestJS AI 模块（AiProvider 抽象、Mock + OpenAI 兼容）、流式 chat 接口（POST /api/merchants/:id/ai/chat）、会话 CRUD；前端 AI 聊天页面（会话列表、消息流展示、流式输入、停止生成）；使用 openai SDK 兼容多种模型服务；MockAiProvider 无需 API Key 即可测试                                |
 | 6. 单商品 AI 优化闭环 | 结构化草稿、翻译、合规风险、人工确认、版本与用量审计     | 未开始   | 项目的首要业务里程碑                                                                                                   |
 | 7. Agent Tool Calling | 商品/SKU/订单/经营数据查询、规则检索、创建草稿           | 未开始   | 先做只读工具，再做需确认的写工具                                                                                       |
 | 8. 批量 AI 任务       | Redis、BullMQ、Worker、进度、重试、幂等、取消            | 未开始   | 单商品闭环稳定后再开始                                                                                                 |
 | 9. 规则 RAG           | 文档导入、切分、检索、引用、权限过滤和基础评估           | 未开始   | 实现面试可说明的最小可靠版本                                                                                           |
 | 10. 工程化与交付      | 测试、日志、Request ID、Docker、CI、README、演示数据     | 进行中   | 已有统一 lint、typecheck、Vitest、构建脚本、README、Swagger、根级 Git、MySQL Compose、可从零应用的 Prisma migrations 与认证/商品演示数据；Request ID、CI 与后续业务测试仍待完成。依赖审计残留 React Router 最新版的 RSC Action 公告，但本项目未启用该模式，需跟踪上游修复 |
 
-目标项目当前结论：**阶段 0 至阶段 3 已完成，阶段 10 随开发持续进行，其余业务阶段尚未开始。项目已具备真实 MySQL 认证、服务端 RBAC、商家数据隔离、商品/SKU 管理、并发安全库存调整和业务审计，下一阶段是订单与看板。**
+目标项目当前结论：**阶段 0 至阶段 5 已完成，阶段 10 随开发持续进行，其余业务阶段尚未开始。项目已具备真实 MySQL 认证、服务端 RBAC、商家数据隔离、商品/SKU/订单管理、经营看板、AI 会话底座（会话持久化、流式输出、Mock/OpenAI Provider），下一阶段是单商品 AI 优化闭环。**
 
 注意：第 5 节中的“原型完成”不能折算成这一节中的“目标阶段已完成”。例如，后台已有商品 Mock 页面，不代表目标项目的商品与 SKU 阶段已经完成；聊天项目已有本地会话，也不代表目标项目已经完成服务端会话管理。
 

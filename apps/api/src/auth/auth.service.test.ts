@@ -19,6 +19,9 @@ const environment: ApiEnvironment = {
   JWT_ACCESS_TTL_SECONDS: 900,
   REFRESH_TOKEN_TTL_DAYS: 7,
   AUTH_COOKIE_SECURE: false,
+  OPENAI_API_KEY: '',
+  OPENAI_BASE_URL: 'https://api.siliconflow.cn/v1',
+  AI_MODEL: 'Qwen/Qwen2.5-7B-Instruct',
 }
 
 describe('AuthService', () => {

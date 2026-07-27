@@ -55,6 +55,7 @@ model User {
   refreshTokens RefreshToken[]
   loginLogs     LoginLog[]
   merchantUsers MerchantUser[]
+  aiSessions    AiSession[]
   auditLogs     AuditLog[]
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
@@ -74,6 +75,7 @@ model Merchant {
   products        Product[]
   skus            Sku[]
   orders          Order[]
+  aiSessions      AiSession[]
   auditLogs       AuditLog[]
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
@@ -171,6 +173,48 @@ model OrderItem {
 
   @@index([orderId])
   @@map("order_items")
+}
+
+enum AiSessionStatus {
+  IDLE
+  STREAMING
+  DONE
+  ERROR
+}
+
+model AiSession {
+  id         String          @id @default(cuid()) @db.VarChar(30)
+  merchantId String          @map("merchant_id") @db.VarChar(30)
+  userId     String          @map("user_id") @db.VarChar(30)
+  title      String          @db.VarChar(255)
+  status     AiSessionStatus @default(IDLE)
+  error      String?         @db.VarChar(500)
+  pinned     Boolean         @default(false)
+  groupId    String?         @map("group_id") @db.VarChar(30)
+  merchant   Merchant        @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages   AiMessage[]
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  @@index([merchantId, userId, updatedAt])
+  @@index([userId])
+  @@map("ai_sessions")
+}
+
+model AiMessage {
+  id           String    @id @default(cuid()) @db.VarChar(30)
+  sessionId    String    @map("session_id") @db.VarChar(30)
+  role         String    @db.VarChar(16)
+  content      String    @db.MediumText
+  parentId     String?   @map("parent_id") @db.VarChar(30)
+  childrenIds  Json      @default("[]") @map("children_ids")
+  revisionJson Json?     @map("revision_json")
+  revisionIdx  Int       @default(0) @map("revision_idx")
+  session      AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, parentId])
+  @@map("ai_messages")
 }
 
 model AuditLog {

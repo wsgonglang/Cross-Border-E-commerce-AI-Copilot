@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 
+import { AiModule } from './ai/ai.module'
 import { AuthModule } from './auth/auth.module'
 import { ApiConfigModule } from './config/api-config.module'
 import { CommerceModule } from './commerce/commerce.module'
@@ -15,6 +16,7 @@ import { UsersModule } from './users/users.module'
     AuthModule,
     UsersModule,
     CommerceModule,
+    AiModule,
   ],
   controllers: [HealthController],
   providers: [HealthService],

@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthenticatedRoute } from './components/authenticated-route'
 import { RoleRoute } from './components/role-route'
 import { AppLayout } from './layouts/app-layout'
+import { AiChatPage } from './pages/ai-chat.page'
 import { DashboardPage } from './pages/dashboard.page'
 import { ForbiddenPage } from './pages/forbidden.page'
 import { LoginPage } from './pages/login.page'
@@ -41,6 +42,7 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="products" element={<ProductsPage />} />
+          <Route path="ai-chat" element={<AiChatPage />} />
           <Route path="403" element={<ForbiddenPage />} />
           <Route element={<RoleRoute allow={['admin']} />}>
             <Route path="merchants" element={<MerchantsPage />} />

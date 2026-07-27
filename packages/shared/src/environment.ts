@@ -28,6 +28,9 @@ const apiEnvironmentSchema = z.object({
     .default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().max(90).default(7),
   AUTH_COOKIE_SECURE: environmentBooleanSchema.default(false),
+  OPENAI_API_KEY: z.string().default(''),
+  OPENAI_BASE_URL: z.string().default('https://api.siliconflow.cn/v1'),
+  AI_MODEL: z.string().default('Qwen/Qwen2.5-7B-Instruct'),
 })
 
 const workerEnvironmentSchema = z.object({

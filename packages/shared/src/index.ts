@@ -32,3 +32,13 @@ export {
   type SkuStatus,
   type SkuSummary,
 } from './commerce'
+export {
+  type AiChatMessage,
+  type AiMessage,
+  type AiMessageRevision,
+  type AiRole,
+  type AiSessionDetail,
+  type AiSessionStatus,
+  type AiSessionSummary,
+  type AiTitleResponse,
+} from './ai-chat'
