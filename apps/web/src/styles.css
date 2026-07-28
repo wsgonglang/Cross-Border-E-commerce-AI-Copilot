@@ -493,6 +493,33 @@ textarea {
   background: transparent;
 }
 
+.batch-toolbar {
+  grid-template-columns: minmax(240px, 360px);
+}
+
+.batch-task-table {
+  margin-top: 18px;
+}
+
+.batch-progress {
+  min-width: 210px;
+}
+
+.batch-progress > span {
+  color: #6a817d;
+  font-size: 12px;
+}
+
+.batch-create-form {
+  margin-top: 20px;
+}
+
+.batch-detail-summary {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
 @media (max-width: 920px) {
   .login-page {
     grid-template-columns: 1fr;

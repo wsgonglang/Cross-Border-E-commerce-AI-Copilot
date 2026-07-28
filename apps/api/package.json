@@ -2,6 +2,13 @@
   "name": "@cross-border/api",
   "version": "0.1.0",
   "private": true,
+  "exports": {
+    ".": "./dist/main.js",
+    "./batch-worker": {
+      "types": "./dist/batch-worker.d.ts",
+      "default": "./dist/batch-worker.js"
+    }
+  },
   "scripts": {
     "build": "prisma generate && nest build",
     "dev": "nest start --watch",
@@ -24,6 +31,7 @@
     "@prisma/adapter-mariadb": "^7.9.0",
     "@prisma/client": "^7.9.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^5.81.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",

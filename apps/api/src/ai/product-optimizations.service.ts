@@ -64,6 +64,32 @@ export class ProductOptimizationsService {
     productId: string,
     dto: CreateProductOptimizationDto,
   ): Promise<ProductOptimizationSummary> {
+    return this.createInternal(actor, merchantId, productId, dto.targetLanguage)
+  }
+
+  async createFromBatch(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    productId: string,
+    targetLanguage: CreateProductOptimizationDto['targetLanguage'],
+    batchItemId: string,
+  ): Promise<ProductOptimizationSummary> {
+    return this.createInternal(
+      actor,
+      merchantId,
+      productId,
+      targetLanguage,
+      batchItemId,
+    )
+  }
+
+  private async createInternal(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    productId: string,
+    targetLanguage: CreateProductOptimizationDto['targetLanguage'],
+    batchItemId?: string,
+  ): Promise<ProductOptimizationSummary> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const product = await this.prisma.product.findFirst({
       where: { id: productId, merchantId, status: { not: 'ARCHIVED' } },
@@ -79,25 +105,50 @@ export class ProductOptimizationsService {
       language: product.language,
       version: product.version,
     }
-    const pending = await this.prisma.productOptimization.create({
-      data: {
-        merchantId,
-        productId,
-        requestedById: actor.id,
-        targetLanguage: dto.targetLanguage,
-        baseProductVersion: product.version,
-        sourceData: asJson(source),
-        providerName: this.aiProvider.name,
-        modelName: this.aiProvider.model,
-      },
-    })
+    const existing = batchItemId
+      ? await this.prisma.productOptimization.findUnique({
+          where: { batchItemId },
+        })
+      : null
+    if (
+      existing &&
+      ['DRAFT', 'APPLIED', 'REJECTED'].includes(existing.status)
+    ) {
+      return toProductOptimizationSummary(existing)
+    }
+    const pending = existing
+      ? await this.prisma.productOptimization.update({
+          where: { id: existing.id },
+          data: {
+            status: 'GENERATING',
+            error: null,
+            targetLanguage,
+            baseProductVersion: product.version,
+            sourceData: asJson(source),
+            providerName: this.aiProvider.name,
+            modelName: this.aiProvider.model,
+          },
+        })
+      : await this.prisma.productOptimization.create({
+          data: {
+            merchantId,
+            productId,
+            requestedById: actor.id,
+            targetLanguage,
+            baseProductVersion: product.version,
+            sourceData: asJson(source),
+            providerName: this.aiProvider.name,
+            modelName: this.aiProvider.model,
+            batchItemId,
+          },
+        })
 
     try {
       const result = await this.aiProvider.optimizeProduct({
         source,
-        targetLanguage: dto.targetLanguage,
+        targetLanguage,
       })
-      if (result.draft.language !== dto.targetLanguage) {
+      if (result.draft.language !== targetLanguage) {
         throw new Error('模型返回的草稿语言与目标语言不一致')
       }
 
@@ -121,7 +172,7 @@ export class ProductOptimizationsService {
             action: 'CREATE_DRAFT',
             afterData: asJson({
               productId,
-              targetLanguage: dto.targetLanguage,
+              targetLanguage,
               draft: result.draft,
               usage: result.usage,
             }),

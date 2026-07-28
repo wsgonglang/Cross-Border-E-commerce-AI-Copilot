@@ -180,6 +180,82 @@ async function seed(): Promise<void> {
     },
   })
 
+  const additionalProducts = [
+    {
+      productCode: 'P-DEMO-002',
+      title: '轻量旅行收纳包套装',
+      description: '适合行李分类整理的防泼水旅行收纳包。',
+      sellingPoints: ['轻量便携', '多尺寸组合', '防泼水面料'],
+      skuCode: 'SKU-DEMO-ORGANIZER-GRAY',
+      skuName: '灰色 / 六件套',
+      price: '24.99',
+      stock: 80,
+    },
+    {
+      productCode: 'P-DEMO-003',
+      title: '可折叠硅胶旅行水瓶',
+      description: '便于收纳携带的食品级硅胶折叠水瓶。',
+      sellingPoints: ['折叠收纳', '食品级硅胶', '适合户外旅行'],
+      skuCode: 'SKU-DEMO-BOTTLE-BLUE',
+      skuName: '蓝色 / 600ml',
+      price: '18.99',
+      stock: 65,
+    },
+  ]
+
+  for (const item of additionalProducts) {
+    const additionalProduct = await prisma.product.upsert({
+      where: {
+        merchantId_code: {
+          merchantId: merchant.id,
+          code: item.productCode,
+        },
+      },
+      create: {
+        merchantId: merchant.id,
+        code: item.productCode,
+        title: item.title,
+        description: item.description,
+        sellingPoints: item.sellingPoints,
+        language: 'zh-CN',
+        status: 'ACTIVE',
+      },
+      update: {
+        title: item.title,
+        description: item.description,
+        sellingPoints: item.sellingPoints,
+        language: 'zh-CN',
+        status: 'ACTIVE',
+      },
+    })
+
+    await prisma.sku.upsert({
+      where: {
+        merchantId_code: {
+          merchantId: merchant.id,
+          code: item.skuCode,
+        },
+      },
+      create: {
+        merchantId: merchant.id,
+        productId: additionalProduct.id,
+        code: item.skuCode,
+        name: item.skuName,
+        price: item.price,
+        currency: 'USD',
+        stock: item.stock,
+      },
+      update: {
+        productId: additionalProduct.id,
+        name: item.skuName,
+        price: item.price,
+        currency: 'USD',
+        stock: item.stock,
+        status: 'ACTIVE',
+      },
+    })
+  }
+
   // Demo orders
   const existingOrders = await prisma.order.count({
     where: { merchantId: merchant.id },

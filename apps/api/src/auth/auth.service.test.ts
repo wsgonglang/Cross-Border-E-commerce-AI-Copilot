@@ -19,6 +19,7 @@ const environment: ApiEnvironment = {
   JWT_ACCESS_TTL_SECONDS: 900,
   REFRESH_TOKEN_TTL_DAYS: 7,
   AUTH_COOKIE_SECURE: false,
+  REDIS_URL: 'redis://127.0.0.1:6379',
   OPENAI_API_KEY: '',
   OPENAI_BASE_URL: 'https://api.siliconflow.cn/v1',
   AI_MODEL: 'Qwen/Qwen2.5-7B-Instruct',

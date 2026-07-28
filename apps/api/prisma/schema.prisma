@@ -53,12 +53,28 @@ enum ProductOptimizationStatus {
   ERROR
 }
 
+enum BatchTaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  PARTIAL_FAILED
+  CANCELLED
+}
+
+enum BatchTaskItemStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model User {
-  id              String                @id @default(cuid()) @db.VarChar(30)
-  email           String                @unique @db.VarChar(191)
-  name            String                @db.VarChar(100)
-  passwordHash    String                @map("password_hash") @db.VarChar(255)
-  status          UserStatus            @default(ACTIVE)
+  id              String                  @id @default(cuid()) @db.VarChar(30)
+  email           String                  @unique @db.VarChar(191)
+  name            String                  @db.VarChar(100)
+  passwordHash    String                  @map("password_hash") @db.VarChar(255)
+  status          UserStatus              @default(ACTIVE)
   userRoles       UserRole[]
   refreshTokens   RefreshToken[]
   loginLogs       LoginLog[]
@@ -67,20 +83,21 @@ model User {
   optimizations   ProductOptimization[]
   productVersions ProductVersion[]
   auditLogs       AuditLog[]
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
-  deletedAt       DateTime?             @map("deleted_at")
+  batchTasks      BatchOptimizationTask[]
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  deletedAt       DateTime?               @map("deleted_at")
 
   @@index([status])
   @@map("users")
 }
 
 model Merchant {
-  id              String                @id @default(cuid()) @db.VarChar(30)
-  code            String                @unique @db.VarChar(32)
-  name            String                @db.VarChar(120)
-  status          MerchantStatus        @default(ACTIVE)
-  defaultCurrency String                @default("USD") @map("default_currency") @db.Char(3)
+  id              String                  @id @default(cuid()) @db.VarChar(30)
+  code            String                  @unique @db.VarChar(32)
+  name            String                  @db.VarChar(120)
+  status          MerchantStatus          @default(ACTIVE)
+  defaultCurrency String                  @default("USD") @map("default_currency") @db.Char(3)
   merchantUsers   MerchantUser[]
   products        Product[]
   skus            Sku[]
@@ -89,8 +106,9 @@ model Merchant {
   optimizations   ProductOptimization[]
   productVersions ProductVersion[]
   auditLogs       AuditLog[]
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
+  batchTasks      BatchOptimizationTask[]
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
 
   @@index([status])
   @@map("merchants")
@@ -109,21 +127,22 @@ model MerchantUser {
 }
 
 model Product {
-  id            String                @id @default(cuid()) @db.VarChar(30)
-  merchantId    String                @map("merchant_id") @db.VarChar(30)
-  code          String                @db.VarChar(64)
-  title         String                @db.VarChar(255)
-  description   String                @db.Text
-  sellingPoints Json                  @default("[]") @map("selling_points")
-  language      String                @default("zh-CN") @db.VarChar(16)
-  status        ProductStatus         @default(DRAFT)
-  version       Int                   @default(1)
-  merchant      Merchant              @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  id            String                  @id @default(cuid()) @db.VarChar(30)
+  merchantId    String                  @map("merchant_id") @db.VarChar(30)
+  code          String                  @db.VarChar(64)
+  title         String                  @db.VarChar(255)
+  description   String                  @db.Text
+  sellingPoints Json                    @default("[]") @map("selling_points")
+  language      String                  @default("zh-CN") @db.VarChar(16)
+  status        ProductStatus           @default(DRAFT)
+  version       Int                     @default(1)
+  merchant      Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   skus          Sku[]
   optimizations ProductOptimization[]
   versions      ProductVersion[]
-  createdAt     DateTime              @default(now()) @map("created_at")
-  updatedAt     DateTime              @updatedAt @map("updated_at")
+  batchItems    BatchOptimizationItem[]
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
 
   @@unique([merchantId, code])
   @@unique([id, merchantId])
@@ -146,18 +165,67 @@ model ProductOptimization {
   promptTokens       Int                       @default(0) @map("prompt_tokens")
   completionTokens   Int                       @default(0) @map("completion_tokens")
   totalTokens        Int                       @default(0) @map("total_tokens")
+  batchItemId        String?                   @unique @map("batch_item_id") @db.VarChar(30)
   error              String?                   @db.VarChar(1000)
   appliedAt          DateTime?                 @map("applied_at")
   merchant           Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   product            Product                   @relation(fields: [productId], references: [id], onDelete: Restrict)
   requestedBy        User                      @relation(fields: [requestedById], references: [id], onDelete: Restrict)
   version            ProductVersion?
+  batchItem          BatchOptimizationItem?    @relation(fields: [batchItemId], references: [id], onDelete: SetNull)
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
 
   @@index([merchantId, productId, createdAt])
   @@index([requestedById, createdAt])
   @@map("product_optimizations")
+}
+
+model BatchOptimizationTask {
+  id             String                  @id @default(cuid()) @db.VarChar(30)
+  merchantId     String                  @map("merchant_id") @db.VarChar(30)
+  createdById    String                  @map("created_by_id") @db.VarChar(30)
+  idempotencyKey String                  @map("idempotency_key") @db.VarChar(64)
+  targetLanguage String                  @map("target_language") @db.VarChar(16)
+  status         BatchTaskStatus         @default(PENDING)
+  totalItems     Int                     @map("total_items")
+  completedItems Int                     @default(0) @map("completed_items")
+  failedItems    Int                     @default(0) @map("failed_items")
+  cancelledItems Int                     @default(0) @map("cancelled_items")
+  startedAt      DateTime?               @map("started_at")
+  completedAt    DateTime?               @map("completed_at")
+  cancelledAt    DateTime?               @map("cancelled_at")
+  merchant       Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  createdBy      User                    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items          BatchOptimizationItem[]
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId, createdAt])
+  @@index([createdById, createdAt])
+  @@map("batch_optimization_tasks")
+}
+
+model BatchOptimizationItem {
+  id           String                @id @default(cuid()) @db.VarChar(30)
+  taskId       String                @map("task_id") @db.VarChar(30)
+  productId    String                @map("product_id") @db.VarChar(30)
+  status       BatchTaskItemStatus   @default(PENDING)
+  attempts     Int                   @default(0)
+  error        String?               @db.VarChar(1000)
+  startedAt    DateTime?             @map("started_at")
+  completedAt  DateTime?             @map("completed_at")
+  task         BatchOptimizationTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  product      Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  optimization ProductOptimization?
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+
+  @@unique([taskId, productId])
+  @@index([taskId, status])
+  @@index([productId, createdAt])
+  @@map("batch_optimization_items")
 }
 
 model ProductVersion {

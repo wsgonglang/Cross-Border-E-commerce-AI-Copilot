@@ -53,5 +53,6 @@ import { PlatformRulesService } from './platform-rules.service'
       },
     },
   ],
+  exports: [ProductOptimizationsService],
 })
 export class AiModule {}

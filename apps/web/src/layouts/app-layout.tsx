@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  ClusterOutlined,
   LogoutOutlined,
   RobotOutlined,
   ShoppingCartOutlined,
@@ -42,10 +43,16 @@ export function AppLayout() {
             工作台
           </NavLink>
           {canUseAi ? (
-            <NavLink to="/ai-chat">
-              <RobotOutlined />
-              AI 运营助手
-            </NavLink>
+            <>
+              <NavLink to="/ai-chat">
+                <RobotOutlined />
+                AI 运营助手
+              </NavLink>
+              <NavLink to="/batch-tasks">
+                <ClusterOutlined />
+                批量 AI 任务
+              </NavLink>
+            </>
           ) : null}
           <NavLink to="/orders">
             <ShoppingCartOutlined />

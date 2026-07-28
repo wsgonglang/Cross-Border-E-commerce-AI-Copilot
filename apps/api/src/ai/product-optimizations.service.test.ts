@@ -172,4 +172,55 @@ describe('ProductOptimizationsService', () => {
       data: { status: 'ERROR', error: 'provider secret' },
     })
   })
+
+  it('returns the existing batch draft without calling the provider again', async () => {
+    const existing = record({ batchItemId: 'batch-item-1' })
+    const optimizeProduct = vi.fn()
+    const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
+      chat: vi.fn(),
+      generateTitle: vi.fn(),
+      optimizeProduct,
+      planAgentTools: vi.fn(),
+      summarizeAgent: vi.fn(),
+    }
+    const prisma = {
+      product: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'product-1',
+          title: '旅行充电器',
+          description: '商品描述',
+          sellingPoints: ['便携'],
+          language: 'zh-CN',
+          version: 1,
+        }),
+      },
+      productOptimization: {
+        findUnique: vi.fn().mockResolvedValue(existing),
+        create: vi.fn(),
+        update: vi.fn(),
+      },
+    }
+    const service = new ProductOptimizationsService(
+      prisma as unknown as PrismaService,
+      {
+        assertAccess: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MerchantAccessService,
+      {} as ProductsService,
+      provider,
+    )
+
+    const result = await service.createFromBatch(
+      operator,
+      'merchant-1',
+      'product-1',
+      'en-US',
+      'batch-item-1',
+    )
+
+    expect(result.id).toBe('optimization-1')
+    expect(optimizeProduct).not.toHaveBeenCalled()
+    expect(prisma.productOptimization.create).not.toHaveBeenCalled()
+  })
 })

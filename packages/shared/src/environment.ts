@@ -28,6 +28,12 @@ const apiEnvironmentSchema = z.object({
     .default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().max(90).default(7),
   AUTH_COOKIE_SECURE: environmentBooleanSchema.default(false),
+  REDIS_URL: z
+    .url()
+    .refine((value) => value.startsWith('redis://'), {
+      message: 'REDIS_URL must use the redis:// protocol',
+    })
+    .default('redis://127.0.0.1:6379'),
   OPENAI_API_KEY: z.string().default(''),
   OPENAI_BASE_URL: z.string().default('https://api.siliconflow.cn/v1'),
   AI_MODEL: z.string().default('Qwen/Qwen2.5-7B-Instruct'),
@@ -36,6 +42,12 @@ const apiEnvironmentSchema = z.object({
 const workerEnvironmentSchema = z.object({
   NODE_ENV: nodeEnvironmentSchema.default('development'),
   WORKER_NAME: z.string().trim().min(1).default('ai-task-worker'),
+  REDIS_URL: z
+    .url()
+    .refine((value) => value.startsWith('redis://'), {
+      message: 'REDIS_URL must use the redis:// protocol',
+    })
+    .default('redis://127.0.0.1:6379'),
 })
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>

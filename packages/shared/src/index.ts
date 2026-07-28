@@ -60,3 +60,13 @@ export {
   type AgentToolName,
   type AgentToolStatus,
 } from './agent'
+export {
+  BATCH_TASK_ITEM_STATUSES,
+  BATCH_TASK_STATUSES,
+  type BatchTaskDetail,
+  type BatchTaskItemStatus,
+  type BatchTaskItemSummary,
+  type BatchTaskStatus,
+  type BatchTaskSummary,
+  type PaginatedBatchTasks,
+} from './batch-task'
