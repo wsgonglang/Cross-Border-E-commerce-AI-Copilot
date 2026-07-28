@@ -1,6 +1,8 @@
 # Cross-Border E-commerce AI Copilot
 
-面向跨境电商运营人员的 AI 全栈业务应用。项目已完成数据库认证/RBAC、商家商品 SKU、订单与看板、AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG，以及 Request ID、CI、Docker 和交付文档。
+面向跨境电商运营人员的 AI 全栈业务应用。阶段 0 至阶段 10 的核心版已完成数据库认证/RBAC、商家商品 SKU、订单与看板、AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG，以及 Request ID、CI、Docker 和交付文档。当前进入产品体验增强阶段，将继续实现 AI 成果中心、多店铺上下文、Agent 运营工作台、会话生产力、CSV/XLSX 导入和订单运营视图。
+
+增强范围和逐阶段验收标准见 [产品体验增强路线](docs/product-enhancement-roadmap.md)。商品与 SKU 导入只支持结构化 CSV/XLSX，不支持 Markdown 商品导入；规则知识库原有的 Markdown/纯文本导入保持不变。
 
 ## 工程结构
 
@@ -52,6 +54,7 @@ Web 地址为 `http://localhost:5173`。`migrate` 和 `demo-seed` 是一次性�
 
 - [架构与关键取舍](docs/architecture.md)
 - [8 分钟面试演示指南](docs/interview-demo.md)
+- [产品体验增强路线](docs/product-enhancement-roadmap.md)
 
 ## 演示账号
 
