@@ -10,6 +10,13 @@ import type {
 import { PrismaService } from '../database/prisma.service'
 import { MerchantAccessService } from './merchant-access.service'
 
+function localDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -74,19 +81,16 @@ export class DashboardService {
       orderBy: { createdAt: 'asc' },
     })
 
-    const dateMap = new Map<
-      string,
-      { orders: number; sales: number }
-    >()
+    const dateMap = new Map<string, { orders: number; sales: number }>()
     for (let i = 0; i < days; i++) {
       const date = new Date(startDate)
       date.setDate(date.getDate() + i)
-      const key = date.toISOString().slice(0, 10)
+      const key = localDateKey(date)
       dateMap.set(key, { orders: 0, sales: 0 })
     }
 
     for (const order of orders) {
-      const key = order.createdAt.toISOString().slice(0, 10)
+      const key = localDateKey(order.createdAt)
       const entry = dateMap.get(key)
       if (entry) {
         entry.orders++
@@ -98,9 +102,7 @@ export class DashboardService {
     return {
       dates: sortedDates,
       orders: sortedDates.map((d) => dateMap.get(d)!.orders),
-      sales: sortedDates.map((d) =>
-        dateMap.get(d)!.sales.toFixed(2),
-      ),
+      sales: sortedDates.map((d) => dateMap.get(d)!.sales.toFixed(2)),
     }
   }
 
@@ -120,26 +122,25 @@ export class DashboardService {
     const previousStart = new Date(startDate)
     previousStart.setDate(previousStart.getDate() - days)
 
-    const [currentOrders, previousOrders] = await this.prisma
-      .$transaction([
-        this.prisma.order.findMany({
-          where: {
-            merchantId,
-            createdAt: { gte: startDate, lte: today },
-            status: { notIn: ['CANCELLED', 'REFUNDED'] },
-          },
-          select: { totalAmount: true, createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        this.prisma.order.findMany({
-          where: {
-            merchantId,
-            createdAt: { gte: previousStart, lt: startDate },
-            status: { notIn: ['CANCELLED', 'REFUNDED'] },
-          },
-          select: { totalAmount: true },
-        }),
-      ])
+    const [currentOrders, previousOrders] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: {
+          merchantId,
+          createdAt: { gte: startDate, lte: today },
+          status: { notIn: ['CANCELLED', 'REFUNDED'] },
+        },
+        select: { totalAmount: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          merchantId,
+          createdAt: { gte: previousStart, lt: startDate },
+          status: { notIn: ['CANCELLED', 'REFUNDED'] },
+        },
+        select: { totalAmount: true },
+      }),
+    ])
 
     const currentTotalSales = currentOrders.reduce(
       (sum, o) => sum + Number(o.totalAmount),
@@ -169,10 +170,10 @@ export class DashboardService {
     for (let i = 0; i < days; i++) {
       const date = new Date(startDate)
       date.setDate(date.getDate() + i)
-      dateMap.set(date.toISOString().slice(0, 10), 0)
+      dateMap.set(localDateKey(date), 0)
     }
     for (const order of currentOrders) {
-      const key = order.createdAt.toISOString().slice(0, 10)
+      const key = localDateKey(order.createdAt)
       if (dateMap.has(key)) {
         dateMap.set(key, dateMap.get(key)! + Number(order.totalAmount))
       }
@@ -206,8 +207,8 @@ export class DashboardService {
     startDate.setDate(startDate.getDate() - days + 1)
     startDate.setHours(0, 0, 0, 0)
 
-    const [orders, completedCount, refundedCount] = await this.prisma
-      .$transaction([
+    const [orders, completedCount, refundedCount] =
+      await this.prisma.$transaction([
         this.prisma.order.findMany({
           where: {
             merchantId,
@@ -226,27 +227,23 @@ export class DashboardService {
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
-    const todayOrders = orders.filter(
-      (o) => o.createdAt >= todayStart,
-    ).length
+    const todayOrders = orders.filter((o) => o.createdAt >= todayStart).length
     const totalOrders = orders.length
     const completedInPeriod = orders.filter(
       (o) => o.status === 'COMPLETED',
     ).length
     const completionRate =
-      totalOrders > 0
-        ? (completedInPeriod / totalOrders) * 100
-        : 0
+      totalOrders > 0 ? (completedInPeriod / totalOrders) * 100 : 0
 
     // Build daily trend
     const dateMap = new Map<string, number>()
     for (let i = 0; i < days; i++) {
       const date = new Date(startDate)
       date.setDate(date.getDate() + i)
-      dateMap.set(date.toISOString().slice(0, 10), 0)
+      dateMap.set(localDateKey(date), 0)
     }
     for (const order of orders) {
-      const key = order.createdAt.toISOString().slice(0, 10)
+      const key = localDateKey(order.createdAt)
       if (dateMap.has(key)) {
         dateMap.set(key, dateMap.get(key)! + 1)
       }

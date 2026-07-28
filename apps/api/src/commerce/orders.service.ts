@@ -4,15 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import type { AuthenticatedUser, OrderSummary, PaginatedOrders } from '@cross-border/shared'
+import type {
+  AuthenticatedUser,
+  OrderSummary,
+  PaginatedOrders,
+} from '@cross-border/shared'
 
 import { PrismaService } from '../database/prisma.service'
 import { toOrderSummary } from './commerce.utils'
 import type { OrderSource } from './commerce.utils'
-import type {
-  OrderQueryDto,
-  UpdateOrderStatusDto,
-} from './dto/order.dto'
+import type { OrderQueryDto, UpdateOrderStatusDto } from './dto/order.dto'
 import { MerchantAccessService } from './merchant-access.service'
 
 const allowedTransitions: Record<string, string[]> = {

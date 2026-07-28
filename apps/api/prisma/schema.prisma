@@ -159,12 +159,12 @@ model Order {
 }
 
 model OrderItem {
-  id          String @id @default(cuid()) @db.VarChar(30)
-  orderId     String @map("order_id") @db.VarChar(30)
+  id          String  @id @default(cuid()) @db.VarChar(30)
+  orderId     String  @map("order_id") @db.VarChar(30)
   productId   String? @map("product_id") @db.VarChar(30)
   skuId       String? @map("sku_id") @db.VarChar(30)
-  productName String @map("product_name") @db.VarChar(255)
-  skuName     String @map("sku_name") @db.VarChar(120)
+  productName String  @map("product_name") @db.VarChar(255)
+  skuName     String  @map("sku_name") @db.VarChar(120)
   quantity    Int
   unitPrice   Decimal @map("unit_price") @db.Decimal(12, 2)
   subtotal    Decimal @db.Decimal(12, 2)
@@ -212,7 +212,9 @@ model AiMessage {
   revisionJson Json?     @map("revision_json")
   revisionIdx  Int       @default(0) @map("revision_idx")
   session      AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now()) @map("created_at")
 
+  @@index([sessionId, createdAt])
   @@index([sessionId, parentId])
   @@map("ai_messages")
 }

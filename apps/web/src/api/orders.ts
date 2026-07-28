@@ -26,10 +26,7 @@ export function getOrders(
   })
   if (params.status) query.set('status', params.status)
   if (params.keyword) query.set('keyword', params.keyword)
-  return apiRequest(
-    token,
-    `/api/merchants/${merchantId}/orders?${query}`,
-  )
+  return apiRequest(token, `/api/merchants/${merchantId}/orders?${query}`)
 }
 
 export function getOrder(
@@ -37,10 +34,7 @@ export function getOrder(
   merchantId: string,
   orderId: string,
 ): Promise<OrderSummary> {
-  return apiRequest(
-    token,
-    `/api/merchants/${merchantId}/orders/${orderId}`,
-  )
+  return apiRequest(token, `/api/merchants/${merchantId}/orders/${orderId}`)
 }
 
 export function updateOrderStatus(
@@ -63,20 +57,14 @@ export function getDashboardOverview(
   token: string,
   merchantId: string,
 ): Promise<DashboardOverview> {
-  return apiRequest(
-    token,
-    `/api/merchants/${merchantId}/dashboard/overview`,
-  )
+  return apiRequest(token, `/api/merchants/${merchantId}/dashboard/overview`)
 }
 
 export function getDashboardTrend(
   token: string,
   merchantId: string,
 ): Promise<DashboardTrend> {
-  return apiRequest(
-    token,
-    `/api/merchants/${merchantId}/dashboard/trend`,
-  )
+  return apiRequest(token, `/api/merchants/${merchantId}/dashboard/trend`)
 }
 
 export function getDashboardSales(
@@ -84,9 +72,7 @@ export function getDashboardSales(
   merchantId: string,
   params?: { days?: number },
 ): Promise<DashboardSalesData> {
-  const query = params?.days
-    ? `?days=${params.days}`
-    : ''
+  const query = params?.days ? `?days=${params.days}` : ''
   return apiRequest(
     token,
     `/api/merchants/${merchantId}/dashboard/sales${query}`,
@@ -98,9 +84,7 @@ export function getDashboardOrders(
   merchantId: string,
   params?: { days?: number },
 ): Promise<DashboardOrderData> {
-  const query = params?.days
-    ? `?days=${params.days}`
-    : ''
+  const query = params?.days ? `?days=${params.days}` : ''
   return apiRequest(
     token,
     `/api/merchants/${merchantId}/dashboard/orders${query}`,

@@ -39,8 +39,8 @@ export class AiSessionsService {
         where,
         include: sessionInclude,
         orderBy: { updatedAt: 'desc' },
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
+        skip: Math.max(0, ((query.page ?? 1) - 1) * (query.pageSize ?? 50)),
+        take: Math.min(200, query.pageSize ?? 50),
       }),
       this.prisma.aiSession.count({ where }),
     ])
@@ -73,7 +73,7 @@ export class AiSessionsService {
       where: { id: sessionId, merchantId, userId: user.id },
       include: {
         ...sessionInclude,
-        messages: { orderBy: { id: 'asc' } },
+        messages: { orderBy: { createdAt: 'asc' } },
       },
     })
     if (!session) {
@@ -97,8 +97,9 @@ export class AiSessionsService {
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content,
         parentId: m.parentId ?? undefined,
-        childrenIds: JSON.parse(JSON.stringify(m.childrenIds)) as string[],
-        createdAt: String(m.id),
+        childrenIds: this.toStringArray(m.childrenIds),
+        revisions: this.toRevisions(m.revisionJson),
+        createdAt: m.createdAt.toISOString(),
         revisionIndex: m.revisionIdx,
       })),
     }
@@ -183,5 +184,32 @@ export class AiSessionsService {
       throw new NotFoundException('会话不存在')
     }
     await this.prisma.aiSession.delete({ where: { id: sessionId } })
+  }
+
+  private toStringArray(value: unknown): string[] {
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : []
+  }
+
+  private toRevisions(
+    value: unknown,
+  ): import('@cross-border/shared').AiMessageRevision[] | undefined {
+    if (!Array.isArray(value)) {
+      return undefined
+    }
+    return value.filter(
+      (item): item is import('@cross-border/shared').AiMessageRevision => {
+        if (typeof item !== 'object' || item === null) {
+          return false
+        }
+        const candidate = item as Record<string, unknown>
+        return (
+          typeof candidate.id === 'string' &&
+          typeof candidate.content === 'string' &&
+          typeof candidate.createdAt === 'number'
+        )
+      },
+    )
   }
 }

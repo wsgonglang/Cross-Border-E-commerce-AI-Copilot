@@ -119,9 +119,7 @@ export function asJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }
 
-export function toOrderItemSummary(
-  source: OrderItemSource,
-): OrderItemSummary {
+export function toOrderItemSummary(source: OrderItemSource): OrderItemSummary {
   return {
     ...source,
     unitPrice: source.unitPrice.toString(),

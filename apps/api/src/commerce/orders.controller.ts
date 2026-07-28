@@ -1,13 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Query,
-} from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
-import type { AuthenticatedUser, OrderSummary, PaginatedOrders } from '@cross-border/shared'
+import type {
+  AuthenticatedUser,
+  OrderSummary,
+  PaginatedOrders,
+} from '@cross-border/shared'
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'

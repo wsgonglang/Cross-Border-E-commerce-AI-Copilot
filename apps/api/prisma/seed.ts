@@ -193,7 +193,13 @@ async function seed(): Promise<void> {
         totalAmount: '89.97',
         createdAt: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
         items: [
-          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 3, unitPrice: '29.99', subtotal: '89.97' },
+          {
+            productName: '便携式多口旅行充电器',
+            skuName: '黑色 / 美规',
+            quantity: 3,
+            unitPrice: '29.99',
+            subtotal: '89.97',
+          },
         ],
       },
       {
@@ -204,7 +210,13 @@ async function seed(): Promise<void> {
         totalAmount: '29.99',
         createdAt: new Date(now.getTime() - 16 * 24 * 60 * 60 * 1000),
         items: [
-          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 1, unitPrice: '29.99', subtotal: '29.99' },
+          {
+            productName: '便携式多口旅行充电器',
+            skuName: '黑色 / 美规',
+            quantity: 1,
+            unitPrice: '29.99',
+            subtotal: '29.99',
+          },
         ],
       },
       {
@@ -215,7 +227,13 @@ async function seed(): Promise<void> {
         totalAmount: '59.98',
         createdAt: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000),
         items: [
-          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 2, unitPrice: '29.99', subtotal: '59.98' },
+          {
+            productName: '便携式多口旅行充电器',
+            skuName: '黑色 / 美规',
+            quantity: 2,
+            unitPrice: '29.99',
+            subtotal: '59.98',
+          },
         ],
       },
       {
@@ -226,7 +244,13 @@ async function seed(): Promise<void> {
         totalAmount: '29.99',
         createdAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000),
         items: [
-          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 1, unitPrice: '29.99', subtotal: '29.99' },
+          {
+            productName: '便携式多口旅行充电器',
+            skuName: '黑色 / 美规',
+            quantity: 1,
+            unitPrice: '29.99',
+            subtotal: '29.99',
+          },
         ],
       },
       {
@@ -237,7 +261,13 @@ async function seed(): Promise<void> {
         totalAmount: '89.97',
         createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
         items: [
-          { productName: '便携式多口旅行充电器', skuName: '黑色 / 美规', quantity: 3, unitPrice: '29.99', subtotal: '89.97' },
+          {
+            productName: '便携式多口旅行充电器',
+            skuName: '黑色 / 美规',
+            quantity: 3,
+            unitPrice: '29.99',
+            subtotal: '89.97',
+          },
         ],
       },
     ]

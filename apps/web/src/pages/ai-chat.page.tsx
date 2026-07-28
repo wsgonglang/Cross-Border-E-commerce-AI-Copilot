@@ -1,11 +1,4 @@
-import {
-  Alert,
-  Avatar,
-  Button,
-  Input,
-  List,
-  Typography,
-} from 'antd'
+import { Alert, Avatar, Button, Input, List, Typography } from 'antd'
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -94,9 +87,7 @@ function doSend(
         const chunk = decoder.decode(value, { stream: true })
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId
-              ? { ...m, content: m.content + chunk }
-              : m,
+            m.id === assistantId ? { ...m, content: m.content + chunk } : m,
           ),
         )
       }
@@ -200,13 +191,31 @@ export function AiChatPage() {
         .then((session) => {
           setSessions((prev) => [session, ...prev])
           setCurrentSessionId(session.id)
-          doSend(token, merchantId, session.id, text, setMessages, setStreaming, setError, abortRef)
+          doSend(
+            token,
+            merchantId,
+            session.id,
+            text,
+            setMessages,
+            setStreaming,
+            setError,
+            abortRef,
+          )
         })
         .catch((e: Error) => setError(e.message))
       return
     }
 
-    doSend(token, merchantId, currentSessionId, text, setMessages, setStreaming, setError, abortRef)
+    doSend(
+      token,
+      merchantId,
+      currentSessionId,
+      text,
+      setMessages,
+      setStreaming,
+      setError,
+      abortRef,
+    )
   }, [inputValue, token, merchantId, streaming, currentSessionId])
 
   const handleStop = useCallback(() => {
@@ -225,7 +234,12 @@ export function AiChatPage() {
     <div className="ai-chat-layout">
       <aside className="ai-chat-sidebar">
         <div className="ai-chat-sidebar-header">
-          <Button type="primary" block icon={<PlusOutlined />} onClick={handleNewSession}>
+          <Button
+            type="primary"
+            block
+            icon={<PlusOutlined />}
+            onClick={handleNewSession}
+          >
             新建对话
           </Button>
         </div>
@@ -236,16 +250,35 @@ export function AiChatPage() {
             renderItem={(session) => (
               <List.Item
                 key={session.id}
-                className={session.id === currentSessionId ? 'ai-chat-session-active' : ''}
-                onClick={() => { setCurrentSessionId(session.id); setError(null) }}
+                className={
+                  session.id === currentSessionId
+                    ? 'ai-chat-session-active'
+                    : ''
+                }
+                onClick={() => {
+                  setCurrentSessionId(session.id)
+                  setError(null)
+                }}
                 actions={[
-                  <Button key="delete" type="text" size="small" danger icon={<DeleteOutlined />}
-                    onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id) }}
+                  <Button
+                    key="delete"
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteSession(session.id)
+                    }}
                   />,
                 ]}
               >
                 <List.Item.Meta
-                  title={<Typography.Text ellipsis style={{ maxWidth: 160 }}>{session.title}</Typography.Text>}
+                  title={
+                    <Typography.Text ellipsis style={{ maxWidth: 160 }}>
+                      {session.title}
+                    </Typography.Text>
+                  }
                   description={`${session.messageCount} 条消息`}
                 />
               </List.Item>
@@ -257,7 +290,13 @@ export function AiChatPage() {
       <div className="ai-chat-main">
         <div className="ai-chat-messages">
           {error ? (
-            <Alert type="error" message={error} closable onClose={() => setError(null)} style={{ margin: 12 }} />
+            <Alert
+              type="error"
+              message={error}
+              closable
+              onClose={() => setError(null)}
+              style={{ margin: 12 }}
+            />
           ) : null}
           {!currentSessionId && (
             <div className="ai-chat-empty">
@@ -266,15 +305,27 @@ export function AiChatPage() {
             </div>
           )}
           {messages.map((msg) => (
-              <div key={msg.id} className={`ai-chat-message ${msg.role === 'user' ? 'ai-chat-message-user' : 'ai-chat-message-ai'}`}>
-                <Avatar className="ai-chat-avatar" size={32}
-                  style={msg.role === 'user' ? { background: '#0f766e' } : { background: '#0891b2' }}>
-                  {msg.role === 'user' ? 'U' : 'AI'}
-                </Avatar>
-                <div className="ai-chat-bubble">
-                  {msg.content || <span className="ai-chat-thinking">思考中…</span>}
-                </div>
+            <div
+              key={msg.id}
+              className={`ai-chat-message ${msg.role === 'user' ? 'ai-chat-message-user' : 'ai-chat-message-ai'}`}
+            >
+              <Avatar
+                className="ai-chat-avatar"
+                size={32}
+                style={
+                  msg.role === 'user'
+                    ? { background: '#0f766e' }
+                    : { background: '#0891b2' }
+                }
+              >
+                {msg.role === 'user' ? 'U' : 'AI'}
+              </Avatar>
+              <div className="ai-chat-bubble">
+                {msg.content || (
+                  <span className="ai-chat-thinking">思考中…</span>
+                )}
               </div>
+            </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -285,16 +336,27 @@ export function AiChatPage() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={streaming ? 'AI 正在生成中…' : '输入消息，Enter 发送'}
+              placeholder={
+                streaming ? 'AI 正在生成中…' : '输入消息，Enter 发送'
+              }
               disabled={streaming}
               autoSize={{ minRows: 2, maxRows: 6 }}
               style={{ flex: 1 }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {streaming ? (
-                <Button danger icon={<StopOutlined />} onClick={handleStop}>停止</Button>
+                <Button danger icon={<StopOutlined />} onClick={handleStop}>
+                  停止
+                </Button>
               ) : (
-                <Button type="primary" icon={<SendOutlined />} onClick={handleSend} disabled={!inputValue.trim()}>发送</Button>
+                <Button
+                  type="primary"
+                  icon={<SendOutlined />}
+                  onClick={handleSend}
+                  disabled={!inputValue.trim()}
+                >
+                  发送
+                </Button>
               )}
             </div>
           </div>

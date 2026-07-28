@@ -18,17 +18,10 @@ import type {
   PaginatedOrders,
 } from '@cross-border/shared'
 
-import {
-  getOrder,
-  getOrders,
-  updateOrderStatus,
-} from '../api/orders'
+import { getOrder, getOrders, updateOrderStatus } from '../api/orders'
 import { useAppSelector } from '../store/hooks'
 
-const statusMeta: Record<
-  OrderStatus,
-  { color: string; label: string }
-> = {
+const statusMeta: Record<OrderStatus, { color: string; label: string }> = {
   PENDING: { color: 'orange', label: '待确认' },
   CONFIRMED: { color: 'blue', label: '已确认' },
   SHIPPED: { color: 'purple', label: '已发货' },
@@ -136,10 +129,7 @@ export function OrdersPage() {
     void load()
   }, [detailOrderId, token, merchantId])
 
-  const handleAction = async (
-    orderId: string,
-    targetStatus: string,
-  ) => {
+  const handleAction = async (orderId: string, targetStatus: string) => {
     if (!token || !merchantId) return
     try {
       await updateOrderStatus(token, merchantId, orderId, targetStatus)
@@ -147,9 +137,7 @@ export function OrdersPage() {
       setDetailOrderId(null)
       fetchOrders()
     } catch (e: unknown) {
-      setError(
-        e instanceof Error ? e.message : '操作失败',
-      )
+      setError(e instanceof Error ? e.message : '操作失败')
     }
   }
 
@@ -210,19 +198,13 @@ export function OrdersPage() {
             查看
           </a>
           {actionSteps
-            .filter(
-              (a) =>
-                a.from === record.status &&
-                canAct(role, a.minRole),
-            )
+            .filter((a) => a.from === record.status && canAct(role, a.minRole))
             .map((a) => (
               <Button
                 key={a.to}
                 type="link"
                 size="small"
-                onClick={() =>
-                  void handleAction(record.id, a.to)
-                }
+                onClick={() => void handleAction(record.id, a.to)}
               >
                 {a.label}
               </Button>
@@ -356,9 +338,7 @@ export function OrdersPage() {
                 </Descriptions.Item>
               ) : null}
               <Descriptions.Item label="下单时间">
-                {new Date(detailData.createdAt).toLocaleString(
-                  'zh-CN',
-                )}
+                {new Date(detailData.createdAt).toLocaleString('zh-CN')}
               </Descriptions.Item>
             </Descriptions>
 
@@ -382,8 +362,7 @@ export function OrdersPage() {
                   title: '单价',
                   dataIndex: 'unitPrice',
                   key: 'unitPrice',
-                  render: (price: string) =>
-                    `$${price}`,
+                  render: (price: string) => `$${price}`,
                 },
                 {
                   title: '数量',
@@ -393,10 +372,8 @@ export function OrdersPage() {
                 {
                   title: '小计',
                   key: 'subtotal',
-                  render: (
-                    _: unknown,
-                    item: { subtotal: string },
-                  ) => `$${item.subtotal}`,
+                  render: (_: unknown, item: { subtotal: string }) =>
+                    `$${item.subtotal}`,
                 },
               ]}
             />

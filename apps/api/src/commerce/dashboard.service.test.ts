@@ -42,10 +42,7 @@ describe('DashboardService', () => {
 
     const result = await service.getOverview(user, 'merchant-1')
 
-    expect(merchantAccess.assertAccess).toHaveBeenCalledWith(
-      user,
-      'merchant-1',
-    )
+    expect(merchantAccess.assertAccess).toHaveBeenCalledWith(user, 'merchant-1')
     expect(result.todayOrders).toBe(5)
     expect(result.todaySales).toBe('500')
     expect(result.totalProducts).toBe(10)

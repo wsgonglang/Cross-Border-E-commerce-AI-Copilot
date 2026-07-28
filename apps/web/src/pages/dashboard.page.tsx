@@ -1,22 +1,9 @@
-import {
-  Alert,
-  Card,
-  Col,
-  Row,
-  Spin,
-  Statistic,
-} from 'antd'
+import { Alert, Card, Col, Row, Spin, Statistic } from 'antd'
 import { useEffect, useState } from 'react'
 
-import type {
-  DashboardOverview,
-  DashboardTrend,
-} from '@cross-border/shared'
+import type { DashboardOverview, DashboardTrend } from '@cross-border/shared'
 
-import {
-  getDashboardOverview,
-  getDashboardTrend,
-} from '../api/orders'
+import { getDashboardOverview, getDashboardTrend } from '../api/orders'
 import { useAppSelector } from '../store/hooks'
 
 function TrendChart({ data }: { data: DashboardTrend }) {
@@ -27,7 +14,7 @@ function TrendChart({ data }: { data: DashboardTrend }) {
   const pad = { t: 20, r: 20, b: 40, l: 50 }
 
   const toX = (i: number) =>
-    pad.l + i * (w - pad.l - pad.r) / (data.dates.length - 1 || 1)
+    pad.l + (i * (w - pad.l - pad.r)) / (data.dates.length - 1 || 1)
 
   const orderPoints = data.orders
     .map(
@@ -78,10 +65,7 @@ function TrendChart({ data }: { data: DashboardTrend }) {
         <circle
           key={`o-${i}`}
           cx={toX(i)}
-          cy={
-            pad.t +
-            (h - pad.t - pad.b) * (1 - v / maxOrders)
-          }
+          cy={pad.t + (h - pad.t - pad.b) * (1 - v / maxOrders)}
           r="3"
           fill="#0f766e"
         />
@@ -99,11 +83,7 @@ function TrendChart({ data }: { data: DashboardTrend }) {
         <circle
           key={`s-${i}`}
           cx={toX(i)}
-          cy={
-            pad.t +
-            (h - pad.t - pad.b) *
-              (1 - Number(v) / maxSales)
-          }
+          cy={pad.t + (h - pad.t - pad.b) * (1 - Number(v) / maxSales)}
           r="3"
           fill="#0891b2"
         />
@@ -206,23 +186,17 @@ export function DashboardPage() {
               <Card>
                 <Statistic
                   title="今日销售额"
-                  value={Number(overview.todaySales).toLocaleString(
-                    'zh-CN',
-                    {
-                      style: 'currency',
-                      currency: 'USD',
-                      minimumFractionDigits: 0,
-                    },
-                  )}
+                  value={Number(overview.todaySales).toLocaleString('zh-CN', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 0,
+                  })}
                 />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic
-                  title="商品总数"
-                  value={overview.totalProducts}
-                />
+                <Statistic title="商品总数" value={overview.totalProducts} />
               </Card>
             </Col>
             <Col span={6}>
@@ -241,21 +215,14 @@ export function DashboardPage() {
             </Col>
           </Row>
 
-          <Card
-            title="近 14 天趋势"
-            style={{ marginTop: 18 }}
-          >
+          <Card title="近 14 天趋势" style={{ marginTop: 18 }}>
             {trend ? <TrendChart data={trend} /> : null}
           </Card>
         </>
       ) : null}
 
       {!loading && !overview && !error ? (
-        <Alert
-          type="info"
-          message="暂无经营数据"
-          style={{ marginTop: 18 }}
-        />
+        <Alert type="info" message="暂无经营数据" style={{ marginTop: 18 }} />
       ) : null}
     </main>
   )

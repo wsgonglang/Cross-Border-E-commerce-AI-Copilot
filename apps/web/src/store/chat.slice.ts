@@ -32,10 +32,7 @@ const chatSlice = createSlice({
       state.sessions = action.payload.items
       state.totalSessions = action.payload.total
     },
-    setCurrentSession(
-      state,
-      action: PayloadAction<AiSessionDetail | null>,
-    ) {
+    setCurrentSession(state, action: PayloadAction<AiSessionDetail | null>) {
       state.currentSession = action.payload
       state.currentSessionId = action.payload?.id ?? null
     },
@@ -91,21 +88,14 @@ const chatSlice = createSlice({
       state.sessions.unshift(action.payload)
       state.totalSessions++
     },
-    updateSessionInList(
-      state,
-      action: PayloadAction<AiSessionSummary>,
-    ) {
-      const idx = state.sessions.findIndex(
-        (s) => s.id === action.payload.id,
-      )
+    updateSessionInList(state, action: PayloadAction<AiSessionSummary>) {
+      const idx = state.sessions.findIndex((s) => s.id === action.payload.id)
       if (idx >= 0) {
         state.sessions[idx] = action.payload
       }
     },
     removeSessionFromList(state, action: PayloadAction<string>) {
-      state.sessions = state.sessions.filter(
-        (s) => s.id !== action.payload,
-      )
+      state.sessions = state.sessions.filter((s) => s.id !== action.payload)
       state.totalSessions--
     },
     resetChat() {

@@ -13,7 +13,10 @@ export function getAiSession(
   merchantId: string,
   sessionId: string,
 ): Promise<AiSessionDetail> {
-  return apiRequest(token, `/api/merchants/${merchantId}/ai/sessions/${sessionId}`)
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/ai/sessions/${sessionId}`,
+  )
 }
 
 export function createAiSession(
@@ -33,10 +36,14 @@ export function updateAiSession(
   sessionId: string,
   data: { title?: string; pinned?: boolean },
 ): Promise<AiSessionSummary> {
-  return apiRequest(token, `/api/merchants/${merchantId}/ai/sessions/${sessionId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  })
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/ai/sessions/${sessionId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    },
+  )
 }
 
 export function deleteAiSession(
@@ -44,7 +51,11 @@ export function deleteAiSession(
   merchantId: string,
   sessionId: string,
 ): Promise<void> {
-  return apiRequest(token, `/api/merchants/${merchantId}/ai/sessions/${sessionId}`, {
-    method: 'DELETE',
-  })
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/ai/sessions/${sessionId}`,
+    {
+      method: 'DELETE',
+    },
+  )
 }

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, NotFoundException } from '@nestjs/common'
 import type { AuthenticatedUser } from '@cross-border/shared'
 
 import { PrismaService } from '../database/prisma.service'
@@ -33,33 +33,55 @@ export class AiService {
       await this.sessionsService.get(user, merchantId, currentSessionId)
     }
 
-    // 2. Save user message
-    const userMessage = await this.prisma.aiMessage.create({
-      data: {
-        sessionId: currentSessionId,
-        role: 'user',
-        content,
-        parentId: parentMessageId ?? null,
-        childrenIds: [],
-        revisionJson: JSON.stringify([
-          { id: '', content, createdAt: Date.now() },
-        ]),
-        revisionIdx: 0,
-      },
+    // 2. Save the user message and maintain the branch relationship.
+    const userMessage = await this.prisma.$transaction(async (transaction) => {
+      let parentChildren: string[] = []
+      if (parentMessageId) {
+        const parent = await transaction.aiMessage.findFirst({
+          where: { id: parentMessageId, sessionId: currentSessionId },
+          select: { childrenIds: true },
+        })
+        if (!parent) {
+          throw new NotFoundException('父消息不存在于当前会话')
+        }
+        parentChildren = this.toStringArray(parent.childrenIds)
+      }
+
+      const message = await transaction.aiMessage.create({
+        data: {
+          sessionId: currentSessionId,
+          role: 'user',
+          content,
+          parentId: parentMessageId ?? null,
+          childrenIds: [],
+          revisionJson: [{ id: '', content, createdAt: Date.now() }],
+          revisionIdx: 0,
+        },
+      })
+
+      if (parentMessageId) {
+        await transaction.aiMessage.update({
+          where: { id: parentMessageId },
+          data: { childrenIds: [...parentChildren, message.id] },
+        })
+      }
+      await transaction.aiSession.update({
+        where: { id: currentSessionId },
+        data: { status: 'STREAMING', error: null },
+      })
+      return message
     })
 
     // 3. Build message history from session
     const sessionMessages = await this.prisma.aiMessage.findMany({
       where: { sessionId: currentSessionId },
-      orderBy: { id: 'asc' },
+      orderBy: { createdAt: 'asc' },
     })
 
     const history = this.buildHistory(sessionMessages)
 
     // 4. Auto-generate title if this is the first message
-    const nonSystemMessages = sessionMessages.filter(
-      (m) => m.role !== 'system',
-    )
+    const nonSystemMessages = sessionMessages.filter((m) => m.role !== 'system')
     if (nonSystemMessages.length <= 1) {
       this.generateAndSetTitle(
         user,
@@ -73,53 +95,59 @@ export class AiService {
 
     // 5. Call AI provider
     let assistantContent = ''
-    await this.aiProvider.chat(history, signal, {
-      onChunk: (chunk: string) => {
+    try {
+      await this.aiProvider.chat(history, signal, (chunk: string) => {
         assistantContent += chunk
         onChunk(chunk)
-      },
-      onDone: () => {
-        if (assistantContent) {
-          this.saveAssistantMessage(
-            currentSessionId,
-            userMessage.id,
-            assistantContent,
-          ).catch(() => {
-            /* non-critical */
-          })
-        }
-      },
-      onError: (error: Error) => {
-        this
-          .updateSessionError(currentSessionId, error.message)
-          .catch(() => {
-            /* non-critical */
-          })
-      },
-    })
+      })
+      await this.finishGeneration(
+        currentSessionId,
+        userMessage.id,
+        assistantContent,
+      )
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        await this.finishGeneration(
+          currentSessionId,
+          userMessage.id,
+          assistantContent,
+        )
+        return
+      }
+      const message =
+        error instanceof Error ? error.message : '未知 AI 服务异常'
+      await this.updateSessionError(currentSessionId, message)
+      throw error
+    }
   }
 
-  private async saveAssistantMessage(
+  private async finishGeneration(
     sessionId: string,
     parentId: string,
     content: string,
   ): Promise<void> {
-    await this.prisma.aiMessage.create({
-      data: {
-        sessionId,
-        role: 'assistant',
-        content,
-        parentId,
-        childrenIds: [],
-        revisionJson: JSON.stringify([
-          { id: '', content, createdAt: Date.now() },
-        ]),
-        revisionIdx: 0,
-      },
-    })
-    await this.prisma.aiSession.update({
-      where: { id: sessionId },
-      data: { status: 'DONE' },
+    await this.prisma.$transaction(async (transaction) => {
+      if (content) {
+        const assistant = await transaction.aiMessage.create({
+          data: {
+            sessionId,
+            role: 'assistant',
+            content,
+            parentId,
+            childrenIds: [],
+            revisionJson: [{ id: '', content, createdAt: Date.now() }],
+            revisionIdx: 0,
+          },
+        })
+        await transaction.aiMessage.update({
+          where: { id: parentId },
+          data: { childrenIds: [assistant.id] },
+        })
+      }
+      await transaction.aiSession.update({
+        where: { id: sessionId },
+        data: { status: 'DONE' },
+      })
     })
   }
 
@@ -144,6 +172,12 @@ export class AiService {
     return messages
       .filter((m) => m.role !== 'system' || m.content)
       .map((m) => ({ role: m.role, content: m.content }))
+  }
+
+  private toStringArray(value: unknown): string[] {
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : []
   }
 
   private async generateAndSetTitle(
