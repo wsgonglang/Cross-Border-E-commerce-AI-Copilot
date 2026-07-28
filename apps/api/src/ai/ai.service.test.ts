@@ -69,6 +69,8 @@ describe('AiService', () => {
       },
       generateTitle: () => Promise.resolve('标题优化'),
       optimizeProduct: vi.fn(),
+      planAgentTools: vi.fn(),
+      summarizeAgent: vi.fn(),
     }
     const { service, transaction } = createHarness(provider)
     const chunks: string[] = []
@@ -112,6 +114,8 @@ describe('AiService', () => {
       },
       generateTitle: () => Promise.resolve('标题优化'),
       optimizeProduct: vi.fn(),
+      planAgentTools: vi.fn(),
+      summarizeAgent: vi.fn(),
     }
     const { service, transaction } = createHarness(provider)
 

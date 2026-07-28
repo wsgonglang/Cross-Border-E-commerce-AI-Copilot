@@ -3,6 +3,9 @@ import { Module } from '@nestjs/common'
 import { API_ENVIRONMENT } from '../config/api-config.constants'
 import { CommerceModule } from '../commerce/commerce.module'
 import { DatabaseModule } from '../database/database.module'
+import { AgentController } from './agent.controller'
+import { AgentService } from './agent.service'
+import { AgentToolsService } from './agent-tools.service'
 import { AiChatController } from './ai-chat.controller'
 import { AiSessionsController } from './ai-sessions.controller'
 import { AiSessionsService } from './ai-sessions.service'
@@ -14,17 +17,22 @@ import {
 } from './ai-provider.service'
 import { ProductOptimizationsController } from './product-optimizations.controller'
 import { ProductOptimizationsService } from './product-optimizations.service'
+import { PlatformRulesService } from './platform-rules.service'
 
 @Module({
   imports: [DatabaseModule, CommerceModule],
   controllers: [
     AiSessionsController,
     AiChatController,
+    AgentController,
     ProductOptimizationsController,
   ],
   providers: [
     AiSessionsService,
     AiService,
+    AgentService,
+    AgentToolsService,
+    PlatformRulesService,
     ProductOptimizationsService,
     {
       provide: AI_PROVIDER,

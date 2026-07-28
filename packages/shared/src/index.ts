@@ -53,3 +53,10 @@ export {
   type AiSessionSummary,
   type AiTitleResponse,
 } from './ai-chat'
+export {
+  AGENT_TOOL_NAMES,
+  type AgentRunResponse,
+  type AgentToolCallSummary,
+  type AgentToolName,
+  type AgentToolStatus,
+} from './agent'

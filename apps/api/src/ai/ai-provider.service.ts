@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common'
 import {
   productOptimizationDraftSchema,
+  type AgentToolCallSummary,
   type AiUsage,
   type OptimizationLanguage,
   type ProductOptimizationDraft,
   type ProductOptimizationSource,
 } from '@cross-border/shared'
 import OpenAI from 'openai'
+
+import type {
+  AgentToolDefinition,
+  PlannedAgentToolCall,
+} from './agent-tools.contract'
 
 export const AI_PROVIDER = 'AI_PROVIDER'
 
@@ -26,6 +32,14 @@ export interface AiProvider {
     draft: ProductOptimizationDraft
     usage: AiUsage
   }>
+  planAgentTools(input: {
+    message: string
+    tools: AgentToolDefinition[]
+  }): Promise<{ toolCalls: PlannedAgentToolCall[]; usage: AiUsage }>
+  summarizeAgent(input: {
+    message: string
+    toolCalls: AgentToolCallSummary[]
+  }): Promise<{ answer: string; usage: AiUsage }>
 }
 
 const MOCK_DELAY = 5
@@ -124,6 +138,88 @@ export class MockAiProvider implements AiProvider {
       },
     })
   }
+
+  planAgentTools(input: {
+    message: string
+    tools: AgentToolDefinition[]
+  }): Promise<{ toolCalls: PlannedAgentToolCall[]; usage: AiUsage }> {
+    const message = input.message
+    const upper = message.toUpperCase()
+    const productCode = upper.match(/\bP-[A-Z0-9_-]+\b/)?.[0]
+    const orderNo = upper.match(/\bORD-[A-Z0-9_-]+\b/)?.[0]
+    const calls: PlannedAgentToolCall[] = []
+    const add = (name: string, arguments_: unknown) => {
+      if (input.tools.some((tool) => tool.name === name)) {
+        calls.push({
+          id: `mock-tool-${calls.length + 1}`,
+          name,
+          arguments: arguments_,
+        })
+      }
+    }
+
+    if (/库存|STOCK|INVENTORY/i.test(message) && productCode) {
+      add('get_inventory', { productCode })
+    }
+    if (/订单|ORDER/i.test(message) && orderNo) {
+      add('get_order_status', { orderNo })
+    }
+    if (/经营|看板|销售|OVERVIEW|SALES/i.test(message)) {
+      add('get_business_overview', {})
+    }
+    if (/规则|违规|合规|RULE|COMPLIANCE/i.test(message)) {
+      add('search_platform_rules', { query: message })
+    }
+    if (
+      /草稿|优化|翻译|DRAFT|OPTIMIZE|TRANSLATE/i.test(message) &&
+      productCode
+    ) {
+      const targetLanguage = /西班牙|SPANISH|ES-ES/i.test(message)
+        ? 'es-ES'
+        : /葡萄牙|PORTUGUESE|PT-BR/i.test(message)
+          ? 'pt-BR'
+          : 'en-US'
+      add('create_product_optimization_draft', {
+        productCode,
+        targetLanguage,
+      })
+    }
+    if (calls.length === 0) {
+      add('search_products', {
+        ...(productCode ? { keyword: productCode } : {}),
+      })
+    }
+
+    return Promise.resolve({
+      toolCalls: calls,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    })
+  }
+
+  summarizeAgent(input: {
+    message: string
+    toolCalls: AgentToolCallSummary[]
+  }): Promise<{ answer: string; usage: AiUsage }> {
+    const succeeded = input.toolCalls.filter(
+      (call) => call.status === 'success',
+    )
+    const failed = input.toolCalls.filter((call) => call.status === 'error')
+    const created = succeeded.find(
+      (call) => call.name === 'create_product_optimization_draft',
+    )
+    const parts = [
+      `已根据“${input.message}”执行 ${input.toolCalls.length} 个受控业务工具。`,
+      succeeded.length ? `${succeeded.length} 个成功。` : '',
+      failed.length ? `${failed.length} 个失败，请查看工具轨迹。` : '',
+      created
+        ? '优化草稿已创建，但尚未写回正式商品，请到商品管理中人工确认。'
+        : '',
+    ].filter(Boolean)
+    return Promise.resolve({
+      answer: parts.join(' '),
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    })
+  }
 }
 
 @Injectable()
@@ -217,6 +313,90 @@ export class OpenAiProvider implements AiProvider {
     }
     return {
       draft,
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+        totalTokens: completion.usage?.total_tokens ?? 0,
+      },
+    }
+  }
+
+  async planAgentTools(input: {
+    message: string
+    tools: AgentToolDefinition[]
+  }): Promise<{ toolCalls: PlannedAgentToolCall[]; usage: AiUsage }> {
+    const completion = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a constrained e-commerce operations agent. Use only the supplied tools. Read tools may be called as needed. Call create_product_optimization_draft only when the user explicitly asks to create, optimize, or translate a product. Never claim that a draft has changed the formal product.',
+        },
+        { role: 'user', content: input.message },
+      ],
+      tools: input.tools.map((tool) => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      })),
+      tool_choice: 'required',
+    })
+    const toolCalls =
+      completion.choices[0]?.message.tool_calls?.flatMap((call) => {
+        if (call.type !== 'function') return []
+        let arguments_: unknown
+        try {
+          arguments_ = JSON.parse(call.function.arguments)
+        } catch {
+          arguments_ = null
+        }
+        return [
+          {
+            id: call.id,
+            name: call.function.name,
+            arguments: arguments_,
+          },
+        ]
+      }) ?? []
+    return {
+      toolCalls,
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+        totalTokens: completion.usage?.total_tokens ?? 0,
+      },
+    }
+  }
+
+  async summarizeAgent(input: {
+    message: string
+    toolCalls: AgentToolCallSummary[]
+  }): Promise<{ answer: string; usage: AiUsage }> {
+    const completion = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Summarize the verified tool results for an e-commerce operator. Do not invent missing data. Clearly state that optimization drafts require human confirmation and have not changed the formal product. Keep source information for rule results.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            request: input.message,
+            toolResults: input.toolCalls,
+          }),
+        },
+      ],
+    })
+    return {
+      answer:
+        completion.choices[0]?.message.content?.trim() ||
+        '工具已执行，请查看工具轨迹。',
       usage: {
         promptTokens: completion.usage?.prompt_tokens ?? 0,
         completionTokens: completion.usage?.completion_tokens ?? 0,

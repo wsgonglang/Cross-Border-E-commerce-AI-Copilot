@@ -1,4 +1,4 @@
-import { Alert, Avatar, Button, Input, List, Typography } from 'antd'
+import { Alert, Avatar, Button, Input, List, Segmented, Typography } from 'antd'
 import {
   DeleteOutlined,
   PlusOutlined,
@@ -15,6 +15,7 @@ import {
   getAiSession,
   listAiSessions,
 } from '../api/ai'
+import { AgentPanel } from '../components/agent-panel'
 import { useAppSelector } from '../store/hooks'
 
 const { TextArea } = Input
@@ -122,6 +123,7 @@ export function AiChatPage() {
   const [streaming, setStreaming] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [assistantMode, setAssistantMode] = useState<'chat' | 'agent'>('chat')
   const abortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -288,79 +290,97 @@ export function AiChatPage() {
       </aside>
 
       <div className="ai-chat-main">
-        <div className="ai-chat-messages">
-          {error ? (
-            <Alert
-              type="error"
-              message={error}
-              closable
-              onClose={() => setError(null)}
-              style={{ margin: 12 }}
-            />
-          ) : null}
-          {!currentSessionId && (
-            <div className="ai-chat-empty">
-              <h2>AI 运营助手</h2>
-              <p>选择或创建一个对话，开始 AI 辅助运营</p>
+        <div className="ai-assistant-mode">
+          <Segmented
+            value={assistantMode}
+            onChange={setAssistantMode}
+            options={[
+              { label: '普通对话', value: 'chat' },
+              { label: '业务 Agent', value: 'agent' },
+            ]}
+          />
+        </div>
+        {assistantMode === 'agent' ? (
+          <AgentPanel token={token} merchantId={merchantId} />
+        ) : (
+          <>
+            <div className="ai-chat-messages">
+              {error ? (
+                <Alert
+                  type="error"
+                  message={error}
+                  closable
+                  onClose={() => setError(null)}
+                  style={{ margin: 12 }}
+                />
+              ) : null}
+              {!currentSessionId && (
+                <div className="ai-chat-empty">
+                  <h2>AI 运营助手</h2>
+                  <p>选择或创建一个对话，开始 AI 辅助运营</p>
+                </div>
+              )}
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`ai-chat-message ${msg.role === 'user' ? 'ai-chat-message-user' : 'ai-chat-message-ai'}`}
+                >
+                  <Avatar
+                    className="ai-chat-avatar"
+                    size={32}
+                    style={
+                      msg.role === 'user'
+                        ? { background: '#0f766e' }
+                        : { background: '#0891b2' }
+                    }
+                  >
+                    {msg.role === 'user' ? 'U' : 'AI'}
+                  </Avatar>
+                  <div className="ai-chat-bubble">
+                    {msg.content || (
+                      <span className="ai-chat-thinking">思考中…</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
-          )}
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`ai-chat-message ${msg.role === 'user' ? 'ai-chat-message-user' : 'ai-chat-message-ai'}`}
-            >
-              <Avatar
-                className="ai-chat-avatar"
-                size={32}
-                style={
-                  msg.role === 'user'
-                    ? { background: '#0f766e' }
-                    : { background: '#0891b2' }
-                }
-              >
-                {msg.role === 'user' ? 'U' : 'AI'}
-              </Avatar>
-              <div className="ai-chat-bubble">
-                {msg.content || (
-                  <span className="ai-chat-thinking">思考中…</span>
-                )}
+
+            <div className="ai-chat-input-area">
+              <div className="ai-chat-input-row">
+                <TextArea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    streaming ? 'AI 正在生成中…' : '输入消息，Enter 发送'
+                  }
+                  disabled={streaming}
+                  autoSize={{ minRows: 2, maxRows: 6 }}
+                  style={{ flex: 1 }}
+                />
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                >
+                  {streaming ? (
+                    <Button danger icon={<StopOutlined />} onClick={handleStop}>
+                      停止
+                    </Button>
+                  ) : (
+                    <Button
+                      type="primary"
+                      icon={<SendOutlined />}
+                      onClick={handleSend}
+                      disabled={!inputValue.trim()}
+                    >
+                      发送
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="ai-chat-input-area">
-          <div className="ai-chat-input-row">
-            <TextArea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                streaming ? 'AI 正在生成中…' : '输入消息，Enter 发送'
-              }
-              disabled={streaming}
-              autoSize={{ minRows: 2, maxRows: 6 }}
-              style={{ flex: 1 }}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {streaming ? (
-                <Button danger icon={<StopOutlined />} onClick={handleStop}>
-                  停止
-                </Button>
-              ) : (
-                <Button
-                  type="primary"
-                  icon={<SendOutlined />}
-                  onClick={handleSend}
-                  disabled={!inputValue.trim()}
-                >
-                  发送
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   )

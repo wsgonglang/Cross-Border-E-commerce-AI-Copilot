@@ -28,6 +28,12 @@ import { SkusService } from './skus.service'
     ProductsService,
     SkusService,
   ],
-  exports: [MerchantAccessService, ProductsService],
+  exports: [
+    AuditLogsService,
+    DashboardService,
+    MerchantAccessService,
+    OrdersService,
+    ProductsService,
+  ],
 })
 export class CommerceModule {}

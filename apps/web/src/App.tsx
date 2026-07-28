@@ -42,8 +42,10 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
           <Route path="products" element={<ProductsPage />} />
-          <Route path="ai-chat" element={<AiChatPage />} />
           <Route path="403" element={<ForbiddenPage />} />
+          <Route element={<RoleRoute allow={['admin', 'operator']} />}>
+            <Route path="ai-chat" element={<AiChatPage />} />
+          </Route>
           <Route element={<RoleRoute allow={['admin']} />}>
             <Route path="merchants" element={<MerchantsPage />} />
             <Route path="users" element={<UsersPage />} />

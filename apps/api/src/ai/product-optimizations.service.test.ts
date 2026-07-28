@@ -107,6 +107,8 @@ describe('ProductOptimizationsService', () => {
         draft,
         usage: { promptTokens: 12, completionTokens: 8, totalTokens: 20 },
       }),
+      planAgentTools: vi.fn(),
+      summarizeAgent: vi.fn(),
     }
     const service = new ProductOptimizationsService(
       prisma as unknown as PrismaService,
@@ -148,6 +150,8 @@ describe('ProductOptimizationsService', () => {
       chat: vi.fn(),
       generateTitle: vi.fn(),
       optimizeProduct: vi.fn().mockRejectedValue(new Error('provider secret')),
+      planAgentTools: vi.fn(),
+      summarizeAgent: vi.fn(),
     }
     const service = new ProductOptimizationsService(
       prisma as unknown as PrismaService,

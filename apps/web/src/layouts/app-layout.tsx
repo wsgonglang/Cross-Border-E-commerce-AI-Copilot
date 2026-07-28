@@ -18,6 +18,8 @@ export function AppLayout() {
   const navigate = useNavigate()
   const user = useAppSelector((state) => state.auth.user)
   const isAdmin = user?.roles.includes('admin') ?? false
+  const canUseAi =
+    user?.roles.some((role) => role === 'admin' || role === 'operator') ?? false
 
   const handleLogout = async () => {
     await dispatch(logout())
@@ -39,10 +41,12 @@ export function AppLayout() {
             <AppstoreOutlined />
             工作台
           </NavLink>
-          <NavLink to="/ai-chat">
-            <RobotOutlined />
-            AI 对话
-          </NavLink>
+          {canUseAi ? (
+            <NavLink to="/ai-chat">
+              <RobotOutlined />
+              AI 运营助手
+            </NavLink>
+          ) : null}
           <NavLink to="/orders">
             <ShoppingCartOutlined />
             订单

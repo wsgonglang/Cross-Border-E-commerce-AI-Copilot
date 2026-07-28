@@ -6,6 +6,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { MockAiProvider } from './ai-provider.service'
+import { AGENT_TOOL_DEFINITIONS } from './agent-tools.contract'
 
 const source: ProductOptimizationSource = {
   title: '便携式旅行充电器',
@@ -31,4 +32,18 @@ describe('MockAiProvider product optimization', () => {
       expect(result.usage.totalTokens).toBe(0)
     },
   )
+
+  it('plans constrained business tools without paid usage', async () => {
+    const provider = new MockAiProvider()
+    const result = await provider.planAgentTools({
+      message: '查询 P-DEMO-001 的库存并检查充电器规则',
+      tools: AGENT_TOOL_DEFINITIONS,
+    })
+
+    expect(result.toolCalls.map((call) => call.name)).toEqual([
+      'get_inventory',
+      'search_platform_rules',
+    ])
+    expect(result.usage.totalTokens).toBe(0)
+  })
 })
