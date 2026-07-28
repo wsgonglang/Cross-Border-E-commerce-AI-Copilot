@@ -1,9 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import type {
   AuthenticatedUser,
   PaginatedProducts,
   ProductSummary,
 } from '@cross-border/shared'
+import { productOptimizationDraftSchema } from '@cross-border/shared'
 
 import { PrismaService } from '../database/prisma.service'
 import {
@@ -137,7 +143,10 @@ export class ProductsService {
 
       const updated = await transaction.product.update({
         where: { id: productId },
-        data: dto,
+        data: {
+          ...dto,
+          version: { increment: 1 },
+        },
         include: productInclude,
       })
       const before = toProductSummary(current)
@@ -163,5 +172,102 @@ export class ProductsService {
     productId: string,
   ): Promise<ProductSummary> {
     return this.update(actor, merchantId, productId, { status: 'ARCHIVED' })
+  }
+
+  async applyOptimizationDraft(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    productId: string,
+    optimizationId: string,
+  ): Promise<ProductSummary> {
+    await this.merchantAccess.assertAccess(actor, merchantId)
+    return this.prisma.$transaction(async (transaction) => {
+      const optimization = await transaction.productOptimization.findFirst({
+        where: { id: optimizationId, merchantId, productId },
+      })
+      if (!optimization) {
+        throw new NotFoundException('商品优化记录不存在')
+      }
+      const current = await transaction.product.findFirst({
+        where: { id: productId, merchantId },
+        include: productInclude,
+      })
+      if (!current) {
+        throw new NotFoundException('商品不存在')
+      }
+      if (optimization.status === 'APPLIED') {
+        return toProductSummary(current)
+      }
+      if (optimization.status !== 'DRAFT' || !optimization.draftData) {
+        throw new BadRequestException('只有待确认草稿可以应用')
+      }
+      if (current.version !== optimization.baseProductVersion) {
+        throw new ConflictException('商品已被修改，请重新生成优化草稿')
+      }
+
+      const draft = productOptimizationDraftSchema.parse(optimization.draftData)
+      const changed = await transaction.product.updateMany({
+        where: {
+          id: productId,
+          merchantId,
+          version: optimization.baseProductVersion,
+        },
+        data: {
+          title: draft.title,
+          description: draft.description,
+          sellingPoints: asJson(draft.sellingPoints),
+          language: draft.language,
+          version: { increment: 1 },
+        },
+      })
+      if (changed.count !== 1) {
+        throw new ConflictException('商品已被修改，请重新生成优化草稿')
+      }
+
+      const updated = await transaction.product.findUniqueOrThrow({
+        where: { id: productId },
+        include: productInclude,
+      })
+      const before = toProductSummary(current)
+      const after = toProductSummary(updated)
+      await transaction.productVersion.create({
+        data: {
+          merchantId,
+          productId,
+          optimizationId,
+          actorUserId: actor.id,
+          version: updated.version,
+          beforeData: asJson(before),
+          afterData: asJson(after),
+        },
+      })
+      await transaction.productOptimization.update({
+        where: { id: optimizationId },
+        data: {
+          status: 'APPLIED',
+          appliedAt: new Date(),
+        },
+      })
+      await transaction.auditLog.create({
+        data: {
+          merchantId,
+          actorUserId: actor.id,
+          entityType: 'PRODUCT',
+          entityId: productId,
+          action: 'AI_DRAFT_APPLY',
+          beforeData: asJson(before),
+          afterData: asJson({
+            product: after,
+            optimizationId,
+            usage: {
+              promptTokens: optimization.promptTokens,
+              completionTokens: optimization.completionTokens,
+              totalTokens: optimization.totalTokens,
+            },
+          }),
+        },
+      })
+      return after
+    })
   }
 }

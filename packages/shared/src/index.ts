@@ -33,6 +33,17 @@ export {
   type SkuSummary,
 } from './commerce'
 export {
+  OPTIMIZATION_LANGUAGES,
+  OPTIMIZATION_STATUSES,
+  productOptimizationDraftSchema,
+  type AiUsage,
+  type OptimizationLanguage,
+  type OptimizationStatus,
+  type ProductOptimizationDraft,
+  type ProductOptimizationSource,
+  type ProductOptimizationSummary,
+} from './product-optimization'
+export {
   type AiChatMessage,
   type AiMessage,
   type AiMessageRevision,

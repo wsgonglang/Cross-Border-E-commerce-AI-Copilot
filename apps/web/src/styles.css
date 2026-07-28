@@ -51,6 +51,59 @@ textarea {
   margin-bottom: 16px;
 }
 
+.optimization-alert {
+  margin-top: 18px;
+}
+
+.optimization-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.optimization-comparison section {
+  min-height: 230px;
+  padding: 20px;
+  border: 1px solid #dbe7e4;
+  border-radius: 16px;
+  background: #f8fbfa;
+}
+
+.optimization-comparison .draft-panel {
+  border-color: #99d8d1;
+  background: #effcf9;
+}
+
+.comparison-label {
+  color: #66817d;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.optimization-suggestions {
+  margin: 16px 0;
+  padding-left: 22px;
+  color: #405c58;
+}
+
+.confidence-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.optimization-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #dbe7e4;
+}
+
 .brand-mark {
   display: grid;
   width: 44px;
@@ -619,6 +672,10 @@ textarea {
 }
 
 @media (max-width: 768px) {
+  .optimization-comparison {
+    grid-template-columns: 1fr;
+  }
+
   .ai-chat-layout {
     grid-template-columns: 1fr;
   }

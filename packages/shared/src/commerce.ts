@@ -47,8 +47,10 @@ export interface ProductSummary {
   code: string
   title: string
   description: string
+  sellingPoints: string[]
   language: string
   status: ProductStatus
+  version: number
   skus: SkuSummary[]
   createdAt: string
   updatedAt: string

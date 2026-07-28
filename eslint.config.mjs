@@ -33,12 +33,8 @@ export default tseslint.config(
     files: ['apps/api/prisma.config.ts', 'apps/api/prisma/**/*.ts'],
     languageOptions: {
       parserOptions: {
-        projectService: {
-          allowDefaultProject: [
-            'apps/api/prisma.config.ts',
-            'apps/api/prisma/seed.ts',
-          ],
-        },
+        projectService: false,
+        project: ['./apps/api/tsconfig.tools.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },

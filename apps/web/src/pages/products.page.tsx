@@ -36,6 +36,7 @@ import {
   type ProductInput,
   type SkuInput,
 } from '../api/commerce'
+import { ProductOptimizationDrawer } from '../components/product-optimization-drawer'
 import { useAppSelector } from '../store/hooks'
 
 interface StockForm {
@@ -79,6 +80,8 @@ export function ProductsPage() {
   const [stockModalOpen, setStockModalOpen] = useState(false)
   const [auditOpen, setAuditOpen] = useState(false)
   const [auditLogs, setAuditLogs] = useState<AuditLogSummary[]>([])
+  const [optimizationProduct, setOptimizationProduct] =
+    useState<ProductSummary | null>(null)
   const [messageApi, messageContext] = message.useMessage()
 
   useEffect(() => {
@@ -424,6 +427,12 @@ export function ProductsPage() {
             { title: '标题', dataIndex: 'title' },
             { title: '语言', dataIndex: 'language', width: 100 },
             {
+              title: '版本',
+              dataIndex: 'version',
+              width: 72,
+              render: (value: number) => `v${value}`,
+            },
+            {
               title: '状态',
               dataIndex: 'status',
               width: 100,
@@ -440,12 +449,19 @@ export function ProductsPage() {
             },
             {
               title: '操作',
-              width: 180,
+              width: 260,
               render: (_, product) =>
                 canWrite ? (
                   <Space>
                     <Button type="link" onClick={() => openProduct(product)}>
                       编辑
+                    </Button>
+                    <Button
+                      type="link"
+                      onClick={() => setOptimizationProduct(product)}
+                      disabled={product.status === 'ARCHIVED'}
+                    >
+                      AI 优化
                     </Button>
                     <Button
                       type="link"
@@ -595,6 +611,17 @@ export function ProductsPage() {
           </Descriptions>
         ))}
       </Drawer>
+
+      {token && merchantId ? (
+        <ProductOptimizationDrawer
+          open={Boolean(optimizationProduct)}
+          token={token}
+          merchantId={merchantId}
+          product={optimizationProduct}
+          onClose={() => setOptimizationProduct(null)}
+          onApplied={loadProducts}
+        />
+      ) : null}
     </main>
   )
 }

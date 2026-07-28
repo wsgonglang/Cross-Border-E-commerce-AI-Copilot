@@ -39,8 +39,10 @@ interface ProductSource {
   code: string
   title: string
   description: string
+  sellingPoints: unknown
   language: string
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+  version: number
   skus: SkuSource[]
   createdAt: Date
   updatedAt: Date
@@ -94,10 +96,17 @@ export function toSkuSummary(source: SkuSource): SkuSummary {
 export function toProductSummary(source: ProductSource): ProductSummary {
   return {
     ...source,
+    sellingPoints: toStringArray(source.sellingPoints),
     skus: source.skus.map(toSkuSummary),
     createdAt: source.createdAt.toISOString(),
     updatedAt: source.updatedAt.toISOString(),
   }
+}
+
+export function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
 }
 
 export function rethrowUniqueConstraint(

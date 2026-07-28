@@ -60,12 +60,15 @@ function createHarness(provider: AiProvider) {
 describe('AiService', () => {
   it('waits for the streamed assistant message to be persisted', async () => {
     const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
       chat: (_messages, _signal, onChunk) => {
         onChunk?.('优化')
         onChunk?.('完成')
         return Promise.resolve()
       },
       generateTitle: () => Promise.resolve('标题优化'),
+      optimizeProduct: vi.fn(),
     }
     const { service, transaction } = createHarness(provider)
     const chunks: string[] = []
@@ -99,6 +102,8 @@ describe('AiService', () => {
 
   it('persists partial content when generation is stopped', async () => {
     const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
       chat: (_messages, _signal, onChunk) => {
         onChunk?.('部分结果')
         const error = new Error('生成已取消')
@@ -106,6 +111,7 @@ describe('AiService', () => {
         return Promise.reject(error)
       },
       generateTitle: () => Promise.resolve('标题优化'),
+      optimizeProduct: vi.fn(),
     }
     const { service, transaction } = createHarness(provider)
 

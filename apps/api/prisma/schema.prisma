@@ -45,40 +45,52 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum ProductOptimizationStatus {
+  GENERATING
+  DRAFT
+  APPLIED
+  REJECTED
+  ERROR
+}
+
 model User {
-  id            String         @id @default(cuid()) @db.VarChar(30)
-  email         String         @unique @db.VarChar(191)
-  name          String         @db.VarChar(100)
-  passwordHash  String         @map("password_hash") @db.VarChar(255)
-  status        UserStatus     @default(ACTIVE)
-  userRoles     UserRole[]
-  refreshTokens RefreshToken[]
-  loginLogs     LoginLog[]
-  merchantUsers MerchantUser[]
-  aiSessions    AiSession[]
-  auditLogs     AuditLog[]
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  deletedAt     DateTime?      @map("deleted_at")
+  id              String                @id @default(cuid()) @db.VarChar(30)
+  email           String                @unique @db.VarChar(191)
+  name            String                @db.VarChar(100)
+  passwordHash    String                @map("password_hash") @db.VarChar(255)
+  status          UserStatus            @default(ACTIVE)
+  userRoles       UserRole[]
+  refreshTokens   RefreshToken[]
+  loginLogs       LoginLog[]
+  merchantUsers   MerchantUser[]
+  aiSessions      AiSession[]
+  optimizations   ProductOptimization[]
+  productVersions ProductVersion[]
+  auditLogs       AuditLog[]
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  deletedAt       DateTime?             @map("deleted_at")
 
   @@index([status])
   @@map("users")
 }
 
 model Merchant {
-  id              String         @id @default(cuid()) @db.VarChar(30)
-  code            String         @unique @db.VarChar(32)
-  name            String         @db.VarChar(120)
-  status          MerchantStatus @default(ACTIVE)
-  defaultCurrency String         @default("USD") @map("default_currency") @db.Char(3)
+  id              String                @id @default(cuid()) @db.VarChar(30)
+  code            String                @unique @db.VarChar(32)
+  name            String                @db.VarChar(120)
+  status          MerchantStatus        @default(ACTIVE)
+  defaultCurrency String                @default("USD") @map("default_currency") @db.Char(3)
   merchantUsers   MerchantUser[]
   products        Product[]
   skus            Sku[]
   orders          Order[]
   aiSessions      AiSession[]
+  optimizations   ProductOptimization[]
+  productVersions ProductVersion[]
   auditLogs       AuditLog[]
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
 
   @@index([status])
   @@map("merchants")
@@ -97,22 +109,76 @@ model MerchantUser {
 }
 
 model Product {
-  id          String        @id @default(cuid()) @db.VarChar(30)
-  merchantId  String        @map("merchant_id") @db.VarChar(30)
-  code        String        @db.VarChar(64)
-  title       String        @db.VarChar(255)
-  description String        @db.Text
-  language    String        @default("zh-CN") @db.VarChar(16)
-  status      ProductStatus @default(DRAFT)
-  merchant    Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  skus        Sku[]
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  id            String                @id @default(cuid()) @db.VarChar(30)
+  merchantId    String                @map("merchant_id") @db.VarChar(30)
+  code          String                @db.VarChar(64)
+  title         String                @db.VarChar(255)
+  description   String                @db.Text
+  sellingPoints Json                  @default("[]") @map("selling_points")
+  language      String                @default("zh-CN") @db.VarChar(16)
+  status        ProductStatus         @default(DRAFT)
+  version       Int                   @default(1)
+  merchant      Merchant              @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  skus          Sku[]
+  optimizations ProductOptimization[]
+  versions      ProductVersion[]
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
 
   @@unique([merchantId, code])
   @@unique([id, merchantId])
   @@index([merchantId, status, updatedAt])
   @@map("products")
+}
+
+model ProductOptimization {
+  id                 String                    @id @default(cuid()) @db.VarChar(30)
+  merchantId         String                    @map("merchant_id") @db.VarChar(30)
+  productId          String                    @map("product_id") @db.VarChar(30)
+  requestedById      String                    @map("requested_by_id") @db.VarChar(30)
+  status             ProductOptimizationStatus @default(GENERATING)
+  targetLanguage     String                    @map("target_language") @db.VarChar(16)
+  baseProductVersion Int                       @map("base_product_version")
+  sourceData         Json                      @map("source_data")
+  draftData          Json?                     @map("draft_data")
+  providerName       String?                   @map("provider_name") @db.VarChar(64)
+  modelName          String?                   @map("model_name") @db.VarChar(128)
+  promptTokens       Int                       @default(0) @map("prompt_tokens")
+  completionTokens   Int                       @default(0) @map("completion_tokens")
+  totalTokens        Int                       @default(0) @map("total_tokens")
+  error              String?                   @db.VarChar(1000)
+  appliedAt          DateTime?                 @map("applied_at")
+  merchant           Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  product            Product                   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  requestedBy        User                      @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  version            ProductVersion?
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+
+  @@index([merchantId, productId, createdAt])
+  @@index([requestedById, createdAt])
+  @@map("product_optimizations")
+}
+
+model ProductVersion {
+  id             String               @id @default(cuid()) @db.VarChar(30)
+  merchantId     String               @map("merchant_id") @db.VarChar(30)
+  productId      String               @map("product_id") @db.VarChar(30)
+  optimizationId String?              @unique @map("optimization_id") @db.VarChar(30)
+  actorUserId    String               @map("actor_user_id") @db.VarChar(30)
+  version        Int
+  beforeData     Json                 @map("before_data")
+  afterData      Json                 @map("after_data")
+  merchant       Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  product        Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  optimization   ProductOptimization? @relation(fields: [optimizationId], references: [id], onDelete: SetNull)
+  actor          User                 @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  @@unique([productId, version])
+  @@index([merchantId, productId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("product_versions")
 }
 
 model Sku {

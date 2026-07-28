@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 
 import { API_ENVIRONMENT } from '../config/api-config.constants'
-import { MerchantAccessService } from '../commerce/merchant-access.service'
+import { CommerceModule } from '../commerce/commerce.module'
 import { DatabaseModule } from '../database/database.module'
 import { AiChatController } from './ai-chat.controller'
 import { AiSessionsController } from './ai-sessions.controller'
@@ -12,14 +12,20 @@ import {
   MockAiProvider,
   OpenAiProvider,
 } from './ai-provider.service'
+import { ProductOptimizationsController } from './product-optimizations.controller'
+import { ProductOptimizationsService } from './product-optimizations.service'
 
 @Module({
-  imports: [DatabaseModule],
-  controllers: [AiSessionsController, AiChatController],
+  imports: [DatabaseModule, CommerceModule],
+  controllers: [
+    AiSessionsController,
+    AiChatController,
+    ProductOptimizationsController,
+  ],
   providers: [
     AiSessionsService,
     AiService,
-    MerchantAccessService,
+    ProductOptimizationsService,
     {
       provide: AI_PROVIDER,
       inject: [API_ENVIRONMENT],

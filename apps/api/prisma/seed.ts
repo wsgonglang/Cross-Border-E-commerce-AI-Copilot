@@ -141,12 +141,15 @@ async function seed(): Promise<void> {
       code: 'P-DEMO-001',
       title: '便携式多口旅行充电器',
       description: '适合跨境旅行场景的多口 USB 充电器。',
+      sellingPoints: ['多口输出', '便携设计', '适合跨境旅行'],
       language: 'zh-CN',
       status: 'ACTIVE',
     },
     update: {
       title: '便携式多口旅行充电器',
       description: '适合跨境旅行场景的多口 USB 充电器。',
+      sellingPoints: ['多口输出', '便携设计', '适合跨境旅行'],
+      language: 'zh-CN',
       status: 'ACTIVE',
     },
   })
