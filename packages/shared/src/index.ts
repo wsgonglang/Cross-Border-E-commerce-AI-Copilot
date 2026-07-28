@@ -70,3 +70,13 @@ export {
   type BatchTaskSummary,
   type PaginatedBatchTasks,
 } from './batch-task'
+export {
+  RULE_DOCUMENT_SCOPES,
+  RULE_DOCUMENT_STATUSES,
+  type RuleDocumentDetail,
+  type RuleDocumentScope,
+  type RuleDocumentStatus,
+  type RuleDocumentSummary,
+  type RuleSearchResult,
+  type RuleSearchSource,
+} from './rule-knowledge'

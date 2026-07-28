@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  BookOutlined,
   ClusterOutlined,
   LogoutOutlined,
   RobotOutlined,
@@ -71,6 +72,10 @@ export function AppLayout() {
               <NavLink to="/users">
                 <TeamOutlined />
                 用户与权限
+              </NavLink>
+              <NavLink to="/rule-documents">
+                <BookOutlined />
+                规则知识库
               </NavLink>
             </>
           ) : null}

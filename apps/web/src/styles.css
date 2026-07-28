@@ -520,6 +520,39 @@ textarea {
   margin-bottom: 24px;
 }
 
+.rule-toolbar {
+  grid-template-columns: minmax(240px, 360px) minmax(320px, 1fr);
+}
+
+.rule-search-card,
+.rule-document-table {
+  margin-top: 18px;
+}
+
+.rule-search-card .ant-list-item-meta-description p {
+  margin: 8px 0;
+  color: #405b57;
+  line-height: 1.7;
+}
+
+.rule-document-content {
+  margin-top: 20px;
+  padding: 20px;
+  overflow: auto;
+  border-radius: 10px;
+  background: #f7faf9;
+  color: #18302e;
+  font-family: inherit;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.muted-line {
+  margin-top: 4px;
+  color: #6a817d;
+  font-size: 12px;
+}
+
 @media (max-width: 920px) {
   .login-page {
     grid-template-columns: 1fr;

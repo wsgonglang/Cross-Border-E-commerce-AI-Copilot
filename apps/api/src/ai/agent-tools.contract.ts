@@ -91,7 +91,8 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   },
   {
     name: 'search_platform_rules',
-    description: '检索最小演示规则目录并返回来源；信息不足时必须明确说明。',
+    description:
+      '检索当前商家可访问的全局和商家规则文档，返回可追溯引用；信息不足时必须明确说明。',
     parameters: {
       type: 'object',
       additionalProperties: false,

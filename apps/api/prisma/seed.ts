@@ -1,7 +1,9 @@
 import { config } from 'dotenv'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import { hash } from 'bcryptjs'
+import { createHash } from 'node:crypto'
 
+import { chunkRuleContent } from '../src/ai/rule-retrieval'
 import { PrismaClient } from '../src/generated/prisma/client'
 
 config({ path: '../../.env' })
@@ -126,6 +128,112 @@ async function seed(): Promise<void> {
         userId: user.id,
       },
       update: {},
+    })
+  }
+
+  const admin = await prisma.user.findUniqueOrThrow({
+    where: { email: 'admin@copilot.local' },
+    select: { id: true },
+  })
+
+  const ruleDocuments = [
+    {
+      id: 'rule_demo_electric_001',
+      title: '演示平台电器商品发布规范',
+      platform: 'DEMO_MARKETPLACE',
+      sourceUrl: 'https://example.invalid/rules/electrical-products',
+      content: `# 电器商品信息要求
+
+充电器、转换插头等电器商品发布前，运营人员必须核对目标市场适用的插头类型、输入电压、输出功率和安全认证。资料不完整时，不得声称商品已经通过当地认证。
+
+## 标题与详情
+
+标题和详情页不得使用无法验证的“全球通用”“绝对安全”等保证性表述。认证编号和检测结论必须与可追溯资料一致。`,
+    },
+    {
+      id: 'rule_demo_claims_001',
+      title: '演示平台标题与营销声明规范',
+      platform: 'DEMO_MARKETPLACE',
+      sourceUrl: 'https://example.invalid/rules/title-and-claims',
+      content: `# 商品标题
+
+标题应准确描述商品，不得堆砌无关关键词，不得包含无法证明的排名、独家或保证性用语。
+
+## 营销声明
+
+“最好”“第一”“百分百有效”和保证结果等绝对化声明必须有可验证依据；无法提供依据时应删除相关表述。`,
+    },
+    {
+      id: 'rule_demo_battery_001',
+      title: '演示平台含锂电池商品运输资料要求',
+      platform: 'DEMO_MARKETPLACE',
+      sourceUrl: 'https://example.invalid/rules/lithium-battery-shipping',
+      content: `# 锂电池运输
+
+含锂电池商品发货前应核对电池类型、额定能量和运输资料。需要航空运输时，应由运营人员确认适用的 UN38.3 测试摘要和承运人限制。
+
+## 信息不足
+
+无法确认电池参数或运输资料时，不得向买家保证该商品可以通过所有航空渠道运输。`,
+    },
+  ]
+
+  for (const rule of ruleDocuments) {
+    const normalizedContent = rule.content.replace(/\r\n?/g, '\n').trim()
+    const contentHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          merchantId: null,
+          platform: rule.platform,
+          title: rule.title,
+          content: normalizedContent,
+        }),
+      )
+      .digest('hex')
+    const chunks = chunkRuleContent(normalizedContent)
+    await prisma.$transaction(async (transaction) => {
+      await transaction.ruleDocument.upsert({
+        where: { id: rule.id },
+        create: {
+          id: rule.id,
+          merchantId: null,
+          createdById: admin.id,
+          title: rule.title,
+          platform: rule.platform,
+          scope: 'GLOBAL',
+          sourceUrl: rule.sourceUrl,
+          content: normalizedContent,
+          contentHash,
+          chunks: {
+            create: chunks.map((chunk) => ({
+              sequence: chunk.sequence,
+              heading: chunk.heading,
+              content: chunk.content,
+              searchTerms: chunk.searchTerms,
+            })),
+          },
+        },
+        update: {
+          title: rule.title,
+          platform: rule.platform,
+          sourceUrl: rule.sourceUrl,
+          content: normalizedContent,
+          contentHash,
+          status: 'ACTIVE',
+        },
+      })
+      await transaction.ruleChunk.deleteMany({
+        where: { documentId: rule.id },
+      })
+      await transaction.ruleChunk.createMany({
+        data: chunks.map((chunk) => ({
+          documentId: rule.id,
+          sequence: chunk.sequence,
+          heading: chunk.heading,
+          content: chunk.content,
+          searchTerms: chunk.searchTerms,
+        })),
+      })
     })
   }
 

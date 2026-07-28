@@ -69,6 +69,16 @@ enum BatchTaskItemStatus {
   CANCELLED
 }
 
+enum RuleDocumentScope {
+  GLOBAL
+  MERCHANT
+}
+
+enum RuleDocumentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 model User {
   id              String                  @id @default(cuid()) @db.VarChar(30)
   email           String                  @unique @db.VarChar(191)
@@ -84,6 +94,7 @@ model User {
   productVersions ProductVersion[]
   auditLogs       AuditLog[]
   batchTasks      BatchOptimizationTask[]
+  ruleDocuments   RuleDocument[]
   createdAt       DateTime                @default(now()) @map("created_at")
   updatedAt       DateTime                @updatedAt @map("updated_at")
   deletedAt       DateTime?               @map("deleted_at")
@@ -107,6 +118,7 @@ model Merchant {
   productVersions ProductVersion[]
   auditLogs       AuditLog[]
   batchTasks      BatchOptimizationTask[]
+  ruleDocuments   RuleDocument[]
   createdAt       DateTime                @default(now()) @map("created_at")
   updatedAt       DateTime                @updatedAt @map("updated_at")
 
@@ -226,6 +238,45 @@ model BatchOptimizationItem {
   @@index([taskId, status])
   @@index([productId, createdAt])
   @@map("batch_optimization_items")
+}
+
+model RuleDocument {
+  id          String             @id @default(cuid()) @db.VarChar(30)
+  merchantId  String?            @map("merchant_id") @db.VarChar(30)
+  createdById String             @map("created_by_id") @db.VarChar(30)
+  title       String             @db.VarChar(255)
+  platform    String             @db.VarChar(64)
+  scope       RuleDocumentScope
+  sourceUrl   String?            @map("source_url") @db.VarChar(500)
+  content     String             @db.MediumText
+  contentHash String             @map("content_hash") @db.Char(64)
+  status      RuleDocumentStatus @default(ACTIVE)
+  merchant    Merchant?          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  createdBy   User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  chunks      RuleChunk[]
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  @@index([merchantId, status, createdAt])
+  @@index([scope, status, createdAt])
+  @@index([contentHash])
+  @@index([createdById])
+  @@map("rule_documents")
+}
+
+model RuleChunk {
+  id          String       @id @default(cuid()) @db.VarChar(30)
+  documentId  String       @map("document_id") @db.VarChar(30)
+  sequence    Int
+  heading     String?      @db.VarChar(255)
+  content     String       @db.Text
+  searchTerms Json         @map("search_terms")
+  document    RuleDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@unique([documentId, sequence])
+  @@index([documentId])
+  @@map("rule_chunks")
 }
 
 model ProductVersion {

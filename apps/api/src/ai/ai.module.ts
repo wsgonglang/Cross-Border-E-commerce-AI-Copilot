@@ -18,6 +18,7 @@ import {
 import { ProductOptimizationsController } from './product-optimizations.controller'
 import { ProductOptimizationsService } from './product-optimizations.service'
 import { PlatformRulesService } from './platform-rules.service'
+import { RuleDocumentsController } from './rule-documents.controller'
 
 @Module({
   imports: [DatabaseModule, CommerceModule],
@@ -26,6 +27,7 @@ import { PlatformRulesService } from './platform-rules.service'
     AiChatController,
     AgentController,
     ProductOptimizationsController,
+    RuleDocumentsController,
   ],
   providers: [
     AiSessionsService,

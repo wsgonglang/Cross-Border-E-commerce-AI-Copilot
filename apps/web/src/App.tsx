@@ -13,6 +13,7 @@ import { LoginPage } from './pages/login.page'
 import { MerchantsPage } from './pages/merchants.page'
 import { OrdersPage } from './pages/orders.page'
 import { ProductsPage } from './pages/products.page'
+import { RuleDocumentsPage } from './pages/rule-documents.page'
 import { UsersPage } from './pages/users.page'
 import { restoreSession } from './store/auth.slice'
 import { useAppDispatch, useAppSelector } from './store/hooks'
@@ -50,6 +51,7 @@ export function App() {
           </Route>
           <Route element={<RoleRoute allow={['admin']} />}>
             <Route path="merchants" element={<MerchantsPage />} />
+            <Route path="rule-documents" element={<RuleDocumentsPage />} />
             <Route path="users" element={<UsersPage />} />
           </Route>
         </Route>
