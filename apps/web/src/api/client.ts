@@ -1,18 +1,21 @@
 export async function getApiError(response: Response): Promise<string> {
+  const requestId = response.headers.get('x-request-id')
+  const withRequestId = (message: string) =>
+    requestId ? `${message}（请求 ID：${requestId}）` : message
   const payload = (await response.json().catch(() => null)) as unknown
   if (typeof payload === 'object' && payload !== null) {
     const message = (payload as Record<string, unknown>).message
     if (typeof message === 'string') {
-      return message
+      return withRequestId(message)
     }
     if (
       Array.isArray(message) &&
       message.every((item) => typeof item === 'string')
     ) {
-      return message.join('；')
+      return withRequestId(message.join('；'))
     }
   }
-  return `请求失败（${response.status}）`
+  return withRequestId(`请求失败（${response.status}）`)
 }
 
 export async function apiRequest<T>(

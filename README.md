@@ -1,6 +1,6 @@
 # Cross-Border E-commerce AI Copilot
 
-面向跨境电商运营人员的 AI 全栈业务应用。当前已完成融合工程骨架、数据库认证/RBAC、商家商品 SKU 管理、订单与经营看板、AI 会话底座、单商品 AI 优化闭环、受控的 Agent Tool Calling、Redis/BullMQ 批量 AI 任务，以及带权限过滤和引用的最小可靠规则 RAG；后续重点是 Request ID、CI 和交付文档等工程化收尾。
+面向跨境电商运营人员的 AI 全栈业务应用。项目已完成数据库认证/RBAC、商家商品 SKU、订单与看板、AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG，以及 Request ID、CI、Docker 和交付文档。
 
 ## 工程结构
 
@@ -35,6 +35,24 @@ npm run dev:web
 
 API 健康检查地址为 `http://localhost:3000/api/health`，Swagger 文档地址为 `http://localhost:3000/api/docs`。
 
+## 完整 Docker 演示
+
+安装 Docker Desktop 后，可使用一个 profile 构建并启动 MySQL、Redis、数据库迁移、演示种子、API、Worker 和 Web：
+
+```powershell
+docker compose --profile app up --build -d
+docker compose --profile app ps
+```
+
+Web 地址为 `http://localhost:5173`。`migrate` 和 `demo-seed` 是一次性初始化容器；API 只有在两者成功后才启动，Web 会等待 API 健康检查通过。未提供 `OPENAI_API_KEY` 时使用 Mock Provider。
+
+默认执行 `docker compose up -d` 仍只启动 MySQL 和 Redis，适合本地源码开发。Compose 中的密钥和密码仅供演示，不能用于生产环境。
+
+架构取舍和面试演示脚本：
+
+- [架构与关键取舍](docs/architecture.md)
+- [8 分钟面试演示指南](docs/interview-demo.md)
+
 ## 演示账号
 
 执行种子脚本后可使用：
@@ -62,7 +80,7 @@ API 健康检查地址为 `http://localhost:3000/api/health`，Swagger 文档地
 - AI 只生成草稿。运营人员必须在确认框中人工确认后，服务端才会通过 Product Service 写回正式商品；写回使用商品版本做并发冲突校验，并保存前后版本与审计日志；
 - 重复确认同一草稿不会重复修改商品；过期草稿返回 `409`，拒绝草稿不会改动正式商品。Mock Provider 的 Token 用量为 `0`，测试不会调用收费模型。
 - AI 运营助手提供“普通对话”和“业务 Agent”两种模式。业务 Agent 只允许调用服务端白名单工具，模型返回的工具名和参数必须再次经过服务端校验；
-- 当前 Agent 工具包括商品查询、SKU/库存查询、订单状态、今日经营概览、最小规则检索和创建商品优化草稿；
+- 当前 Agent 工具包括商品查询、SKU/库存查询、订单状态、今日经营概览、规则知识库检索和创建商品优化草稿；
 - 所有工具必须调用现有业务 Service，并写入 `AGENT_TOOL_CALL` 审计记录。订单工具只返回运营所需的状态、金额和商品明细，不向模型传递客户邮箱或地址；
 - 创建草稿工具只在用户明确要求“草稿、优化或翻译”时提供给模型，并且每次 Agent 请求最多执行一个草稿工具；Agent 不具备直接修改商品、库存或订单的工具；
 - 规则知识库支持管理员导入 Markdown/纯文本原文，文档按标题和段落确定性切分并保存到 MySQL；文档可设为全局或仅当前商家，归档后不再参与检索；
@@ -110,12 +128,13 @@ Agent Tool Calling 演示步骤：
 ## 验证
 
 ```powershell
-npm run lint
-npm run typecheck
-npm run test
-npm run build
+npm run verify
 ```
 
-当前自动化测试覆盖认证、角色守卫、商家隔离、商品分页隔离、负库存、订单状态机、看板聚合、AI 会话隔离、流式消息持久化、停止生成、三种目标语言结构化校验、Provider 失败落库、人工确认写回、重复确认幂等、商品版本冲突、Agent 工具规划、参数拒绝、工具审计、草稿授权边界、批量任务的商家隔离、幂等、取消、Worker 重试、最终失败与重复投递，以及规则文档导入、确定性切分、作用域过滤、重复拒绝、引用、检索不足和固定 Recall@3 评估。生产构建仍有前端主包体积提示，AI 会话列表仍有 Ant Design `List` 弃用提示，后续阶段将结合路由懒加载和组件升级处理。
+`verify` 会依次执行格式检查、lint、TypeScript、全部测试和生产构建。GitHub Actions 还会在真实 MySQL/Redis 服务上应用 migration，并分别构建 API、Worker、Web Docker target。
+
+API 会接收符合格式的 `X-Request-Id`，否则生成 UUID；响应回传同一个 ID，请求完成后输出不包含查询参数和正文的结构化日志。Web API 错误会附带请求 ID，便于关联排障。
+
+当前自动化测试覆盖认证、角色守卫、商家隔离、商品分页隔离、负库存、订单状态机、看板聚合、AI 会话隔离、流式消息持久化、停止生成、三种目标语言结构化校验、Provider 失败落库、人工确认写回、重复确认幂等、商品版本冲突、Agent 工具规划、参数拒绝、工具审计、草稿授权边界、批量任务的商家隔离、幂等、取消、Worker 重试、最终失败与重复投递、规则 RAG 基础评估，以及 Request ID 和日志注入防护。生产构建仍有前端主包体积提示，后续可结合路由懒加载处理。
 
 截至 2026-07-29，完整 `npm audit` 报告 9 个 high（其中 7 个来自 ESLint/Nest CLI 开发工具链的 `brace-expansion` 公告），`npm audit --omit=dev` 报告 2 个 high，均来自 React Router `7.18.1` 的 RSC Action CSRF 公告。本项目使用普通 `BrowserRouter`，没有启用 RSC 或 Action 请求；当前审计仅提供 `--force` 降级或跨主版本升级方案，因此暂不做破坏性自动修复，后续跟随无破坏性上游版本更新。

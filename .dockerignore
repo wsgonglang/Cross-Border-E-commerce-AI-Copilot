@@ -1,0 +1,13 @@
+.git
+.github
+.tmp
+.env
+.env.*
+!.env.example
+ai-chat
+ecommerce-admin
+node_modules
+**/dist
+**/*.tsbuildinfo
+**/src/generated/prisma
+*.log

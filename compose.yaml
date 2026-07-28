@@ -1,3 +1,14 @@
+x-app-environment: &app-environment
+  DATABASE_URL: mysql://copilot:copilot_dev@mysql:3306/cross_border_copilot
+  REDIS_URL: redis://redis:6379
+  JWT_ACCESS_SECRET: local-docker-secret-change-before-production
+  JWT_ACCESS_TTL_SECONDS: 900
+  REFRESH_TOKEN_TTL_DAYS: 7
+  AUTH_COOKIE_SECURE: 'false'
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.siliconflow.cn/v1}
+  AI_MODEL: ${AI_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+
 services:
   mysql:
     image: mysql:8.4
@@ -35,6 +46,82 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  migrate:
+    profiles: ['app']
+    build:
+      context: .
+      target: api
+    environment:
+      <<: *app-environment
+      NODE_ENV: production
+    command: ['npm', 'run', 'prisma:deploy']
+    depends_on:
+      mysql:
+        condition: service_healthy
+  demo-seed:
+    profiles: ['app']
+    build:
+      context: .
+      target: api
+    environment:
+      <<: *app-environment
+      NODE_ENV: development
+    command: ['npm', 'run', 'prisma:seed']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  api:
+    profiles: ['app']
+    build:
+      context: .
+      target: api
+    environment:
+      <<: *app-environment
+      NODE_ENV: production
+      API_PORT: 3000
+      WEB_ORIGIN: http://localhost:5173
+    ports:
+      - '3000:3000'
+    depends_on:
+      demo-seed:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  worker:
+    profiles: ['app']
+    build:
+      context: .
+      target: worker
+    environment:
+      <<: *app-environment
+      NODE_ENV: production
+      WORKER_NAME: docker-ai-task-worker
+    depends_on:
+      demo-seed:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+  web:
+    profiles: ['app']
+    build:
+      context: .
+      target: web
+    ports:
+      - '5173:80'
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   mysql-data:
