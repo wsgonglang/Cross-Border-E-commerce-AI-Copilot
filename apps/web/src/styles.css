@@ -327,15 +327,41 @@ textarea {
 }
 
 .sidebar nav {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding: 0 4px 18px;
+  scrollbar-color: rgb(255 255 255 / 18%) transparent;
+}
+
+.sidebar-nav-group {
   display: grid;
   gap: 7px;
 }
 
-.sidebar nav a {
+.sidebar-nav-heading {
+  padding: 0 12px;
+  color: #62938c;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sidebar-nav-links {
+  display: grid;
+  gap: 5px;
+}
+
+.sidebar-nav-links a {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  min-height: 40px;
+  padding: 9px 12px;
   border-radius: 10px;
   color: #a9ccc7;
   text-decoration: none;
@@ -344,10 +370,19 @@ textarea {
     background 160ms ease;
 }
 
-.sidebar nav a:hover,
-.sidebar nav a.active {
+.sidebar-nav-links a:hover,
+.sidebar-nav-links a.active {
   color: #fff;
   background: rgb(255 255 255 / 9%);
+}
+
+.sidebar-nav-links a.active {
+  box-shadow: inset 3px 0 #62d7c7;
+}
+
+.sidebar-nav-links a svg {
+  flex: 0 0 auto;
+  font-size: 16px;
 }
 
 .sidebar-user {
@@ -587,7 +622,13 @@ textarea {
   }
 
   .sidebar nav {
-    grid-template-columns: repeat(2, 1fr);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .sidebar-nav-group {
+    align-content: start;
   }
 
   .sidebar-user {
@@ -596,6 +637,10 @@ textarea {
 }
 
 @media (max-width: 680px) {
+  .sidebar nav {
+    grid-template-columns: 1fr;
+  }
+
   .login-story,
   .login-panel {
     padding: 28px;
