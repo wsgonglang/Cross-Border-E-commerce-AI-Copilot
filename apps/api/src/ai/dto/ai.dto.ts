@@ -2,8 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import {
   IsArray,
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
   IsBoolean,
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -109,4 +113,57 @@ export class AiSessionQueryDto {
   @IsNotEmpty()
   @MaxLength(100)
   keyword?: string
+
+  @ApiPropertyOptional({ enum: ['true', 'false'], default: 'false' })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  archived?: 'true' | 'false'
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  groupId?: string
+}
+
+export class FavoriteAiMessageDto {
+  @ApiProperty()
+  @IsBoolean()
+  favorited!: boolean
+}
+
+export class LinkAiMessageDto {
+  @ApiProperty({ enum: ['PRODUCT', 'ORDER'] })
+  @IsIn(['PRODUCT', 'ORDER'])
+  entityType!: 'PRODUCT' | 'ORDER'
+
+  @ApiProperty({ description: '商品编码或订单号' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(64)
+  entityReference!: string
+}
+
+export class AiSessionExportQueryDto {
+  @ApiPropertyOptional({ enum: ['markdown', 'json'], default: 'markdown' })
+  @IsIn(['markdown', 'json'])
+  format: 'markdown' | 'json' = 'markdown'
+}
+
+export class CreateAiSessionShareDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @ArrayUnique()
+  @IsString({ each: true })
+  recipientUserIds!: string[]
+
+  @ApiPropertyOptional({ default: 24, minimum: 1, maximum: 168 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(168)
+  expiresInHours = 24
 }

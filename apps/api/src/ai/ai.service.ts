@@ -189,9 +189,12 @@ export class AiService {
     try {
       const title = await this.aiProvider.generateTitle(history)
       if (title) {
-        await this.sessionsService.update(user, merchantId, sessionId, {
+        await this.sessionsService.updateTitleIfDefault(
+          user,
+          merchantId,
+          sessionId,
           title,
-        })
+        )
       }
     } catch {
       // Non-critical

@@ -620,7 +620,7 @@ textarea {
 .ai-chat-layout {
   display: grid;
   height: calc(100vh - 0px);
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 310px minmax(0, 1fr);
   background: #edf3f1;
 }
 
@@ -635,6 +635,9 @@ textarea {
 }
 
 .ai-chat-sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -655,6 +658,15 @@ textarea {
   transition: background 0.15s;
 }
 
+.session-pin,
+.favorite-active {
+  color: #dc5a77;
+}
+
+.session-title {
+  max-width: 170px;
+}
+
 .ai-chat-session-list .ant-list-item:hover {
   background: #f4faf8;
 }
@@ -667,6 +679,10 @@ textarea {
 }
 
 .ai-assistant-mode {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
   padding: 12px 16px 0;
   background: #fff;
 }
@@ -874,6 +890,44 @@ textarea {
   box-shadow: 0 2px 6px rgb(41 75 70 / 6%);
 }
 
+.ai-chat-message-content {
+  min-width: 0;
+  max-width: min(800px, calc(100vw - 440px));
+}
+
+.ai-message-actions {
+  margin-top: 4px;
+  opacity: 0.72;
+}
+
+.ai-chat-message-user .ai-message-actions {
+  justify-content: flex-end;
+}
+
+.message-business-links {
+  margin-top: 6px;
+}
+
+.modal-form {
+  margin-top: 16px;
+}
+
+.shared-session-page {
+  max-width: 1100px;
+}
+
+.shared-session-page > .ant-alert {
+  margin-bottom: 18px;
+}
+
+.shared-session-card .ai-chat-message {
+  max-width: 900px;
+}
+
+.shared-session-card .ai-chat-message-content {
+  max-width: min(760px, calc(100vw - 260px));
+}
+
 .ai-chat-message-user .ai-chat-bubble {
   background: #0f766e;
   color: #fff;
@@ -907,5 +961,10 @@ textarea {
 
   .ai-chat-sidebar {
     display: none;
+  }
+
+  .ai-chat-message-content,
+  .shared-session-card .ai-chat-message-content {
+    max-width: calc(100vw - 120px);
   }
 }

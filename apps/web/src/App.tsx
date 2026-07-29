@@ -8,6 +8,7 @@ import { BusinessContextProvider } from './contexts/business-context'
 import { AppLayout } from './layouts/app-layout'
 import { AiChatPage } from './pages/ai-chat.page'
 import { AiResultsPage } from './pages/ai-results.page'
+import { AiSharePage } from './pages/ai-share.page'
 import { BatchTasksPage } from './pages/batch-tasks.page'
 import { DashboardPage } from './pages/dashboard.page'
 import { ForbiddenPage } from './pages/forbidden.page'
@@ -54,6 +55,7 @@ export function App() {
           <Route path="orders" element={<OrdersPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="403" element={<ForbiddenPage />} />
+          <Route path="ai-shares/:shareId" element={<AiSharePage />} />
           <Route element={<RoleRoute allow={['admin', 'operator']} />}>
             <Route path="ai-chat" element={<AiChatPage />} />
             <Route path="ai-results" element={<AiResultsPage />} />

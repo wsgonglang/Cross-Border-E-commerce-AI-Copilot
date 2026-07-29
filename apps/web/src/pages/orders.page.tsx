@@ -11,6 +11,7 @@ import {
   Tag,
 } from 'antd'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import type {
   OrderStatus,
@@ -51,6 +52,7 @@ function canAct(role: string, minRole: string): boolean {
 }
 
 export function OrdersPage() {
+  const [searchParams] = useSearchParams()
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const user = useAppSelector((state) => state.auth.user)
   const role = user?.roles.includes('admin')
@@ -68,7 +70,7 @@ export function OrdersPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [status, setStatus] = useState<OrderStatus | undefined>(undefined)
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState(searchParams.get('keyword') ?? '')
 
   // Detail modal
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null)

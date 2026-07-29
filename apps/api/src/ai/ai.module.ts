@@ -10,6 +10,8 @@ import { AgentToolsService } from './agent-tools.service'
 import { AiChatController } from './ai-chat.controller'
 import { AiSessionsController } from './ai-sessions.controller'
 import { AiSessionsService } from './ai-sessions.service'
+import { AiSessionSharesController } from './ai-session-shares.controller'
+import { AiSessionSharesService } from './ai-session-shares.service'
 import { AiService } from './ai.service'
 import {
   AI_PROVIDER,
@@ -27,6 +29,7 @@ import { AiResultsService } from './ai-results.service'
   imports: [DatabaseModule, CommerceModule],
   controllers: [
     AiSessionsController,
+    AiSessionSharesController,
     AiChatController,
     AgentController,
     AiResultsController,
@@ -35,6 +38,7 @@ import { AiResultsService } from './ai-results.service'
   ],
   providers: [
     AiSessionsService,
+    AiSessionSharesService,
     AiService,
     AgentService,
     AgentRunsService,

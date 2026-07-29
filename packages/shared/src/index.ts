@@ -52,12 +52,17 @@ export {
 export {
   type AiChatMessage,
   type AiMessage,
+  type AiMessageLink,
+  type AiMessageLinkType,
   type AiMessageRevision,
   type AiRole,
   type AiSessionDetail,
   type AiSessionStatus,
   type AiSessionSummary,
   type AiTitleResponse,
+  type AiShareCandidate,
+  type AiSessionShareSummary,
+  type AiSharedSession,
 } from './ai-chat'
 export {
   AGENT_TOOL_NAMES,

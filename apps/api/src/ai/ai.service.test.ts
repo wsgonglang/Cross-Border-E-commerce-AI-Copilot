@@ -48,6 +48,7 @@ function createHarness(provider: AiProvider) {
     get: vi.fn().mockResolvedValue({ id: 'session-1' }),
     create: vi.fn(),
     update: vi.fn().mockResolvedValue(undefined),
+    updateTitleIfDefault: vi.fn().mockResolvedValue(true),
   }
   const service = new AiService(
     prisma as unknown as PrismaService,

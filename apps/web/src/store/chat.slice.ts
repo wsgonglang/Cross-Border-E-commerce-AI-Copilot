@@ -72,6 +72,7 @@ const chatSlice = createSlice({
         content,
         parentId,
         childrenIds: [],
+        links: [],
         createdAt: new Date().toISOString(),
       })
     },

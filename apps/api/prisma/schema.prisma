@@ -98,25 +98,28 @@ enum AgentRunStatus {
 }
 
 model User {
-  id              String                  @id @default(cuid()) @db.VarChar(30)
-  email           String                  @unique @db.VarChar(191)
-  name            String                  @db.VarChar(100)
-  passwordHash    String                  @map("password_hash") @db.VarChar(255)
-  status          UserStatus              @default(ACTIVE)
-  userRoles       UserRole[]
-  refreshTokens   RefreshToken[]
-  loginLogs       LoginLog[]
-  merchantUsers   MerchantUser[]
-  aiSessions      AiSession[]
-  optimizations   ProductOptimization[]
-  productVersions ProductVersion[]
-  auditLogs       AuditLog[]
-  batchTasks      BatchOptimizationTask[]
-  ruleDocuments   RuleDocument[]
-  agentRuns       AgentRun[]
-  createdAt       DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
-  deletedAt       DateTime?               @map("deleted_at")
+  id                     String                    @id @default(cuid()) @db.VarChar(30)
+  email                  String                    @unique @db.VarChar(191)
+  name                   String                    @db.VarChar(100)
+  passwordHash           String                    @map("password_hash") @db.VarChar(255)
+  status                 UserStatus                @default(ACTIVE)
+  userRoles              UserRole[]
+  refreshTokens          RefreshToken[]
+  loginLogs              LoginLog[]
+  merchantUsers          MerchantUser[]
+  aiSessions             AiSession[]
+  optimizations          ProductOptimization[]
+  productVersions        ProductVersion[]
+  auditLogs              AuditLog[]
+  batchTasks             BatchOptimizationTask[]
+  ruleDocuments          RuleDocument[]
+  agentRuns              AgentRun[]
+  createdSessionShares   AiSessionShare[]          @relation("SessionShareCreator")
+  sessionShareRecipients AiSessionShareRecipient[]
+  aiMessageLinks         AiMessageLink[]
+  createdAt              DateTime                  @default(now()) @map("created_at")
+  updatedAt              DateTime                  @updatedAt @map("updated_at")
+  deletedAt              DateTime?                 @map("deleted_at")
 
   @@index([status])
   @@map("users")
@@ -139,6 +142,7 @@ model Merchant {
   batchTasks      BatchOptimizationTask[]
   ruleDocuments   RuleDocument[]
   agentRuns       AgentRun[]
+  aiSessionShares AiSessionShare[]
   createdAt       DateTime                @default(now()) @map("created_at")
   updatedAt       DateTime                @updatedAt @map("updated_at")
   stores          Store[]
@@ -442,40 +446,98 @@ enum AiSessionStatus {
 }
 
 model AiSession {
-  id         String          @id @default(cuid()) @db.VarChar(30)
-  merchantId String          @map("merchant_id") @db.VarChar(30)
-  userId     String          @map("user_id") @db.VarChar(30)
-  title      String          @db.VarChar(255)
-  status     AiSessionStatus @default(IDLE)
-  error      String?         @db.VarChar(500)
-  pinned     Boolean         @default(false)
-  groupId    String?         @map("group_id") @db.VarChar(30)
-  merchant   Merchant        @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  user       User            @relation(fields: [userId], references: [id], onDelete: Restrict)
-  messages   AiMessage[]
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id           String           @id @default(cuid()) @db.VarChar(30)
+  merchantId   String           @map("merchant_id") @db.VarChar(30)
+  userId       String           @map("user_id") @db.VarChar(30)
+  title        String           @db.VarChar(255)
+  status       AiSessionStatus  @default(IDLE)
+  error        String?          @db.VarChar(500)
+  pinned       Boolean          @default(false)
+  groupId      String?          @map("group_id") @db.VarChar(30)
+  archivedAt   DateTime?        @map("archived_at")
+  merchant     Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages     AiMessage[]
+  shares       AiSessionShare[]
+  messageLinks AiMessageLink[]
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
 
-  @@index([merchantId, userId, updatedAt])
+  @@index([merchantId, userId, archivedAt, updatedAt])
   @@index([userId])
   @@map("ai_sessions")
 }
 
 model AiMessage {
-  id           String    @id @default(cuid()) @db.VarChar(30)
-  sessionId    String    @map("session_id") @db.VarChar(30)
-  role         String    @db.VarChar(16)
-  content      String    @db.MediumText
-  parentId     String?   @map("parent_id") @db.VarChar(30)
-  childrenIds  Json      @default("[]") @map("children_ids")
-  revisionJson Json?     @map("revision_json")
-  revisionIdx  Int       @default(0) @map("revision_idx")
-  session      AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id           String          @id @default(cuid()) @db.VarChar(30)
+  sessionId    String          @map("session_id") @db.VarChar(30)
+  role         String          @db.VarChar(16)
+  content      String          @db.MediumText
+  parentId     String?         @map("parent_id") @db.VarChar(30)
+  childrenIds  Json            @default("[]") @map("children_ids")
+  revisionJson Json?           @map("revision_json")
+  revisionIdx  Int             @default(0) @map("revision_idx")
+  favorited    Boolean         @default(false)
+  session      AiSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  links        AiMessageLink[]
+  createdAt    DateTime        @default(now()) @map("created_at")
 
   @@index([sessionId, createdAt])
   @@index([sessionId, parentId])
   @@map("ai_messages")
+}
+
+model AiMessageLink {
+  id          String    @id @default(cuid()) @db.VarChar(30)
+  sessionId   String    @map("session_id") @db.VarChar(30)
+  messageId   String    @map("message_id") @db.VarChar(30)
+  createdById String    @map("created_by_id") @db.VarChar(30)
+  entityType  String    @map("entity_type") @db.VarChar(24)
+  entityId    String    @map("entity_id") @db.VarChar(30)
+  entityCode  String    @map("entity_code") @db.VarChar(64)
+  entityLabel String    @map("entity_label") @db.VarChar(255)
+  session     AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  message     AiMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([messageId, entityType, entityId])
+  @@index([sessionId, createdAt])
+  @@map("ai_message_links")
+}
+
+model AiSessionShare {
+  id          String                    @id @default(cuid()) @db.VarChar(30)
+  merchantId  String                    @map("merchant_id") @db.VarChar(30)
+  sessionId   String                    @map("session_id") @db.VarChar(30)
+  createdById String                    @map("created_by_id") @db.VarChar(30)
+  title       String                    @db.VarChar(255)
+  snapshot    Json
+  expiresAt   DateTime                  @map("expires_at")
+  revokedAt   DateTime?                 @map("revoked_at")
+  merchant    Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  session     AiSession                 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy   User                      @relation("SessionShareCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  recipients  AiSessionShareRecipient[]
+  createdAt   DateTime                  @default(now()) @map("created_at")
+  updatedAt   DateTime                  @updatedAt @map("updated_at")
+
+  @@index([merchantId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([expiresAt, revokedAt])
+  @@map("ai_session_shares")
+}
+
+model AiSessionShareRecipient {
+  shareId   String         @map("share_id") @db.VarChar(30)
+  userId    String         @map("user_id") @db.VarChar(30)
+  share     AiSessionShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@id([shareId, userId])
+  @@index([userId, createdAt])
+  @@map("ai_session_share_recipients")
 }
 
 model AgentRun {

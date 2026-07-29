@@ -1,11 +1,22 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
-import type { AiSessionSummary } from '@cross-border/shared'
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
+import type {
+  AiMessage,
+  AiMessageLink,
+  AiSessionDetail,
+  AiSessionSummary,
+} from '@cross-border/shared'
 
 import { PrismaService } from '../database/prisma.service'
 import { MerchantAccessService } from '../commerce/merchant-access.service'
+import { asJson } from '../commerce/commerce.utils'
 import type {
   AiSessionQueryDto,
   CreateAiSessionDto,
+  LinkAiMessageDto,
   UpdateAiSessionDto,
 } from './dto/ai.dto'
 import type { AuthenticatedUser } from '@cross-border/shared'
@@ -13,6 +24,16 @@ import type { AuthenticatedUser } from '@cross-border/shared'
 const sessionInclude = {
   _count: { select: { messages: true } },
 } as const
+
+export function redactSensitiveText(content: string): string {
+  return content
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[邮箱已脱敏]')
+    .replace(/(?:\+?\d[\d\s-]{7,}\d)/g, '[电话已脱敏]')
+    .replace(
+      /((?:收货|配送|shipping)\s*(?:地址|address)?\s*[:：]\s*)[^\n]+/gi,
+      '$1[地址已脱敏]',
+    )
+}
 
 @Injectable()
 export class AiSessionsService {
@@ -30,15 +51,20 @@ export class AiSessionsService {
     const where: Record<string, unknown> = {
       merchantId,
       userId: user.id,
+      archivedAt: query.archived === 'true' ? { not: null } : null,
     }
     if (query.keyword) {
-      where.title = { contains: query.keyword }
+      where.OR = [
+        { title: { contains: query.keyword } },
+        { messages: { some: { content: { contains: query.keyword } } } },
+      ]
     }
+    if (query.groupId) where.groupId = query.groupId
     const [sessions, total] = await this.prisma.$transaction([
       this.prisma.aiSession.findMany({
         where,
         include: sessionInclude,
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ pinned: 'desc' }, { updatedAt: 'desc' }],
         skip: Math.max(0, ((query.page ?? 1) - 1) * (query.pageSize ?? 50)),
         take: Math.min(200, query.pageSize ?? 50),
       }),
@@ -46,19 +72,7 @@ export class AiSessionsService {
     ])
 
     return {
-      items: sessions.map((s) => ({
-        id: s.id,
-        merchantId: s.merchantId,
-        userId: s.userId,
-        title: s.title,
-        status: s.status.toLowerCase() as AiSessionSummary['status'],
-        error: s.error ?? undefined,
-        pinned: s.pinned,
-        groupId: s.groupId ?? undefined,
-        messageCount: s._count.messages,
-        createdAt: s.createdAt.toISOString(),
-        updatedAt: s.updatedAt.toISOString(),
-      })),
+      items: sessions.map((session) => this.toSummary(session)),
       total,
     }
   }
@@ -67,13 +81,16 @@ export class AiSessionsService {
     user: AuthenticatedUser,
     merchantId: string,
     sessionId: string,
-  ): Promise<import('@cross-border/shared').AiSessionDetail> {
+  ): Promise<AiSessionDetail> {
     await this.merchantAccess.assertAccess(user, merchantId)
     const session = await this.prisma.aiSession.findFirst({
       where: { id: sessionId, merchantId, userId: user.id },
       include: {
         ...sessionInclude,
-        messages: { orderBy: { createdAt: 'asc' } },
+        messages: {
+          include: { links: { orderBy: { createdAt: 'asc' } } },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     })
     if (!session) {
@@ -91,17 +108,8 @@ export class AiSessionsService {
       messageCount: session._count.messages,
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
-      messages: session.messages.map((m) => ({
-        id: m.id,
-        sessionId: m.sessionId,
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-        parentId: m.parentId ?? undefined,
-        childrenIds: this.toStringArray(m.childrenIds),
-        revisions: this.toRevisions(m.revisionJson),
-        createdAt: m.createdAt.toISOString(),
-        revisionIndex: m.revisionIdx,
-      })),
+      archivedAt: session.archivedAt?.toISOString(),
+      messages: session.messages.map((message) => this.toMessage(message)),
     }
   }
 
@@ -120,18 +128,7 @@ export class AiSessionsService {
       },
       include: sessionInclude,
     })
-    return {
-      id: session.id,
-      merchantId: session.merchantId,
-      userId: session.userId,
-      title: session.title,
-      status: 'idle',
-      pinned: session.pinned,
-      groupId: session.groupId ?? undefined,
-      messageCount: session._count.messages,
-      createdAt: session.createdAt.toISOString(),
-      updatedAt: session.updatedAt.toISOString(),
-    }
+    return this.toSummary(session)
   }
 
   async update(
@@ -157,25 +154,33 @@ export class AiSessionsService {
       },
       include: sessionInclude,
     })
-    return {
-      id: updated.id,
-      merchantId: updated.merchantId,
-      userId: updated.userId,
-      title: updated.title,
-      status: updated.status.toLowerCase() as AiSessionSummary['status'],
-      pinned: updated.pinned,
-      groupId: updated.groupId ?? undefined,
-      messageCount: updated._count.messages,
-      createdAt: updated.createdAt.toISOString(),
-      updatedAt: updated.updatedAt.toISOString(),
-    }
+    return this.toSummary(updated)
+  }
+
+  async updateTitleIfDefault(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    title: string,
+  ): Promise<boolean> {
+    await this.merchantAccess.assertAccess(user, merchantId)
+    const result = await this.prisma.aiSession.updateMany({
+      where: {
+        id: sessionId,
+        merchantId,
+        userId: user.id,
+        title: 'AI 对话',
+      },
+      data: { title },
+    })
+    return result.count === 1
   }
 
   async remove(
     user: AuthenticatedUser,
     merchantId: string,
     sessionId: string,
-  ): Promise<void> {
+  ): Promise<{ deleted: true }> {
     await this.merchantAccess.assertAccess(user, merchantId)
     const current = await this.prisma.aiSession.findFirst({
       where: { id: sessionId, merchantId, userId: user.id },
@@ -183,7 +188,291 @@ export class AiSessionsService {
     if (!current) {
       throw new NotFoundException('会话不存在')
     }
+    if (!current.archivedAt) {
+      throw new BadRequestException('请先归档会话，再执行永久删除')
+    }
     await this.prisma.aiSession.delete({ where: { id: sessionId } })
+    return { deleted: true }
+  }
+
+  async setArchived(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    archived: boolean,
+  ): Promise<AiSessionSummary> {
+    await this.merchantAccess.assertAccess(user, merchantId)
+    const current = await this.prisma.aiSession.findFirst({
+      where: { id: sessionId, merchantId, userId: user.id },
+      include: sessionInclude,
+    })
+    if (!current) throw new NotFoundException('会话不存在')
+    const archivedAt = archived ? new Date() : null
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const session = await transaction.aiSession.update({
+        where: { id: sessionId },
+        data: { archivedAt, ...(archived ? { pinned: false } : {}) },
+        include: sessionInclude,
+      })
+      await transaction.auditLog.create({
+        data: {
+          merchantId,
+          actorUserId: user.id,
+          entityType: 'AI_SESSION',
+          entityId: sessionId,
+          action: archived ? 'ARCHIVE' : 'RESTORE',
+          beforeData: asJson({ archivedAt: current.archivedAt }),
+          afterData: asJson({ archivedAt }),
+        },
+      })
+      return session
+    })
+    return this.toSummary(updated)
+  }
+
+  async favoriteMessage(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    messageId: string,
+    favorited: boolean,
+  ): Promise<AiMessage> {
+    await this.assertOwnedSession(user, merchantId, sessionId)
+    const current = await this.prisma.aiMessage.findFirst({
+      where: { id: messageId, sessionId },
+      include: { links: { orderBy: { createdAt: 'asc' } } },
+    })
+    if (!current) throw new NotFoundException('消息不存在')
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const message = await transaction.aiMessage.update({
+        where: { id: messageId },
+        data: { favorited },
+        include: { links: { orderBy: { createdAt: 'asc' } } },
+      })
+      await transaction.auditLog.create({
+        data: {
+          merchantId,
+          actorUserId: user.id,
+          entityType: 'AI_MESSAGE',
+          entityId: messageId,
+          action: favorited ? 'FAVORITE' : 'UNFAVORITE',
+          afterData: asJson({ sessionId, favorited }),
+        },
+      })
+      return message
+    })
+    return this.toMessage(updated)
+  }
+
+  async linkMessage(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    messageId: string,
+    dto: LinkAiMessageDto,
+  ): Promise<AiMessageLink> {
+    await this.assertOwnedSession(user, merchantId, sessionId)
+    const message = await this.prisma.aiMessage.findFirst({
+      where: { id: messageId, sessionId },
+      select: { id: true },
+    })
+    if (!message) throw new NotFoundException('消息不存在')
+
+    const entity =
+      dto.entityType === 'PRODUCT'
+        ? await this.prisma.product.findFirst({
+            where: { merchantId, code: dto.entityReference },
+            select: { id: true, code: true, title: true },
+          })
+        : await this.prisma.order.findFirst({
+            where: { merchantId, orderNo: dto.entityReference },
+            select: { id: true, orderNo: true },
+          })
+    if (!entity) throw new NotFoundException('业务对象不存在')
+    const entityCode = 'code' in entity ? entity.code : entity.orderNo
+    const entityLabel =
+      'title' in entity ? `${entity.code} · ${entity.title}` : entity.orderNo
+
+    const link = await this.prisma.$transaction(async (transaction) => {
+      const created = await transaction.aiMessageLink.upsert({
+        where: {
+          messageId_entityType_entityId: {
+            messageId,
+            entityType: dto.entityType,
+            entityId: entity.id,
+          },
+        },
+        create: {
+          sessionId,
+          messageId,
+          createdById: user.id,
+          entityType: dto.entityType,
+          entityId: entity.id,
+          entityCode,
+          entityLabel,
+        },
+        update: { entityCode, entityLabel },
+      })
+      await transaction.auditLog.create({
+        data: {
+          merchantId,
+          actorUserId: user.id,
+          entityType: 'AI_MESSAGE_LINK',
+          entityId: created.id,
+          action: 'LINK',
+          afterData: asJson({
+            sessionId,
+            messageId,
+            entityType: dto.entityType,
+            entityId: entity.id,
+            entityCode,
+          }),
+        },
+      })
+      return created
+    })
+    return this.toLink(link)
+  }
+
+  async export(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    format: 'markdown' | 'json',
+  ): Promise<{ filename: string; contentType: string; content: string }> {
+    const session = await this.get(user, merchantId, sessionId)
+    const messages = session.messages.map((message) => ({
+      role: message.role,
+      content: redactSensitiveText(message.content),
+      createdAt: message.createdAt,
+    }))
+    const safeTitle = session.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80)
+    if (format === 'json') {
+      return {
+        filename: `${safeTitle || 'ai-session'}.json`,
+        contentType: 'application/json; charset=utf-8',
+        content: JSON.stringify(
+          {
+            title: session.title,
+            createdAt: session.createdAt,
+            exportedAt: new Date().toISOString(),
+            messages,
+          },
+          null,
+          2,
+        ),
+      }
+    }
+    return {
+      filename: `${safeTitle || 'ai-session'}.md`,
+      contentType: 'text/markdown; charset=utf-8',
+      content: [
+        `# ${session.title}`,
+        '',
+        ...messages.flatMap((message) => [
+          `## ${message.role === 'user' ? '用户' : message.role === 'assistant' ? 'AI 助手' : '系统'}`,
+          '',
+          message.content,
+          '',
+        ]),
+      ].join('\n'),
+    }
+  }
+
+  private async assertOwnedSession(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+  ): Promise<void> {
+    await this.merchantAccess.assertAccess(user, merchantId)
+    const session = await this.prisma.aiSession.findFirst({
+      where: { id: sessionId, merchantId, userId: user.id },
+      select: { id: true },
+    })
+    if (!session) throw new NotFoundException('会话不存在')
+  }
+
+  private toSummary(session: {
+    id: string
+    merchantId: string
+    userId: string
+    title: string
+    status: string
+    error: string | null
+    pinned: boolean
+    groupId: string | null
+    archivedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    _count: { messages: number }
+  }): AiSessionSummary {
+    return {
+      id: session.id,
+      merchantId: session.merchantId,
+      userId: session.userId,
+      title: session.title,
+      status: session.status.toLowerCase() as AiSessionSummary['status'],
+      error: session.error ?? undefined,
+      pinned: session.pinned,
+      groupId: session.groupId ?? undefined,
+      archivedAt: session.archivedAt?.toISOString(),
+      messageCount: session._count.messages,
+      createdAt: session.createdAt.toISOString(),
+      updatedAt: session.updatedAt.toISOString(),
+    }
+  }
+
+  private toMessage(message: {
+    id: string
+    sessionId: string
+    role: string
+    content: string
+    parentId: string | null
+    childrenIds: unknown
+    revisionJson: unknown
+    revisionIdx: number
+    favorited: boolean
+    createdAt: Date
+    links: Array<{
+      id: string
+      entityType: string
+      entityId: string
+      entityCode: string
+      entityLabel: string
+      createdAt: Date
+    }>
+  }): AiMessage {
+    return {
+      id: message.id,
+      sessionId: message.sessionId,
+      role: message.role as AiMessage['role'],
+      content: message.content,
+      parentId: message.parentId ?? undefined,
+      childrenIds: this.toStringArray(message.childrenIds),
+      revisions: this.toRevisions(message.revisionJson),
+      revisionIndex: message.revisionIdx,
+      favorited: message.favorited,
+      links: message.links.map((link) => this.toLink(link)),
+      createdAt: message.createdAt.toISOString(),
+    }
+  }
+
+  private toLink(link: {
+    id: string
+    entityType: string
+    entityId: string
+    entityCode: string
+    entityLabel: string
+    createdAt: Date
+  }): AiMessageLink {
+    return {
+      id: link.id,
+      entityType: link.entityType as AiMessageLink['entityType'],
+      entityId: link.entityId,
+      entityCode: link.entityCode,
+      entityLabel: link.entityLabel,
+      createdAt: link.createdAt.toISOString(),
+    }
   }
 
   private toStringArray(value: unknown): string[] {
