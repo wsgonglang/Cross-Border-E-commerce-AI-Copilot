@@ -72,7 +72,8 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   },
   {
     name: 'get_order_status',
-    description: '按订单号查询当前商家的订单状态和订单明细。',
+    description:
+      '按订单号查询当前商家的生命周期、支付、履约、物流状态和商品明细；不会返回客户邮箱、电话或完整地址。',
     parameters: {
       type: 'object',
       additionalProperties: false,

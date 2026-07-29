@@ -147,8 +147,22 @@ export class AgentToolsService {
           id: order.id,
           orderNo: order.orderNo,
           status: order.status,
+          paymentStatus: order.paymentStatus,
+          fulfillmentStatus: order.fulfillmentStatus,
           totalAmount: order.totalAmount,
+          refundAmount: order.refundAmount,
           currency: order.currency,
+          store: order.store
+            ? {
+                code: order.store.code,
+                name: order.store.name,
+                platform: order.store.platform,
+              }
+            : null,
+          logistics: {
+            carrier: order.carrier,
+            trackingNumber: order.trackingNumber,
+          },
           items: order.items.map((item) => ({
             productName: item.productName,
             skuName: item.skuName,

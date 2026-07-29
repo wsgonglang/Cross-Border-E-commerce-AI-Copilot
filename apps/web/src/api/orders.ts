@@ -6,6 +6,13 @@ import type {
   OrderStatus,
   OrderSummary,
   OperationsDashboard,
+  OrderBulkAction,
+  OrderBulkOperationResult,
+  OrderFilters,
+  OrderSavedView,
+  OrderSortField,
+  OrderSortOrder,
+  OrderViewColumn,
   PaginatedOrders,
 } from '@cross-border/shared'
 
@@ -18,18 +25,95 @@ export function getOrders(
     page: number
     pageSize: number
     status?: OrderStatus
-    keyword?: string
-    storeId?: string
-  },
+    sortBy?: OrderSortField
+    sortOrder?: OrderSortOrder
+  } & OrderFilters,
 ): Promise<PaginatedOrders> {
   const query = new URLSearchParams({
     page: String(params.page),
     pageSize: String(params.pageSize),
   })
   if (params.status) query.set('status', params.status)
+  if (params.statuses?.length) query.set('statuses', params.statuses.join(','))
+  if (params.paymentStatuses?.length)
+    query.set('paymentStatuses', params.paymentStatuses.join(','))
+  if (params.fulfillmentStatuses?.length)
+    query.set('fulfillmentStatuses', params.fulfillmentStatuses.join(','))
   if (params.keyword) query.set('keyword', params.keyword)
   if (params.storeId) query.set('storeId', params.storeId)
+  if (params.startDate) query.set('startDate', params.startDate)
+  if (params.endDate) query.set('endDate', params.endDate)
+  if (params.minAmount) query.set('minAmount', params.minAmount)
+  if (params.maxAmount) query.set('maxAmount', params.maxAmount)
+  if (params.sortBy) query.set('sortBy', params.sortBy)
+  if (params.sortOrder) query.set('sortOrder', params.sortOrder)
   return apiRequest(token, `/api/merchants/${merchantId}/orders?${query}`)
+}
+
+export interface OrderSavedViewInput extends OrderFilters {
+  name: string
+  sortBy?: OrderSortField
+  sortOrder?: OrderSortOrder
+  columns?: OrderViewColumn[]
+  isDefault?: boolean
+}
+
+export function getOrderSavedViews(
+  token: string,
+  merchantId: string,
+): Promise<OrderSavedView[]> {
+  return apiRequest(token, `/api/merchants/${merchantId}/orders/saved-views`)
+}
+
+export function createOrderSavedView(
+  token: string,
+  merchantId: string,
+  input: OrderSavedViewInput,
+): Promise<OrderSavedView> {
+  return apiRequest(token, `/api/merchants/${merchantId}/orders/saved-views`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateOrderSavedView(
+  token: string,
+  merchantId: string,
+  viewId: string,
+  input: Partial<OrderSavedViewInput>,
+): Promise<OrderSavedView> {
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/orders/saved-views/${viewId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  )
+}
+
+export function deleteOrderSavedView(
+  token: string,
+  merchantId: string,
+  viewId: string,
+): Promise<void> {
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/orders/saved-views/${viewId}`,
+    { method: 'DELETE' },
+  )
+}
+
+export function executeOrderBulkAction(
+  token: string,
+  merchantId: string,
+  input: {
+    action: OrderBulkAction
+    orderIds: string[]
+    idempotencyKey: string
+  },
+): Promise<OrderBulkOperationResult> {
+  return apiRequest(token, `/api/merchants/${merchantId}/orders/bulk-actions`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 export function getOrder(

@@ -17,6 +17,19 @@ export const ORDER_STATUSES = [
   'REFUNDING',
   'REFUNDED',
 ] as const
+export const PAYMENT_STATUSES = [
+  'UNPAID',
+  'PAID',
+  'PARTIALLY_REFUNDED',
+  'REFUNDED',
+] as const
+export const FULFILLMENT_STATUSES = [
+  'UNFULFILLED',
+  'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED',
+] as const
 
 export type MerchantStatus = (typeof MERCHANT_STATUSES)[number]
 export type StoreStatus = (typeof STORE_STATUSES)[number]
@@ -24,6 +37,8 @@ export type ProductListingStatus = (typeof PRODUCT_LISTING_STATUSES)[number]
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
 export type SkuStatus = (typeof SKU_STATUSES)[number]
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
+export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number]
 
 export interface MerchantSummary {
   id: string
@@ -138,15 +153,42 @@ export interface OrderSummary {
   storeId: string | null
   orderNo: string
   status: OrderStatus
+  paymentStatus: PaymentStatus
+  fulfillmentStatus: FulfillmentStatus
   customerName: string
   customerEmail: string | null
+  shippingAddress: {
+    recipient?: string
+    phone?: string
+    line1?: string
+    line2?: string
+    city?: string
+    region?: string
+    postalCode?: string
+    country?: string
+  } | null
+  trackingNumber: string | null
+  carrier: string | null
   totalAmount: string
+  refundAmount: string
   currency: string
   notes: string | null
   store: Pick<StoreSummary, 'id' | 'code' | 'name' | 'platform'> | null
   items: OrderItemSummary[]
+  timeline: OrderTimelineEvent[]
+  version: number
   createdAt: string
   updatedAt: string
+}
+
+export interface OrderTimelineEvent {
+  id: string
+  type: 'CREATED' | 'STATUS_CHANGED' | 'BULK_OPERATION' | 'NOTE'
+  title: string
+  description: string | null
+  actorName: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
 }
 
 export interface PaginatedOrders {

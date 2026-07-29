@@ -13,6 +13,8 @@ export {
 export {
   MERCHANT_STATUSES,
   ORDER_STATUSES,
+  PAYMENT_STATUSES,
+  FULFILLMENT_STATUSES,
   PRODUCT_STATUSES,
   SKU_STATUSES,
   type AuditLogSummary,
@@ -30,6 +32,9 @@ export {
   type StoreSummary,
   type OrderItemSummary,
   type OrderStatus,
+  type PaymentStatus,
+  type FulfillmentStatus,
+  type OrderTimelineEvent,
   type OrderSummary,
   type PaginatedOrders,
   type PaginatedProducts,
@@ -38,6 +43,20 @@ export {
   type SkuStatus,
   type SkuSummary,
 } from './commerce'
+export {
+  ORDER_BULK_ACTIONS,
+  ORDER_SORT_FIELDS,
+  ORDER_SORT_ORDERS,
+  ORDER_VIEW_COLUMNS,
+  type OrderBulkAction,
+  type OrderBulkItemResult,
+  type OrderBulkOperationResult,
+  type OrderFilters,
+  type OrderSavedView,
+  type OrderSortField,
+  type OrderSortOrder,
+  type OrderViewColumn,
+} from './order-operations'
 export {
   OPTIMIZATION_LANGUAGES,
   OPTIMIZATION_STATUSES,

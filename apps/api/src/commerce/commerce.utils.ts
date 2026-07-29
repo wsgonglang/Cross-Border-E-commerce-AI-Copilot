@@ -61,17 +61,34 @@ interface OrderItemSource {
   currency: string
 }
 
+interface OrderEventSource {
+  id: string
+  type: 'CREATED' | 'STATUS_CHANGED' | 'BULK_OPERATION' | 'NOTE'
+  title: string
+  description: string | null
+  metadata: unknown
+  actor: { name: string } | null
+  createdAt: Date
+}
+
 export interface OrderSource {
   id: string
   merchantId: string
   storeId: string | null
   orderNo: string
   status: string
+  paymentStatus?: string
+  fulfillmentStatus?: string
   customerName: string
   customerEmail: string | null
+  shippingAddress?: unknown
+  trackingNumber?: string | null
+  carrier?: string | null
   totalAmount: { toString(): string }
+  refundAmount?: { toString(): string }
   currency: string
   notes: string | null
+  version?: number
   store: {
     id: string
     code: string
@@ -79,6 +96,7 @@ export interface OrderSource {
     platform: string
   } | null
   items: OrderItemSource[]
+  events?: OrderEventSource[]
   createdAt: Date
   updatedAt: Date
 }
@@ -144,12 +162,57 @@ export function toOrderItemSummary(source: OrderItemSource): OrderItemSummary {
 }
 
 export function toOrderSummary(source: OrderSource): OrderSummary {
+  const { events = [], ...order } = source
   return {
-    ...source,
+    ...order,
     status: source.status as OrderSummary['status'],
+    paymentStatus:
+      (source.paymentStatus as OrderSummary['paymentStatus'] | undefined) ??
+      'UNPAID',
+    fulfillmentStatus:
+      (source.fulfillmentStatus as
+        OrderSummary['fulfillmentStatus'] | undefined) ?? 'UNFULFILLED',
+    shippingAddress: toShippingAddress(source.shippingAddress),
+    trackingNumber: source.trackingNumber ?? null,
+    carrier: source.carrier ?? null,
     totalAmount: source.totalAmount.toString(),
+    refundAmount: source.refundAmount?.toString() ?? '0.00',
     items: source.items.map(toOrderItemSummary),
+    timeline: events.map((event) => ({
+      id: event.id,
+      type: event.type,
+      title: event.title,
+      description: event.description,
+      actorName: event.actor?.name ?? null,
+      metadata:
+        typeof event.metadata === 'object' && event.metadata !== null
+          ? (event.metadata as Record<string, unknown>)
+          : null,
+      createdAt: event.createdAt.toISOString(),
+    })),
+    version: source.version ?? 1,
     createdAt: source.createdAt.toISOString(),
     updatedAt: source.updatedAt.toISOString(),
   }
+}
+
+function toShippingAddress(value: unknown): OrderSummary['shippingAddress'] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    return null
+  const source = value as Record<string, unknown>
+  const address = Object.fromEntries(
+    [
+      'recipient',
+      'phone',
+      'line1',
+      'line2',
+      'city',
+      'region',
+      'postalCode',
+      'country',
+    ].flatMap((key) =>
+      typeof source[key] === 'string' ? [[key, source[key]]] : [],
+    ),
+  )
+  return Object.keys(address).length ? address : null
 }

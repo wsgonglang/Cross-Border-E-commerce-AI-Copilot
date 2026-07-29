@@ -559,12 +559,45 @@ async function seed(): Promise<void> {
           ...orderFields,
           merchantId: merchant.id,
           currency: 'USD',
+          paymentStatus: orderFields.status === 'PENDING' ? 'UNPAID' : 'PAID',
+          fulfillmentStatus:
+            orderFields.status === 'PENDING'
+              ? 'UNFULFILLED'
+              : orderFields.status === 'CONFIRMED'
+                ? 'PROCESSING'
+                : orderFields.status === 'SHIPPED'
+                  ? 'SHIPPED'
+                  : 'DELIVERED',
+          shippingAddress: {
+            recipient: orderFields.customerName,
+            phone: '+1 202-555-0188',
+            line1: '100 Market Street',
+            city: 'San Francisco',
+            region: 'CA',
+            postalCode: '94105',
+            country: 'US',
+          },
+          ...(orderFields.status === 'SHIPPED'
+            ? {
+                carrier: 'DHL',
+                trackingNumber: 'DHL-DEMO-20260710',
+              }
+            : {}),
           items: {
             create: items.map((item) => ({
               ...item,
               productId: product.id,
               currency: 'USD',
             })),
+          },
+          events: {
+            create: {
+              type: 'CREATED',
+              title: '订单已创建',
+              description: '演示种子订单',
+              metadata: { status: orderFields.status },
+              createdAt: orderFields.createdAt,
+            },
           },
         },
       })

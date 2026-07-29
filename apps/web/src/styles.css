@@ -969,6 +969,40 @@ textarea {
   display: none;
 }
 
+.order-view-bar,
+.order-filter-card,
+.order-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(17, 89, 78, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 8px 24px rgba(20, 76, 67, 0.05);
+}
+
+.order-filter-card {
+  align-items: flex-start;
+}
+
+.order-bulk-bar {
+  background: #f1faf7;
+}
+
+.order-detail-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.order-timeline-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f7faf9;
+}
+
 @media (max-width: 768px) {
   .optimization-comparison {
     grid-template-columns: 1fr;

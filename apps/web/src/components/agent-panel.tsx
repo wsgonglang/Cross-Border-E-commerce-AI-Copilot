@@ -25,7 +25,7 @@ const toolLabels: Record<AgentToolName | 'unknown', string> = {
   unknown: '未授权工具',
 }
 
-const quickPrompts = [
+const defaultQuickPrompts = [
   '查询 P-DEMO-001 的库存',
   '查询订单 ORD-20260701-001 的状态',
   '查看今日经营看板',
@@ -41,6 +41,7 @@ interface Props {
   days?: number
   sourcePage?: string
   canWrite?: boolean
+  quickPrompts?: string[]
 }
 
 export function AgentPanel({
@@ -51,6 +52,7 @@ export function AgentPanel({
   days = 7,
   sourcePage,
   canWrite = true,
+  quickPrompts = defaultQuickPrompts,
 }: Props) {
   const navigate = useNavigate()
   const [message, setMessage] = useState('')

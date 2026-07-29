@@ -435,7 +435,11 @@ export function DashboardPage() {
           <Card title="运营待办与可解释建议" className="dashboard-section">
             <Row gutter={[16, 16]}>
               {[
-                ['待处理订单', dashboard.todos.actionableOrders, '/orders'],
+                [
+                  '待处理订单',
+                  dashboard.todos.actionableOrders,
+                  '/orders?statuses=PENDING,CONFIRMED,REFUNDING',
+                ],
                 ['待确认草稿', dashboard.todos.pendingDrafts, '/ai-results'],
                 ['失败任务', dashboard.todos.failedTasks, '/batch-tasks'],
                 ['低库存 SKU', dashboard.todos.lowStockItems, '/products'],

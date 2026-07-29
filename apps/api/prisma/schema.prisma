@@ -56,6 +56,49 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum PaymentStatus {
+  UNPAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderEventType {
+  CREATED
+  STATUS_CHANGED
+  BULK_OPERATION
+  NOTE
+}
+
+enum OrderBulkAction {
+  CONFIRM
+  MARK_SHIPPED
+  MARK_DELIVERED
+  CANCEL
+  START_REFUND
+  CONFIRM_REFUND
+}
+
+enum OrderBulkOperationStatus {
+  RUNNING
+  COMPLETED
+  PARTIAL_FAILED
+}
+
+enum OrderBulkItemStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
 enum ProductOptimizationStatus {
   GENERATING
   DRAFT
@@ -140,6 +183,9 @@ model User {
   sessionShareRecipients AiSessionShareRecipient[]
   aiMessageLinks         AiMessageLink[]
   importJobs             ImportJob[]
+  orderSavedViews        OrderSavedView[]
+  orderEvents            OrderEvent[]
+  orderBulkOperations    OrderBulkOperation[]
   createdAt              DateTime                  @default(now()) @map("created_at")
   updatedAt              DateTime                  @updatedAt @map("updated_at")
   deletedAt              DateTime?                 @map("deleted_at")
@@ -149,28 +195,31 @@ model User {
 }
 
 model Merchant {
-  id              String                  @id @default(cuid()) @db.VarChar(30)
-  code            String                  @unique @db.VarChar(32)
-  name            String                  @db.VarChar(120)
-  status          MerchantStatus          @default(ACTIVE)
-  defaultCurrency String                  @default("USD") @map("default_currency") @db.Char(3)
-  merchantUsers   MerchantUser[]
-  products        Product[]
-  skus            Sku[]
-  orders          Order[]
-  aiSessions      AiSession[]
-  optimizations   ProductOptimization[]
-  productVersions ProductVersion[]
-  auditLogs       AuditLog[]
-  batchTasks      BatchOptimizationTask[]
-  ruleDocuments   RuleDocument[]
-  agentRuns       AgentRun[]
-  aiSessionShares AiSessionShare[]
-  importJobs      ImportJob[]
-  createdAt       DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
-  stores          Store[]
-  productListings ProductListing[]
+  id                  String                  @id @default(cuid()) @db.VarChar(30)
+  code                String                  @unique @db.VarChar(32)
+  name                String                  @db.VarChar(120)
+  status              MerchantStatus          @default(ACTIVE)
+  defaultCurrency     String                  @default("USD") @map("default_currency") @db.Char(3)
+  merchantUsers       MerchantUser[]
+  products            Product[]
+  skus                Sku[]
+  orders              Order[]
+  aiSessions          AiSession[]
+  optimizations       ProductOptimization[]
+  productVersions     ProductVersion[]
+  auditLogs           AuditLog[]
+  batchTasks          BatchOptimizationTask[]
+  ruleDocuments       RuleDocument[]
+  agentRuns           AgentRun[]
+  aiSessionShares     AiSessionShare[]
+  importJobs          ImportJob[]
+  orderSavedViews     OrderSavedView[]
+  orderEvents         OrderEvent[]
+  orderBulkOperations OrderBulkOperation[]
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+  stores              Store[]
+  productListings     ProductListing[]
 
   @@index([status])
   @@map("merchants")
@@ -484,27 +533,36 @@ model Sku {
 }
 
 model Order {
-  id              String      @id @default(cuid()) @db.VarChar(30)
-  merchantId      String      @map("merchant_id") @db.VarChar(30)
-  storeId         String?     @map("store_id") @db.VarChar(30)
-  orderNo         String      @map("order_no") @db.VarChar(64)
-  status          OrderStatus @default(PENDING)
-  customerName    String      @map("customer_name") @db.VarChar(100)
-  customerEmail   String?     @map("customer_email") @db.VarChar(191)
-  shippingAddress Json?       @map("shipping_address")
-  totalAmount     Decimal     @map("total_amount") @db.Decimal(12, 2)
-  currency        String      @default("USD") @db.Char(3)
-  notes           String?     @db.VarChar(500)
-  merchant        Merchant    @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  store           Store?      @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
-  items           OrderItem[]
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+  id                String            @id @default(cuid()) @db.VarChar(30)
+  merchantId        String            @map("merchant_id") @db.VarChar(30)
+  storeId           String?           @map("store_id") @db.VarChar(30)
+  orderNo           String            @map("order_no") @db.VarChar(64)
+  status            OrderStatus       @default(PENDING)
+  paymentStatus     PaymentStatus     @default(UNPAID) @map("payment_status")
+  fulfillmentStatus FulfillmentStatus @default(UNFULFILLED) @map("fulfillment_status")
+  customerName      String            @map("customer_name") @db.VarChar(100)
+  customerEmail     String?           @map("customer_email") @db.VarChar(191)
+  shippingAddress   Json?             @map("shipping_address")
+  trackingNumber    String?           @map("tracking_number") @db.VarChar(100)
+  carrier           String?           @db.VarChar(100)
+  totalAmount       Decimal           @map("total_amount") @db.Decimal(12, 2)
+  refundAmount      Decimal           @default(0) @map("refund_amount") @db.Decimal(12, 2)
+  currency          String            @default("USD") @db.Char(3)
+  notes             String?           @db.VarChar(500)
+  merchant          Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store             Store?            @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
+  items             OrderItem[]
+  events            OrderEvent[]
+  bulkItems         OrderBulkItem[]
+  version           Int               @default(1)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
 
   @@unique([merchantId, orderNo])
   @@unique([id, merchantId])
   @@index([merchantId, status, createdAt])
   @@index([merchantId, storeId, createdAt])
+  @@index([merchantId, paymentStatus, fulfillmentStatus, createdAt], map: "orders_ops_filter_idx")
   @@map("orders")
 }
 
@@ -523,6 +581,87 @@ model OrderItem {
 
   @@index([orderId])
   @@map("order_items")
+}
+
+model OrderSavedView {
+  id         String   @id @default(cuid()) @db.VarChar(30)
+  merchantId String   @map("merchant_id") @db.VarChar(30)
+  userId     String   @map("user_id") @db.VarChar(30)
+  name       String   @db.VarChar(80)
+  filters    Json
+  sortBy     String   @default("createdAt") @map("sort_by") @db.VarChar(32)
+  sortOrder  String   @default("desc") @map("sort_order") @db.VarChar(4)
+  columns    Json
+  isDefault  Boolean  @default(false) @map("is_default")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([merchantId, userId, name])
+  @@index([merchantId, userId, isDefault])
+  @@map("order_saved_views")
+}
+
+model OrderEvent {
+  id          String         @id @default(cuid()) @db.VarChar(30)
+  merchantId  String         @map("merchant_id") @db.VarChar(30)
+  orderId     String         @map("order_id") @db.VarChar(30)
+  actorUserId String?        @map("actor_user_id") @db.VarChar(30)
+  type        OrderEventType
+  title       String         @db.VarChar(120)
+  description String?        @db.VarChar(500)
+  metadata    Json?
+  merchant    Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  order       Order          @relation(fields: [orderId, merchantId], references: [id, merchantId], onDelete: Cascade)
+  actor       User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@index([merchantId, createdAt])
+  @@map("order_events")
+}
+
+model OrderBulkOperation {
+  id             String                   @id @default(cuid()) @db.VarChar(30)
+  merchantId     String                   @map("merchant_id") @db.VarChar(30)
+  createdById    String                   @map("created_by_id") @db.VarChar(30)
+  idempotencyKey String                   @map("idempotency_key") @db.VarChar(100)
+  payloadHash    String                   @map("payload_hash") @db.Char(64)
+  action         OrderBulkAction
+  status         OrderBulkOperationStatus @default(RUNNING)
+  totalItems     Int                      @map("total_items")
+  succeededItems Int                      @default(0) @map("succeeded_items")
+  failedItems    Int                      @default(0) @map("failed_items")
+  merchant       Merchant                 @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  createdBy      User                     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items          OrderBulkItem[]
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+  completedAt    DateTime?                @map("completed_at")
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId, createdAt])
+  @@map("order_bulk_operations")
+}
+
+model OrderBulkItem {
+  id               String              @id @default(cuid()) @db.VarChar(30)
+  operationId      String              @map("operation_id") @db.VarChar(30)
+  requestedOrderId String              @map("requested_order_id") @db.VarChar(30)
+  orderId          String?             @map("order_id") @db.VarChar(30)
+  status           OrderBulkItemStatus @default(PENDING)
+  fromStatus       OrderStatus?        @map("from_status")
+  toStatus         OrderStatus?        @map("to_status")
+  error            String?             @db.VarChar(500)
+  operation        OrderBulkOperation  @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  order            Order?              @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  @@unique([operationId, requestedOrderId])
+  @@index([orderId])
+  @@map("order_bulk_items")
 }
 
 enum AiSessionStatus {

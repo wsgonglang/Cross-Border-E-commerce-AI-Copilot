@@ -72,7 +72,7 @@ function createHarness() {
     optimizations as unknown as ProductOptimizationsService,
     audit as unknown as AuditLogsService,
   )
-  return { service, products, optimizations, audit }
+  return { service, products, orders, optimizations, audit }
 }
 
 describe('AgentToolsService', () => {
@@ -135,5 +135,61 @@ describe('AgentToolsService', () => {
     expect(audit.recordAgentToolCall).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'error' }),
     )
+  })
+
+  it('returns operational order context without customer PII', async () => {
+    const { service, orders } = createHarness()
+    orders.list.mockResolvedValue({
+      items: [
+        {
+          id: 'order-1',
+          orderNo: 'ORD-001',
+          status: 'SHIPPED',
+          paymentStatus: 'PAID',
+          fulfillmentStatus: 'SHIPPED',
+          totalAmount: '29.99',
+          refundAmount: '0.00',
+          currency: 'USD',
+          carrier: 'DHL',
+          trackingNumber: 'TRACK-001',
+          customerName: 'Sensitive Name',
+          customerEmail: 'sensitive@example.com',
+          shippingAddress: { line1: 'Secret street' },
+          store: {
+            code: 'AMZ-US',
+            name: 'Amazon 美国店',
+            platform: 'Amazon',
+          },
+          items: [
+            {
+              productName: '旅行充电器',
+              skuName: '黑色',
+              quantity: 1,
+            },
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 5,
+    })
+
+    const result = await service.execute(operator, 'merchant-1', {
+      id: 'call-order',
+      name: 'get_order_status',
+      arguments: { orderNo: 'ORD-001' },
+    })
+
+    expect(result.output).toMatchObject({
+      paymentStatus: 'PAID',
+      fulfillmentStatus: 'SHIPPED',
+      logistics: { carrier: 'DHL', trackingNumber: 'TRACK-001' },
+    })
+    const serialized = JSON.stringify(result.output)
+    expect(serialized).not.toContain('sensitive@example.com')
+    expect(serialized).not.toContain('Sensitive Name')
+    expect(serialized).not.toContain('Secret street')
   })
 })
