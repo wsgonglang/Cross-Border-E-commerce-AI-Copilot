@@ -31,8 +31,8 @@ CREATE TABLE `ai_messages` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- AddForeignKey
-ALTER TABLE `ai_sessions` ADD CONSTRAINT `ai_sessions_merchant_id_fkey` FOREIGN KEY (`merchant_id`) REFERENCES `merchants`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+-- The merchant foreign key is added by
+-- 20260727222501_ai_session_merchant_fk after the merchants table exists.
 
 -- AddForeignKey
 ALTER TABLE `ai_sessions` ADD CONSTRAINT `ai_sessions_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

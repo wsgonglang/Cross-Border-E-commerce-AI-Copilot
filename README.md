@@ -1,6 +1,6 @@
 # Cross-Border E-commerce AI Copilot
 
-面向跨境电商运营人员的 AI 全栈业务应用。阶段 0 至阶段 16 已完成数据库认证/RBAC、商家商品 SKU、多店铺与商品刊登、订单运营工作台、可复算的 Agent 工作台、具备生产力操作的 AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG、CSV/XLSX 结构化导入、AI 成果中心，以及 Request ID、CI、Docker 和交付文档。
+面向跨境电商运营人员的 AI 全栈业务应用。阶段 0 至阶段 17 已完成数据库认证/RBAC、商家商品 SKU、多店铺与商品刊登、订单运营工作台、可复算的 Agent 工作台、具备生产力操作的 AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG、CSV/XLSX 结构化导入、AI 成果中心、Web 测试与路由级性能基础，以及 Request ID、CI、Docker 和交付文档。
 
 增强范围和逐阶段验收标准见 [产品体验增强路线](docs/product-enhancement-roadmap.md)。商品与 SKU 导入只支持结构化 CSV/XLSX，不支持 Markdown 商品导入；规则知识库原有的 Markdown/纯文本导入保持不变。
 
@@ -38,6 +38,8 @@ npm run dev:web
 ```
 
 若本机已有 MySQL 和 Redis，可跳过 `docker compose up`，并修改 `.env` 中的 `DATABASE_URL` 与 `REDIS_URL`。API 负责创建任务，独立 Worker 负责消费 BullMQ 队列；演示批量任务时两者都需要启动。`compose.yaml` 与种子账号中的密码仅供本地开发，不能用于生产环境。
+
+迁移目录是数据库历史的唯一来源。当前 14 条迁移已通过空 MySQL 8.4 数据库完整回放；AI 会话表先创建，商家目录创建后再由 `20260727222501_ai_session_merchant_fk` 幂等补充商家外键。不要在部署脚本中改用 `prisma db push` 绕过迁移历史。若旧的可丢弃开发数据库在拉取本修复后报告历史校验冲突，应先备份需要的数据，再重建开发数据库；生产数据库应按 Prisma 的 `migrate resolve` 流程处理，不应直接重置。
 
 API 健康检查地址为 `http://localhost:3000/api/health`，Swagger 文档地址为 `http://localhost:3000/api/docs`。
 
