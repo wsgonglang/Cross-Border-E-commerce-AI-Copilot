@@ -45,6 +45,13 @@ export class ProductsService {
     await this.merchantAccess.assertAccess(user, merchantId)
     const where = {
       merchantId,
+      ...(query.storeId
+        ? {
+            listings: {
+              some: { storeId: query.storeId, merchantId },
+            },
+          }
+        : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.keyword
         ? {

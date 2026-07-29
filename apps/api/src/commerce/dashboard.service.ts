@@ -27,6 +27,7 @@ export class DashboardService {
   async getOverview(
     user: AuthenticatedUser,
     merchantId: string,
+    storeId?: string,
   ): Promise<DashboardOverview> {
     await this.merchantAccess.assertAccess(user, merchantId)
 
@@ -40,15 +41,31 @@ export class DashboardService {
           _sum: { totalAmount: true },
           where: {
             merchantId,
+            ...(storeId ? { storeId } : {}),
             createdAt: { gte: todayStart },
             status: { notIn: ['CANCELLED', 'REFUNDED'] },
           },
         }),
         this.prisma.product.count({
-          where: { merchantId, status: { not: 'ARCHIVED' } },
+          where: {
+            merchantId,
+            status: { not: 'ARCHIVED' },
+            ...(storeId ? { listings: { some: { storeId, merchantId } } } : {}),
+          },
         }),
         this.prisma.sku.count({
-          where: { merchantId, stock: { lte: 5 }, status: 'ACTIVE' },
+          where: {
+            merchantId,
+            stock: { lte: 5 },
+            status: 'ACTIVE',
+            ...(storeId
+              ? {
+                  product: {
+                    listings: { some: { storeId, merchantId } },
+                  },
+                }
+              : {}),
+          },
         }),
       ])
 
@@ -63,6 +80,7 @@ export class DashboardService {
   async getTrend(
     user: AuthenticatedUser,
     merchantId: string,
+    storeId?: string,
   ): Promise<DashboardTrend> {
     await this.merchantAccess.assertAccess(user, merchantId)
 
@@ -74,6 +92,7 @@ export class DashboardService {
     const orders = await this.prisma.order.findMany({
       where: {
         merchantId,
+        ...(storeId ? { storeId } : {}),
         createdAt: { gte: startDate },
         status: { notIn: ['CANCELLED', 'REFUNDED'] },
       },
@@ -110,6 +129,7 @@ export class DashboardService {
     user: AuthenticatedUser,
     merchantId: string,
     days: number = 7,
+    storeId?: string,
   ): Promise<DashboardSalesData> {
     await this.merchantAccess.assertAccess(user, merchantId)
 
@@ -126,6 +146,7 @@ export class DashboardService {
       this.prisma.order.findMany({
         where: {
           merchantId,
+          ...(storeId ? { storeId } : {}),
           createdAt: { gte: startDate, lte: today },
           status: { notIn: ['CANCELLED', 'REFUNDED'] },
         },
@@ -135,6 +156,7 @@ export class DashboardService {
       this.prisma.order.findMany({
         where: {
           merchantId,
+          ...(storeId ? { storeId } : {}),
           createdAt: { gte: previousStart, lt: startDate },
           status: { notIn: ['CANCELLED', 'REFUNDED'] },
         },
@@ -198,6 +220,7 @@ export class DashboardService {
     user: AuthenticatedUser,
     merchantId: string,
     days: number = 7,
+    storeId?: string,
   ): Promise<DashboardOrderData> {
     await this.merchantAccess.assertAccess(user, merchantId)
 
@@ -212,16 +235,25 @@ export class DashboardService {
         this.prisma.order.findMany({
           where: {
             merchantId,
+            ...(storeId ? { storeId } : {}),
             createdAt: { gte: startDate, lte: today },
           },
           select: { status: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
         }),
         this.prisma.order.count({
-          where: { merchantId, status: 'COMPLETED' },
+          where: {
+            merchantId,
+            ...(storeId ? { storeId } : {}),
+            status: 'COMPLETED',
+          },
         }),
         this.prisma.order.count({
-          where: { merchantId, status: 'REFUNDED' },
+          where: {
+            merchantId,
+            ...(storeId ? { storeId } : {}),
+            status: 'REFUNDED',
+          },
         }),
       ])
 

@@ -1,4 +1,10 @@
 export const MERCHANT_STATUSES = ['ACTIVE', 'DISABLED'] as const
+export const STORE_STATUSES = ['ACTIVE', 'DISABLED'] as const
+export const PRODUCT_LISTING_STATUSES = [
+  'DRAFT',
+  'PUBLISHED',
+  'ARCHIVED',
+] as const
 export const PRODUCT_STATUSES = ['DRAFT', 'ACTIVE', 'ARCHIVED'] as const
 export const SKU_STATUSES = ['ACTIVE', 'DISABLED'] as const
 export const ORDER_STATUSES = [
@@ -13,6 +19,8 @@ export const ORDER_STATUSES = [
 ] as const
 
 export type MerchantStatus = (typeof MERCHANT_STATUSES)[number]
+export type StoreStatus = (typeof STORE_STATUSES)[number]
+export type ProductListingStatus = (typeof PRODUCT_LISTING_STATUSES)[number]
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number]
 export type SkuStatus = (typeof SKU_STATUSES)[number]
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
@@ -23,6 +31,42 @@ export interface MerchantSummary {
   name: string
   status: MerchantStatus
   defaultCurrency: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StoreSummary {
+  id: string
+  merchantId: string
+  code: string
+  name: string
+  platform: string
+  market: string
+  currency: string
+  locale: string
+  timezone: string
+  status: StoreStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProductListingSummary {
+  id: string
+  merchantId: string
+  storeId: string
+  productId: string
+  externalProductId: string | null
+  title: string
+  description: string
+  language: string
+  price: string
+  currency: string
+  status: ProductListingStatus
+  product: {
+    id: string
+    code: string
+    title: string
+  }
   createdAt: string
   updatedAt: string
 }
@@ -91,6 +135,7 @@ export interface OrderItemSummary {
 export interface OrderSummary {
   id: string
   merchantId: string
+  storeId: string | null
   orderNo: string
   status: OrderStatus
   customerName: string
@@ -98,6 +143,7 @@ export interface OrderSummary {
   totalAmount: string
   currency: string
   notes: string | null
+  store: Pick<StoreSummary, 'id' | 'code' | 'name' | 'platform'> | null
   items: OrderItemSummary[]
   createdAt: string
   updatedAt: string

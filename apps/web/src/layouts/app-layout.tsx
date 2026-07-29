@@ -5,16 +5,18 @@ import {
   LogoutOutlined,
   RobotOutlined,
   FileDoneOutlined,
+  GlobalOutlined,
   ShoppingCartOutlined,
   ShopOutlined,
   TagsOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
-import { Avatar, Button } from 'antd'
+import { Avatar, Button, Select, Space, Typography } from 'antd'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { logout } from '../store/auth.slice'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { useBusinessContext } from '../contexts/business-context'
 
 export function AppLayout() {
   const dispatch = useAppDispatch()
@@ -23,6 +25,15 @@ export function AppLayout() {
   const isAdmin = user?.roles.includes('admin') ?? false
   const canUseAi =
     user?.roles.some((role) => role === 'admin' || role === 'operator') ?? false
+  const {
+    merchants,
+    stores,
+    merchantId,
+    storeId,
+    currentStore,
+    setMerchantId,
+    setStoreId,
+  } = useBusinessContext()
 
   const handleLogout = async () => {
     await dispatch(logout())
@@ -57,6 +68,10 @@ export function AppLayout() {
               <NavLink to="/ai-results">
                 <FileDoneOutlined />
                 AI 成果中心
+              </NavLink>
+              <NavLink to="/stores">
+                <GlobalOutlined />
+                店铺与刊登
               </NavLink>
             </>
           ) : null}
@@ -100,6 +115,39 @@ export function AppLayout() {
         </div>
       </aside>
       <section className="content-shell">
+        <div className="business-context-bar">
+          <Space wrap>
+            <Typography.Text type="secondary">业务上下文</Typography.Text>
+            <Select
+              aria-label="当前商家"
+              value={merchantId || undefined}
+              style={{ width: 210 }}
+              onChange={setMerchantId}
+              options={merchants.map((merchant) => ({
+                value: merchant.id,
+                label: `${merchant.name} · ${merchant.code}`,
+              }))}
+            />
+            <Select
+              aria-label="当前店铺"
+              value={storeId || undefined}
+              placeholder="选择店铺"
+              style={{ width: 220 }}
+              onChange={setStoreId}
+              options={stores
+                .filter((store) => store.status === 'ACTIVE')
+                .map((store) => ({
+                  value: store.id,
+                  label: `${store.name} · ${store.market}`,
+                }))}
+            />
+          </Space>
+          <Typography.Text type="secondary">
+            {currentStore
+              ? `${currentStore.platform} / ${currentStore.currency} / ${currentStore.locale}`
+              : '当前商家尚无可用店铺'}
+          </Typography.Text>
+        </div>
         <Outlet />
       </section>
     </div>

@@ -64,6 +64,7 @@ interface OrderItemSource {
 export interface OrderSource {
   id: string
   merchantId: string
+  storeId: string | null
   orderNo: string
   status: string
   customerName: string
@@ -71,6 +72,12 @@ export interface OrderSource {
   totalAmount: { toString(): string }
   currency: string
   notes: string | null
+  store: {
+    id: string
+    code: string
+    name: string
+    platform: string
+  } | null
   items: OrderItemSource[]
   createdAt: Date
   updatedAt: Date

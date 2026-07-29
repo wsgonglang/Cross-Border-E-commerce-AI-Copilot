@@ -2,6 +2,7 @@ import { BadGatewayException } from '@nestjs/common'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { MerchantAccessService } from '../commerce/merchant-access.service'
+import type { StoresService } from '../commerce/stores.service'
 import type { AiProvider } from './ai-provider.service'
 import { AgentService } from './agent.service'
 import type { AgentRunsService } from './agent-runs.service'
@@ -76,6 +77,9 @@ describe('AgentService', () => {
       } as unknown as MerchantAccessService,
       tools as unknown as AgentToolsService,
       agentRuns as unknown as AgentRunsService,
+      {
+        assertStore: vi.fn(),
+      } as unknown as StoresService,
       aiProvider,
     )
 
@@ -119,6 +123,9 @@ describe('AgentService', () => {
       } as unknown as MerchantAccessService,
       tools as unknown as AgentToolsService,
       runs() as unknown as AgentRunsService,
+      {
+        assertStore: vi.fn(),
+      } as unknown as StoresService,
       provider({ planAgentTools }),
     )
 
@@ -136,6 +143,54 @@ describe('AgentService', () => {
     expect(tools.execute).not.toHaveBeenCalled()
   })
 
+  it('validates and forwards the selected store context to planning and tools', async () => {
+    const planAgentTools = vi.fn().mockResolvedValue({
+      toolCalls: [
+        {
+          id: 'call-1',
+          name: 'get_business_overview',
+          arguments: {},
+        },
+      ],
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    })
+    const tools = {
+      execute: vi.fn().mockResolvedValue({
+        id: 'call-1',
+        name: 'get_business_overview',
+        status: 'success',
+        input: {},
+        output: {},
+      }),
+    }
+    const assertStore = vi.fn().mockResolvedValue({
+      id: 'store-1',
+      name: 'Amazon 美国店',
+      platform: 'Amazon',
+      market: 'US',
+    })
+    const service = new AgentService(
+      {
+        assertAccess: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MerchantAccessService,
+      tools as unknown as AgentToolsService,
+      runs() as unknown as AgentRunsService,
+      { assertStore } as unknown as StoresService,
+      provider({ planAgentTools }),
+    )
+
+    await service.run(operator, 'merchant-1', '查询经营概览', 'store-1')
+
+    expect(assertStore).toHaveBeenCalledWith(operator, 'merchant-1', 'store-1')
+    expect(planAgentTools).toHaveBeenCalledOnce()
+    expect(tools.execute).toHaveBeenCalledWith(
+      operator,
+      'merchant-1',
+      expect.any(Object),
+      'store-1',
+    )
+  })
+
   it('returns a safe gateway error when planning fails', async () => {
     const agentRuns = runs()
     const service = new AgentService(
@@ -144,6 +199,9 @@ describe('AgentService', () => {
       } as unknown as MerchantAccessService,
       { execute: vi.fn() } as unknown as AgentToolsService,
       agentRuns as unknown as AgentRunsService,
+      {
+        assertStore: vi.fn(),
+      } as unknown as StoresService,
       provider({
         planAgentTools: vi.fn().mockRejectedValue(new Error('provider secret')),
       }),

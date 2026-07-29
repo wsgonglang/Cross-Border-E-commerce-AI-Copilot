@@ -34,6 +34,7 @@ export class AgentToolsService {
     actor: AuthenticatedUser,
     merchantId: string,
     call: PlannedAgentToolCall,
+    storeId?: string,
   ): Promise<AgentToolCallSummary> {
     if (!isAgentToolName(call.name)) {
       return this.failedCall(actor, merchantId, call, '模型请求了未授权工具')
@@ -49,7 +50,13 @@ export class AgentToolsService {
     }
     const input = parsed.data as Record<string, unknown>
     try {
-      const output = await this.runTool(actor, merchantId, call.name, input)
+      const output = await this.runTool(
+        actor,
+        merchantId,
+        call.name,
+        input,
+        storeId,
+      )
       const result: AgentToolCallSummary = {
         id: call.id,
         name: call.name,
@@ -79,6 +86,7 @@ export class AgentToolsService {
     merchantId: string,
     name: AgentToolName,
     input: Record<string, unknown>,
+    storeId?: string,
   ): Promise<unknown> {
     switch (name) {
       case 'search_products': {
@@ -86,6 +94,7 @@ export class AgentToolsService {
           page: 1,
           pageSize: 5,
           keyword: input.keyword as string | undefined,
+          ...(storeId ? { storeId } : {}),
         })
         return {
           total: result.total,
@@ -105,6 +114,7 @@ export class AgentToolsService {
           actor,
           merchantId,
           input.productCode as string,
+          storeId,
         )
         return {
           productId: product.id,
@@ -124,6 +134,7 @@ export class AgentToolsService {
           page: 1,
           pageSize: 5,
           keyword: input.orderNo as string,
+          ...(storeId ? { storeId } : {}),
         })
         const order = result.items.find(
           (item) => item.orderNo === input.orderNo,
@@ -145,7 +156,7 @@ export class AgentToolsService {
         }
       }
       case 'get_business_overview':
-        return this.dashboardService.getOverview(actor, merchantId)
+        return this.dashboardService.getOverview(actor, merchantId, storeId)
       case 'search_platform_rules':
         return this.rulesService.search(
           actor,
@@ -157,6 +168,7 @@ export class AgentToolsService {
           actor,
           merchantId,
           input.productCode as string,
+          storeId,
         )
         const optimization = await this.optimizationsService.create(
           actor,
@@ -182,11 +194,13 @@ export class AgentToolsService {
     actor: AuthenticatedUser,
     merchantId: string,
     productCode: string,
+    storeId?: string,
   ): Promise<ProductSummary> {
     const result = await this.productsService.list(actor, merchantId, {
       page: 1,
       pageSize: 5,
       keyword: productCode,
+      ...(storeId ? { storeId } : {}),
     })
     const product = result.items.find((item) => item.code === productCode)
     if (!product) throw new Error('商品不存在')

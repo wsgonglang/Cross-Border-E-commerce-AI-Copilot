@@ -40,9 +40,17 @@ describe('DashboardService', () => {
       merchantAccess as unknown as MerchantAccessService,
     )
 
-    const result = await service.getOverview(user, 'merchant-1')
+    const result = await service.getOverview(user, 'merchant-1', 'store-1')
 
     expect(merchantAccess.assertAccess).toHaveBeenCalledWith(user, 'merchant-1')
+    const orderQuery = prisma.order.aggregate.mock.calls[0]?.[0] as unknown as {
+      where: { storeId: string }
+    }
+    const productQuery = prisma.product.count.mock.calls[0]?.[0] as unknown as {
+      where: { listings: { some: { storeId: string } } }
+    }
+    expect(orderQuery.where.storeId).toBe('store-1')
+    expect(productQuery.where.listings.some.storeId).toBe('store-1')
     expect(result.todayOrders).toBe(5)
     expect(result.todaySales).toBe('500')
     expect(result.totalProducts).toBe(10)

@@ -16,6 +16,7 @@ import {
   listAiSessions,
 } from '../api/ai'
 import { AgentPanel } from '../components/agent-panel'
+import { useBusinessContext } from '../contexts/business-context'
 import { useAppSelector } from '../store/hooks'
 
 const { TextArea } = Input
@@ -114,8 +115,7 @@ function doSend(
 
 export function AiChatPage() {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
-  const user = useAppSelector((state) => state.auth.user)
-  const merchantId = user?.merchantIds[0] ?? ''
+  const { merchantId, storeId, currentStore } = useBusinessContext()
 
   const [sessions, setSessions] = useState<AiSessionSummary[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -301,7 +301,12 @@ export function AiChatPage() {
           />
         </div>
         {assistantMode === 'agent' ? (
-          <AgentPanel token={token} merchantId={merchantId} />
+          <AgentPanel
+            token={token}
+            merchantId={merchantId}
+            storeId={storeId || undefined}
+            storeName={currentStore?.name}
+          />
         ) : (
           <>
             <div className="ai-chat-messages">

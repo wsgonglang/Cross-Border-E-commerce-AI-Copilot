@@ -22,6 +22,7 @@ import type {
 
 import { getAiResults } from '../api/ai-results'
 import { getDashboardOverview, getDashboardTrend } from '../api/orders'
+import { useBusinessContext } from '../contexts/business-context'
 import { useAppSelector } from '../store/hooks'
 
 function TrendChart({ data }: { data: DashboardTrend }) {
@@ -139,7 +140,7 @@ export function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user)
   const navigate = useNavigate()
 
-  const merchantId = user?.merchantIds[0] ?? ''
+  const { merchantId, storeId, currentStore } = useBusinessContext()
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [trend, setTrend] = useState<DashboardTrend | null>(null)
@@ -152,8 +153,8 @@ export function DashboardPage() {
     const load = async () => {
       try {
         const [ov, tr, drafts, recent] = await Promise.all([
-          getDashboardOverview(token, merchantId),
-          getDashboardTrend(token, merchantId),
+          getDashboardOverview(token, merchantId, storeId || undefined),
+          getDashboardTrend(token, merchantId, storeId || undefined),
           getAiResults(token, merchantId, {
             page: 1,
             pageSize: 1,
@@ -176,7 +177,7 @@ export function DashboardPage() {
       }
     }
     void load()
-  }, [token, merchantId])
+  }, [token, merchantId, storeId])
 
   return (
     <main className="workspace-page">
@@ -186,7 +187,9 @@ export function DashboardPage() {
           <h1>{user?.name}，欢迎回来</h1>
           <p>当前身份：{user?.roles.join(' · ')}</p>
         </div>
-        <span className="secure-badge">经营概览</span>
+        <span className="secure-badge">
+          {currentStore ? `${currentStore.name}经营概览` : '商家经营概览'}
+        </span>
       </header>
 
       {error ? (

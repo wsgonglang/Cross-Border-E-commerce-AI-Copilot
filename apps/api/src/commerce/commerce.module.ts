@@ -11,6 +11,8 @@ import { OrdersService } from './orders.service'
 import { ProductsController } from './products.controller'
 import { ProductsService } from './products.service'
 import { SkusService } from './skus.service'
+import { StoresController } from './stores.controller'
+import { StoresService } from './stores.service'
 
 @Module({
   controllers: [
@@ -18,6 +20,7 @@ import { SkusService } from './skus.service'
     ProductsController,
     OrdersController,
     DashboardController,
+    StoresController,
   ],
   providers: [
     AuditLogsService,
@@ -27,6 +30,7 @@ import { SkusService } from './skus.service'
     OrdersService,
     ProductsService,
     SkusService,
+    StoresService,
   ],
   exports: [
     AuditLogsService,
@@ -34,6 +38,7 @@ import { SkusService } from './skus.service'
     MerchantAccessService,
     OrdersService,
     ProductsService,
+    StoresService,
   ],
 })
 export class CommerceModule {}

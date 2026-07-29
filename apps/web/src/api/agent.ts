@@ -6,9 +6,10 @@ export function runAgent(
   token: string,
   merchantId: string,
   message: string,
+  storeId?: string,
 ): Promise<AgentRunResponse> {
   return apiRequest(token, `/api/merchants/${merchantId}/ai/agent/run`, {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, storeId }),
   })
 }

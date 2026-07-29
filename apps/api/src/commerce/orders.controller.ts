@@ -31,8 +31,9 @@ export class OrdersController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,
     @Param('orderId') orderId: string,
+    @Query() query: OrderQueryDto,
   ): Promise<OrderSummary> {
-    return this.ordersService.get(user, merchantId, orderId)
+    return this.ordersService.get(user, merchantId, orderId, query.storeId)
   }
 
   @Patch(':orderId/status')

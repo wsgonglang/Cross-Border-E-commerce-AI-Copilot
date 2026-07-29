@@ -18,6 +18,7 @@ export function getOrders(
     pageSize: number
     status?: OrderStatus
     keyword?: string
+    storeId?: string
   },
 ): Promise<PaginatedOrders> {
   const query = new URLSearchParams({
@@ -26,6 +27,7 @@ export function getOrders(
   })
   if (params.status) query.set('status', params.status)
   if (params.keyword) query.set('keyword', params.keyword)
+  if (params.storeId) query.set('storeId', params.storeId)
   return apiRequest(token, `/api/merchants/${merchantId}/orders?${query}`)
 }
 
@@ -33,8 +35,13 @@ export function getOrder(
   token: string,
   merchantId: string,
   orderId: string,
+  storeId?: string,
 ): Promise<OrderSummary> {
-  return apiRequest(token, `/api/merchants/${merchantId}/orders/${orderId}`)
+  const query = storeId ? `?storeId=${encodeURIComponent(storeId)}` : ''
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/orders/${orderId}${query}`,
+  )
 }
 
 export function updateOrderStatus(
@@ -56,15 +63,25 @@ export function updateOrderStatus(
 export function getDashboardOverview(
   token: string,
   merchantId: string,
+  storeId?: string,
 ): Promise<DashboardOverview> {
-  return apiRequest(token, `/api/merchants/${merchantId}/dashboard/overview`)
+  const query = storeId ? `?storeId=${encodeURIComponent(storeId)}` : ''
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/dashboard/overview${query}`,
+  )
 }
 
 export function getDashboardTrend(
   token: string,
   merchantId: string,
+  storeId?: string,
 ): Promise<DashboardTrend> {
-  return apiRequest(token, `/api/merchants/${merchantId}/dashboard/trend`)
+  const query = storeId ? `?storeId=${encodeURIComponent(storeId)}` : ''
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/dashboard/trend${query}`,
+  )
 }
 
 export function getDashboardSales(

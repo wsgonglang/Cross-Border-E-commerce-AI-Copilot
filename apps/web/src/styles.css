@@ -385,6 +385,16 @@ textarea {
     #edf3f1;
 }
 
+.business-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid #dbe7e4;
+  background: #fff;
+}
+
 .workspace-page {
   width: min(1120px, calc(100% - 64px));
   margin: 0 auto;

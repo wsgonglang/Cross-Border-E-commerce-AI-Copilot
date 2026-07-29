@@ -13,6 +13,7 @@ import { PrismaService } from '../database/prisma.service'
 interface AgentRunRecord {
   id: string
   merchantId: string
+  storeId: string | null
   userId: string
   message: string
   answer: string | null
@@ -48,10 +49,12 @@ export class AgentRunsService {
     actor: AuthenticatedUser,
     merchantId: string,
     message: string,
+    storeId?: string,
   ): Promise<string> {
     const run = await this.prisma.agentRun.create({
       data: {
         merchantId,
+        ...(storeId ? { storeId } : {}),
         userId: actor.id,
         message,
         status: 'PLANNING',
@@ -149,6 +152,7 @@ export class AgentRunsService {
       id: record.id,
       runId: record.id,
       merchantId: record.merchantId,
+      ...(record.storeId ? { storeId: record.storeId } : {}),
       userId: record.userId,
       message: record.message,
       answer: record.answer ?? '',

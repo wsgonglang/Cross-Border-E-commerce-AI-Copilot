@@ -33,6 +33,12 @@ export class ProductQueryDto {
   @IsOptional()
   @IsIn(['DRAFT', 'ACTIVE', 'ARCHIVED'])
   status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  storeId?: string
 }
 
 export class CreateProductDto {

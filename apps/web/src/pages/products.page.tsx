@@ -1,6 +1,5 @@
 import type {
   AuditLogSummary,
-  MerchantSummary,
   ProductStatus,
   ProductSummary,
   SkuSummary,
@@ -21,7 +20,7 @@ import {
   Tag,
   message,
 } from 'antd'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import {
@@ -30,7 +29,6 @@ import {
   createSku,
   disableSku,
   getAuditLogs,
-  getMerchants,
   getProducts,
   updateProduct,
   updateSku,
@@ -38,6 +36,7 @@ import {
   type SkuInput,
 } from '../api/commerce'
 import { ProductOptimizationDrawer } from '../components/product-optimization-drawer'
+import { useBusinessContext } from '../contexts/business-context'
 import { useAppSelector } from '../store/hooks'
 
 interface StockForm {
@@ -55,13 +54,13 @@ export function ProductsPage() {
   const [searchParams] = useSearchParams()
   const token = useAppSelector((state) => state.auth.accessToken)
   const user = useAppSelector((state) => state.auth.user)
+  const { merchantId, storeId, currentMerchant, currentStore, setMerchantId } =
+    useBusinessContext()
   const canWrite =
     user?.roles.some((role) => role === 'admin' || role === 'operator') ?? false
   const [productForm] = Form.useForm<ProductInput>()
   const [skuForm] = Form.useForm<SkuInput>()
   const [stockForm] = Form.useForm<StockForm>()
-  const [merchants, setMerchants] = useState<MerchantSummary[]>([])
-  const [merchantId, setMerchantId] = useState<string>()
   const [products, setProducts] = useState<ProductSummary[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -89,26 +88,11 @@ export function ProductsPage() {
   const [messageApi, messageContext] = message.useMessage()
 
   useEffect(() => {
-    if (!token) return
-    const loadMerchants = async () => {
-      try {
-        const result = await getMerchants(token)
-        setMerchants(result)
-        const requestedMerchant = searchParams.get('merchantId')
-        setMerchantId(
-          (current) =>
-            current ??
-            result.find((merchant) => merchant.id === requestedMerchant)?.id ??
-            result[0]?.id,
-        )
-      } catch (loadError: unknown) {
-        setError(
-          loadError instanceof Error ? loadError.message : '商家加载失败',
-        )
-      }
+    const requestedMerchant = searchParams.get('merchantId')
+    if (requestedMerchant && requestedMerchant !== merchantId) {
+      setMerchantId(requestedMerchant)
     }
-    void loadMerchants()
-  }, [searchParams, token])
+  }, [merchantId, searchParams, setMerchantId])
 
   const loadProducts = useCallback(async () => {
     if (!token || !merchantId) {
@@ -122,6 +106,9 @@ export function ProductsPage() {
         pageSize,
         keyword,
         status,
+        storeId: searchParams.get('optimizationId')
+          ? undefined
+          : storeId || undefined,
       })
       setProducts(result.items)
       setTotal(result.total)
@@ -131,7 +118,16 @@ export function ProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [keyword, merchantId, page, pageSize, status, token])
+  }, [
+    keyword,
+    merchantId,
+    page,
+    pageSize,
+    searchParams,
+    status,
+    storeId,
+    token,
+  ])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadProducts(), 0)
@@ -146,11 +142,6 @@ export function ProductsPage() {
     const timer = window.setTimeout(() => setOptimizationProduct(product), 0)
     return () => window.clearTimeout(timer)
   }, [products, searchParams])
-
-  const currentMerchant = useMemo(
-    () => merchants.find((merchant) => merchant.id === merchantId),
-    [merchantId, merchants],
-  )
 
   const openProduct = (product?: ProductSummary) => {
     setEditingProduct(product ?? null)
@@ -309,7 +300,11 @@ export function ProductsPage() {
         <div>
           <span className="page-kicker">Catalog & inventory</span>
           <h1>商品与 SKU</h1>
-          <p>商品、变体、库存和每次修改都受商家隔离与服务端权限保护。</p>
+          <p>
+            {currentStore
+              ? `当前显示已刊登到 ${currentStore.name} 的主商品；库存仍属于商家级 SKU。`
+              : '商品、变体、库存和每次修改都受商家隔离与服务端权限保护。'}
+          </p>
         </div>
         <Space>
           {canWrite ? (
@@ -324,18 +319,6 @@ export function ProductsPage() {
       </header>
 
       <div className="catalog-toolbar">
-        <Select
-          value={merchantId}
-          placeholder="选择商家"
-          onChange={(value) => {
-            setMerchantId(value)
-            setPage(1)
-          }}
-          options={merchants.map((merchant) => ({
-            value: merchant.id,
-            label: `${merchant.name} · ${merchant.code}`,
-          }))}
-        />
         <Input.Search
           allowClear
           placeholder="搜索商品编码、标题或 SKU"

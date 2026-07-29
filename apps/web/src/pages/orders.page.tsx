@@ -19,6 +19,7 @@ import type {
 } from '@cross-border/shared'
 
 import { getOrder, getOrders, updateOrderStatus } from '../api/orders'
+import { useBusinessContext } from '../contexts/business-context'
 import { useAppSelector } from '../store/hooks'
 
 const statusMeta: Record<OrderStatus, { color: string; label: string }> = {
@@ -58,7 +59,7 @@ export function OrdersPage() {
       ? 'operator'
       : 'viewer'
 
-  const merchantId = user?.merchantIds[0] ?? ''
+  const { merchantId, storeId, currentStore } = useBusinessContext()
 
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<PaginatedOrders | null>(null)
@@ -85,6 +86,7 @@ export function OrdersPage() {
           pageSize,
           status,
           keyword: keyword || undefined,
+          storeId: storeId || undefined,
         })
         setData(result)
       } catch (e: unknown) {
@@ -95,7 +97,7 @@ export function OrdersPage() {
     }
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, merchantId, page, pageSize, status])
+  }, [token, merchantId, storeId, page, pageSize, status])
 
   const fetchOrders = () => {
     if (!token || !merchantId) return
@@ -106,6 +108,7 @@ export function OrdersPage() {
       pageSize,
       status,
       keyword: keyword || undefined,
+      storeId: storeId || undefined,
     })
       .then(setData)
       .catch((e: Error) => setError(e.message))
@@ -118,7 +121,12 @@ export function OrdersPage() {
       setDetailLoading(true)
       setDetailData(null)
       try {
-        const result = await getOrder(token, merchantId, detailOrderId)
+        const result = await getOrder(
+          token,
+          merchantId,
+          detailOrderId,
+          storeId || undefined,
+        )
         setDetailData(result)
       } catch {
         setDetailData(null)
@@ -127,7 +135,7 @@ export function OrdersPage() {
       }
     }
     void load()
-  }, [detailOrderId, token, merchantId])
+  }, [detailOrderId, token, merchantId, storeId])
 
   const handleAction = async (orderId: string, targetStatus: string) => {
     if (!token || !merchantId) return
@@ -142,6 +150,12 @@ export function OrdersPage() {
   }
 
   const columns = [
+    {
+      title: '店铺',
+      key: 'store',
+      render: (_: unknown, record: OrderSummary) =>
+        record.store?.name ?? '未关联',
+    },
     {
       title: '订单号',
       dataIndex: 'orderNo',
@@ -228,7 +242,11 @@ export function OrdersPage() {
         <div>
           <span className="page-kicker">订单管理</span>
           <h1>订单</h1>
-          <p>查看和管理商家订单</p>
+          <p>
+            {currentStore
+              ? `当前仅显示 ${currentStore.name} 的订单`
+              : '查看和管理商家全部订单'}
+          </p>
         </div>
       </header>
 

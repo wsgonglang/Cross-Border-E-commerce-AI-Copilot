@@ -24,7 +24,7 @@ export class AgentController {
     @Param('merchantId') merchantId: string,
     @Body() dto: AgentRunDto,
   ): Promise<AgentRunResponse> {
-    return this.agentService.run(user, merchantId, dto.message)
+    return this.agentService.run(user, merchantId, dto.message, dto.storeId)
   }
 
   @Get('runs/:runId')

@@ -55,6 +55,7 @@ describe('OrdersService', () => {
       pageSize: 10,
       keyword: 'ORD-001',
       status: 'PENDING',
+      storeId: 'store-1',
     })
 
     expect(merchantAccess.assertAccess).toHaveBeenCalledWith(
@@ -62,11 +63,12 @@ describe('OrdersService', () => {
       'merchant-1',
     )
     const findArgs = orderFindMany.mock.calls[0]?.[0] as unknown as {
-      where: { merchantId: string }
+      where: { merchantId: string; storeId: string }
       skip: number
       take: number
     }
     expect(findArgs.where.merchantId).toBe('merchant-1')
+    expect(findArgs.where.storeId).toBe('store-1')
     expect(findArgs.skip).toBe(10)
     expect(findArgs.take).toBe(10)
     expect(result).toEqual({

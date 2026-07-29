@@ -21,6 +21,13 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 
 ## 核心链路
 
+### 商家、店铺与商品刊登
+
+- `Merchant` 是服务端权限和数据隔离边界，不等同于一个线上店铺。
+- `Store` 表示具体平台、市场、币种、语言和时区；`ProductListing` 保存主商品在该店铺的标题、描述、价格、外部编号和发布状态。
+- `Store`、`ProductListing`、`Order` 和 `AgentRun` 均保存 `merchantId`；复合外键保证店铺不能关联其他商家的商品或订单。
+- Web 的全局业务上下文统一驱动工作台、商品刊登、订单和业务 Agent；服务端仍会重新校验商家和店铺，不信任前端选择。
+
 ### 单商品 AI 优化
 
 1. 运营人员从商品上下文发起优化。

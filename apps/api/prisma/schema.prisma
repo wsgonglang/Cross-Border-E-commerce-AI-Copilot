@@ -23,6 +23,17 @@ enum MerchantStatus {
   DISABLED
 }
 
+enum StoreStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ProductListingStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum ProductStatus {
   DRAFT
   ACTIVE
@@ -130,6 +141,8 @@ model Merchant {
   agentRuns       AgentRun[]
   createdAt       DateTime                @default(now()) @map("created_at")
   updatedAt       DateTime                @updatedAt @map("updated_at")
+  stores          Store[]
+  productListings ProductListing[]
 
   @@index([status])
   @@map("merchants")
@@ -147,6 +160,30 @@ model MerchantUser {
   @@map("merchant_users")
 }
 
+model Store {
+  id         String           @id @default(cuid()) @db.VarChar(30)
+  merchantId String           @map("merchant_id") @db.VarChar(30)
+  code       String           @db.VarChar(32)
+  name       String           @db.VarChar(120)
+  platform   String           @db.VarChar(40)
+  market     String           @db.Char(2)
+  currency   String           @db.Char(3)
+  locale     String           @db.VarChar(16)
+  timezone   String           @db.VarChar(64)
+  status     StoreStatus      @default(ACTIVE)
+  merchant   Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  listings   ProductListing[]
+  orders     Order[]
+  agentRuns  AgentRun[]
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  @@unique([merchantId, code])
+  @@unique([id, merchantId])
+  @@index([merchantId, status, createdAt])
+  @@map("stores")
+}
+
 model Product {
   id            String                  @id @default(cuid()) @db.VarChar(30)
   merchantId    String                  @map("merchant_id") @db.VarChar(30)
@@ -162,6 +199,7 @@ model Product {
   optimizations ProductOptimization[]
   versions      ProductVersion[]
   batchItems    BatchOptimizationItem[]
+  listings      ProductListing[]
   createdAt     DateTime                @default(now()) @map("created_at")
   updatedAt     DateTime                @updatedAt @map("updated_at")
 
@@ -169,6 +207,30 @@ model Product {
   @@unique([id, merchantId])
   @@index([merchantId, status, updatedAt])
   @@map("products")
+}
+
+model ProductListing {
+  id                String               @id @default(cuid()) @db.VarChar(30)
+  merchantId        String               @map("merchant_id") @db.VarChar(30)
+  storeId           String               @map("store_id") @db.VarChar(30)
+  productId         String               @map("product_id") @db.VarChar(30)
+  externalProductId String?              @map("external_product_id") @db.VarChar(100)
+  title             String               @db.VarChar(255)
+  description       String               @db.Text
+  language          String               @db.VarChar(16)
+  price             Decimal              @db.Decimal(12, 2)
+  currency          String               @db.Char(3)
+  status            ProductListingStatus @default(DRAFT)
+  merchant          Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store             Store                @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
+  product           Product              @relation(fields: [productId, merchantId], references: [id, merchantId], onDelete: Restrict)
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  @@unique([storeId, productId])
+  @@index([merchantId, storeId, status, updatedAt])
+  @@index([merchantId, productId])
+  @@map("product_listings")
 }
 
 model ProductOptimization {
@@ -333,6 +395,7 @@ model Sku {
 model Order {
   id              String      @id @default(cuid()) @db.VarChar(30)
   merchantId      String      @map("merchant_id") @db.VarChar(30)
+  storeId         String?     @map("store_id") @db.VarChar(30)
   orderNo         String      @map("order_no") @db.VarChar(64)
   status          OrderStatus @default(PENDING)
   customerName    String      @map("customer_name") @db.VarChar(100)
@@ -342,6 +405,7 @@ model Order {
   currency        String      @default("USD") @db.Char(3)
   notes           String?     @db.VarChar(500)
   merchant        Merchant    @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store           Store?      @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
   items           OrderItem[]
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -349,6 +413,7 @@ model Order {
   @@unique([merchantId, orderNo])
   @@unique([id, merchantId])
   @@index([merchantId, status, createdAt])
+  @@index([merchantId, storeId, createdAt])
   @@map("orders")
 }
 
@@ -416,6 +481,7 @@ model AiMessage {
 model AgentRun {
   id                     String          @id @default(cuid()) @db.VarChar(30)
   merchantId             String          @map("merchant_id") @db.VarChar(30)
+  storeId                String?         @map("store_id") @db.VarChar(30)
   userId                 String          @map("user_id") @db.VarChar(30)
   message                String          @db.VarChar(1000)
   answer                 String?         @db.MediumText
@@ -430,6 +496,7 @@ model AgentRun {
   error                  String?         @db.VarChar(1000)
   completedAt            DateTime?       @map("completed_at")
   merchant               Merchant        @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store                  Store?          @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
   user                   User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   toolCalls              AgentToolCall[]
   createdAt              DateTime        @default(now()) @map("created_at")
@@ -437,6 +504,7 @@ model AgentRun {
 
   @@index([merchantId, createdAt])
   @@index([merchantId, status, createdAt])
+  @@index([merchantId, storeId, createdAt])
   @@index([userId, createdAt])
   @@map("agent_runs")
 }

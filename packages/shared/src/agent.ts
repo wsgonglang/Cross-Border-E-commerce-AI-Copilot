@@ -36,6 +36,7 @@ export type AgentRunStatus = 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
 export interface AgentRunSummary extends AgentRunResponse {
   id: string
   merchantId: string
+  storeId?: string
   userId: string
   message: string
   status: AgentRunStatus

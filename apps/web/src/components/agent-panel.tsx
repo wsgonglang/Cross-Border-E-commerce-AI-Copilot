@@ -36,9 +36,11 @@ const quickPrompts = [
 interface Props {
   token: string
   merchantId: string
+  storeId?: string
+  storeName?: string
 }
 
-export function AgentPanel({ token, merchantId }: Props) {
+export function AgentPanel({ token, merchantId, storeId, storeName }: Props) {
   const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [running, setRunning] = useState(false)
@@ -52,7 +54,7 @@ export function AgentPanel({ token, merchantId }: Props) {
     setRunning(true)
     setError(null)
     try {
-      setResult(await runAgent(token, merchantId, content))
+      setResult(await runAgent(token, merchantId, content, storeId))
     } catch (runError: unknown) {
       setError(runError instanceof Error ? runError.message : 'Agent 执行失败')
     } finally {
@@ -82,7 +84,10 @@ export function AgentPanel({ token, merchantId }: Props) {
         ))}
       </Space>
 
-      <Card size="small">
+      <Card
+        size="small"
+        extra={storeName ? <Tag color="cyan">{storeName}</Tag> : null}
+      >
         <Input.TextArea
           value={message}
           onChange={(event) => setMessage(event.target.value)}

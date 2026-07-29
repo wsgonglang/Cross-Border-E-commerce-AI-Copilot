@@ -31,6 +31,9 @@ const orderInclude = {
   items: {
     orderBy: { productName: 'asc' as const },
   },
+  store: {
+    select: { id: true, code: true, name: true, platform: true },
+  },
 } as const
 
 @Injectable()
@@ -52,6 +55,9 @@ export class OrdersService {
     }
     if (query.keyword) {
       where.orderNo = { contains: query.keyword }
+    }
+    if (query.storeId) {
+      where.storeId = query.storeId
     }
     const [orders, total] = (await this.prisma.$transaction([
       this.prisma.order.findMany({
@@ -76,10 +82,11 @@ export class OrdersService {
     user: AuthenticatedUser,
     merchantId: string,
     orderId: string,
+    storeId?: string,
   ): Promise<OrderSummary> {
     await this.merchantAccess.assertAccess(user, merchantId)
     const order = (await this.prisma.order.findFirst({
-      where: { id: orderId, merchantId },
+      where: { id: orderId, merchantId, ...(storeId ? { storeId } : {}) },
       include: orderInclude,
     })) as OrderSource | null
     if (!order) {

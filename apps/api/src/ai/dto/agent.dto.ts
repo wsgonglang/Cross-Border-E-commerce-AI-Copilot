@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import {
   IsIn,
@@ -18,6 +18,12 @@ export class AgentRunDto {
   @IsNotEmpty()
   @MaxLength(1000)
   message!: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  storeId?: string
 }
 
 export class AiResultsQueryDto {

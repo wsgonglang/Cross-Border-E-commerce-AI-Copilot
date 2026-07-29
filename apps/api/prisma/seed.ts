@@ -364,6 +364,99 @@ async function seed(): Promise<void> {
     })
   }
 
+  const amazonStore = await prisma.store.upsert({
+    where: {
+      merchantId_code: { merchantId: merchant.id, code: 'AMZ-US' },
+    },
+    create: {
+      merchantId: merchant.id,
+      code: 'AMZ-US',
+      name: 'Amazon 美国店',
+      platform: 'Amazon',
+      market: 'US',
+      currency: 'USD',
+      locale: 'en-US',
+      timezone: 'America/Los_Angeles',
+    },
+    update: {
+      name: 'Amazon 美国店',
+      status: 'ACTIVE',
+      currency: 'USD',
+      locale: 'en-US',
+      timezone: 'America/Los_Angeles',
+    },
+  })
+  const shopeeStore = await prisma.store.upsert({
+    where: {
+      merchantId_code: { merchantId: merchant.id, code: 'SHP-BR' },
+    },
+    create: {
+      merchantId: merchant.id,
+      code: 'SHP-BR',
+      name: 'Shopee 巴西店',
+      platform: 'Shopee',
+      market: 'BR',
+      currency: 'BRL',
+      locale: 'pt-BR',
+      timezone: 'America/Sao_Paulo',
+    },
+    update: {
+      name: 'Shopee 巴西店',
+      status: 'ACTIVE',
+      currency: 'BRL',
+      locale: 'pt-BR',
+      timezone: 'America/Sao_Paulo',
+    },
+  })
+  const demoProducts = await prisma.product.findMany({
+    where: { merchantId: merchant.id },
+    orderBy: { code: 'asc' },
+  })
+  for (const [index, demoProduct] of demoProducts.entries()) {
+    await prisma.productListing.upsert({
+      where: {
+        storeId_productId: {
+          storeId: amazonStore.id,
+          productId: demoProduct.id,
+        },
+      },
+      create: {
+        merchantId: merchant.id,
+        storeId: amazonStore.id,
+        productId: demoProduct.id,
+        externalProductId: `AMZ-${demoProduct.code}`,
+        title: demoProduct.title,
+        description: demoProduct.description,
+        language: 'en-US',
+        price: (18.99 + index * 5).toFixed(2),
+        currency: 'USD',
+        status: 'PUBLISHED',
+      },
+      update: { status: 'PUBLISHED' },
+    })
+    await prisma.productListing.upsert({
+      where: {
+        storeId_productId: {
+          storeId: shopeeStore.id,
+          productId: demoProduct.id,
+        },
+      },
+      create: {
+        merchantId: merchant.id,
+        storeId: shopeeStore.id,
+        productId: demoProduct.id,
+        externalProductId: `SHP-${demoProduct.code}`,
+        title: demoProduct.title,
+        description: demoProduct.description,
+        language: 'pt-BR',
+        price: (99.9 + index * 20).toFixed(2),
+        currency: 'BRL',
+        status: index === 2 ? 'DRAFT' : 'PUBLISHED',
+      },
+      update: {},
+    })
+  }
+
   // Demo orders
   const existingOrders = await prisma.order.count({
     where: { merchantId: merchant.id },
@@ -477,6 +570,23 @@ async function seed(): Promise<void> {
       })
     }
   }
+
+  await prisma.order.updateMany({
+    where: {
+      merchantId: merchant.id,
+      orderNo: {
+        in: ['ORD-20260701-001', 'ORD-20260710-003', 'ORD-20260720-005'],
+      },
+    },
+    data: { storeId: amazonStore.id },
+  })
+  await prisma.order.updateMany({
+    where: {
+      merchantId: merchant.id,
+      orderNo: { in: ['ORD-20260705-002', 'ORD-20260715-004'] },
+    },
+    data: { storeId: shopeeStore.id },
+  })
 }
 
 seed()

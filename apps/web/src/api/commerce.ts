@@ -64,6 +64,7 @@ export function getProducts(
     pageSize: number
     keyword?: string
     status?: ProductStatus
+    storeId?: string
   },
 ): Promise<PaginatedProducts> {
   const query = new URLSearchParams({
@@ -72,6 +73,7 @@ export function getProducts(
   })
   if (params.keyword) query.set('keyword', params.keyword)
   if (params.status) query.set('status', params.status)
+  if (params.storeId) query.set('storeId', params.storeId)
   return apiRequest(token, `/api/merchants/${merchantId}/products?${query}`)
 }
 

@@ -60,6 +60,12 @@ export class OrderQueryDto {
   @IsNotEmpty()
   @MaxLength(64)
   keyword?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNotEmpty()
+  @MaxLength(30)
+  storeId?: string
 }
 
 export class UpdateOrderStatusDto {
@@ -101,4 +107,10 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsNotEmpty()
   endDate?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNotEmpty()
+  @MaxLength(30)
+  storeId?: string
 }

@@ -22,16 +22,18 @@ export class DashboardController {
   getOverview(
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,
+    @Query() query: DashboardQueryDto,
   ): Promise<DashboardOverview> {
-    return this.dashboardService.getOverview(user, merchantId)
+    return this.dashboardService.getOverview(user, merchantId, query.storeId)
   }
 
   @Get('trend')
   getTrend(
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,
+    @Query() query: DashboardQueryDto,
   ): Promise<DashboardTrend> {
-    return this.dashboardService.getTrend(user, merchantId)
+    return this.dashboardService.getTrend(user, merchantId, query.storeId)
   }
 
   @Get('sales')
@@ -40,7 +42,12 @@ export class DashboardController {
     @Param('merchantId') merchantId: string,
     @Query() query: DashboardQueryDto,
   ): Promise<DashboardSalesData> {
-    return this.dashboardService.getSalesData(user, merchantId, query.days)
+    return this.dashboardService.getSalesData(
+      user,
+      merchantId,
+      query.days,
+      query.storeId,
+    )
   }
 
   @Get('orders')
@@ -49,6 +56,11 @@ export class DashboardController {
     @Param('merchantId') merchantId: string,
     @Query() query: DashboardQueryDto,
   ): Promise<DashboardOrderData> {
-    return this.dashboardService.getOrderData(user, merchantId, query.days)
+    return this.dashboardService.getOrderData(
+      user,
+      merchantId,
+      query.days,
+      query.storeId,
+    )
   }
 }

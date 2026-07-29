@@ -7,6 +7,7 @@ import type {
 } from '@cross-border/shared'
 
 import { MerchantAccessService } from '../commerce/merchant-access.service'
+import { StoresService } from '../commerce/stores.service'
 import { AI_PROVIDER, type AiProvider } from './ai-provider.service'
 import { AGENT_TOOL_DEFINITIONS } from './agent-tools.contract'
 import { AgentToolsService } from './agent-tools.service'
@@ -28,6 +29,7 @@ export class AgentService {
     private readonly merchantAccess: MerchantAccessService,
     private readonly agentTools: AgentToolsService,
     private readonly agentRuns: AgentRunsService,
+    private readonly storesService: StoresService,
     @Inject(AI_PROVIDER) private readonly aiProvider: AiProvider,
   ) {}
 
@@ -35,9 +37,21 @@ export class AgentService {
     actor: AuthenticatedUser,
     merchantId: string,
     message: string,
+    storeId?: string,
   ): Promise<AgentRunResponse> {
     await this.merchantAccess.assertAccess(actor, merchantId)
-    const runId = await this.agentRuns.start(actor, merchantId, message)
+    const store = storeId
+      ? await this.storesService.assertStore(actor, merchantId, storeId)
+      : undefined
+    const runId = await this.agentRuns.start(
+      actor,
+      merchantId,
+      message,
+      storeId,
+    )
+    const contextualMessage = store
+      ? `[当前店铺：${store.name} / ${store.platform} / ${store.market}，storeId=${store.id}] ${message}`
+      : message
     const explicitDraftIntent = /草稿|优化|翻译|DRAFT|OPTIMIZE|TRANSLATE/i.test(
       message,
     )
@@ -49,7 +63,10 @@ export class AgentService {
 
     let planned: Awaited<ReturnType<AiProvider['planAgentTools']>>
     try {
-      planned = await this.aiProvider.planAgentTools({ message, tools })
+      planned = await this.aiProvider.planAgentTools({
+        message: contextualMessage,
+        tools,
+      })
     } catch {
       await this.agentRuns.fail(runId, 'AI Agent planning failed')
       throw new BadGatewayException('AI Agent 规划失败，请稍后重试')
@@ -64,7 +81,9 @@ export class AgentService {
         if (!explicitDraftIntent || draftToolExecuted) continue
         draftToolExecuted = true
       }
-      results.push(await this.agentTools.execute(actor, merchantId, call))
+      results.push(
+        await this.agentTools.execute(actor, merchantId, call, storeId),
+      )
     }
 
     let answer: string
@@ -75,7 +94,7 @@ export class AgentService {
     }
     try {
       const summary = await this.aiProvider.summarizeAgent({
-        message,
+        message: contextualMessage,
         toolCalls: results,
       })
       answer = summary.answer
