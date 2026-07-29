@@ -1,27 +1,92 @@
-import { Spin } from 'antd'
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthenticatedRoute } from './components/authenticated-route/authenticated-route'
 import { RoleRoute } from './components/role-route/role-route'
+import { RouteLoading } from './components/route-loading/route-loading'
 import { BusinessContextProvider } from './contexts/business-context'
-import { AppLayout } from './layouts/app-layout/app-layout'
-import { AiChatPage } from './pages/ai-chat/ai-chat.page'
-import { AiResultsPage } from './pages/ai-results/ai-results.page'
-import { AiSharePage } from './pages/ai-share/ai-share.page'
-import { BatchTasksPage } from './pages/batch-tasks/batch-tasks.page'
-import { DashboardPage } from './pages/dashboard/dashboard.page'
-import { ForbiddenPage } from './pages/forbidden/forbidden.page'
-import { ImportsPage } from './pages/imports/imports.page'
-import { LoginPage } from './pages/login/login.page'
-import { MerchantsPage } from './pages/merchants/merchants.page'
-import { OrdersPage } from './pages/orders/orders.page'
-import { ProductsPage } from './pages/products/products.page'
-import { RuleDocumentsPage } from './pages/rule-documents/rule-documents.page'
-import { StoresPage } from './pages/stores/stores.page'
-import { UsersPage } from './pages/users/users.page'
 import { restoreSession } from './store/auth.slice'
 import { useAppDispatch, useAppSelector } from './store/hooks'
+
+const AppLayout = lazy(() =>
+  import('./layouts/app-layout/app-layout').then((module) => ({
+    default: module.AppLayout,
+  })),
+)
+const AiChatPage = lazy(() =>
+  import('./pages/ai-chat/ai-chat.page').then((module) => ({
+    default: module.AiChatPage,
+  })),
+)
+const AiResultsPage = lazy(() =>
+  import('./pages/ai-results/ai-results.page').then((module) => ({
+    default: module.AiResultsPage,
+  })),
+)
+const AiSharePage = lazy(() =>
+  import('./pages/ai-share/ai-share.page').then((module) => ({
+    default: module.AiSharePage,
+  })),
+)
+const BatchTasksPage = lazy(() =>
+  import('./pages/batch-tasks/batch-tasks.page').then((module) => ({
+    default: module.BatchTasksPage,
+  })),
+)
+const DashboardPage = lazy(() =>
+  import('./pages/dashboard/dashboard.page').then((module) => ({
+    default: module.DashboardPage,
+  })),
+)
+const ForbiddenPage = lazy(() =>
+  import('./pages/forbidden/forbidden.page').then((module) => ({
+    default: module.ForbiddenPage,
+  })),
+)
+const ImportsPage = lazy(() =>
+  import('./pages/imports/imports.page').then((module) => ({
+    default: module.ImportsPage,
+  })),
+)
+const LoginPage = lazy(() =>
+  import('./pages/login/login.page').then((module) => ({
+    default: module.LoginPage,
+  })),
+)
+const MerchantsPage = lazy(() =>
+  import('./pages/merchants/merchants.page').then((module) => ({
+    default: module.MerchantsPage,
+  })),
+)
+const OrdersPage = lazy(() =>
+  import('./pages/orders/orders.page').then((module) => ({
+    default: module.OrdersPage,
+  })),
+)
+const ProductsPage = lazy(() =>
+  import('./pages/products/products.page').then((module) => ({
+    default: module.ProductsPage,
+  })),
+)
+const RuleDocumentsPage = lazy(() =>
+  import('./pages/rule-documents/rule-documents.page').then((module) => ({
+    default: module.RuleDocumentsPage,
+  })),
+)
+const StoresPage = lazy(() =>
+  import('./pages/stores/stores.page').then((module) => ({
+    default: module.StoresPage,
+  })),
+)
+const UsersPage = lazy(() =>
+  import('./pages/users/users.page').then((module) => ({
+    default: module.UsersPage,
+  })),
+)
+
+function routeElement(element: ReactNode) {
+  return <Suspense fallback={<RouteLoading />}>{element}</Suspense>
+}
 
 export function App() {
   const dispatch = useAppDispatch()
@@ -35,7 +100,7 @@ export function App() {
     return (
       <main className="session-loading">
         <div className="brand-mark">CB</div>
-        <Spin size="large" />
+        <span className="route-loading-spinner" aria-hidden="true" />
         <span>正在恢复安全会话…</span>
       </main>
     )
@@ -43,31 +108,43 @@ export function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={routeElement(<LoginPage />)} />
       <Route element={<AuthenticatedRoute />}>
         <Route
           element={
             <BusinessContextProvider>
-              <AppLayout />
+              {routeElement(<AppLayout />)}
             </BusinessContextProvider>
           }
         >
-          <Route index element={<DashboardPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="403" element={<ForbiddenPage />} />
-          <Route path="ai-shares/:shareId" element={<AiSharePage />} />
+          <Route index element={routeElement(<DashboardPage />)} />
+          <Route path="orders" element={routeElement(<OrdersPage />)} />
+          <Route path="products" element={routeElement(<ProductsPage />)} />
+          <Route path="403" element={routeElement(<ForbiddenPage />)} />
+          <Route
+            path="ai-shares/:shareId"
+            element={routeElement(<AiSharePage />)}
+          />
           <Route element={<RoleRoute allow={['admin', 'operator']} />}>
-            <Route path="ai-chat" element={<AiChatPage />} />
-            <Route path="ai-results" element={<AiResultsPage />} />
-            <Route path="batch-tasks" element={<BatchTasksPage />} />
-            <Route path="imports" element={<ImportsPage />} />
-            <Route path="stores" element={<StoresPage />} />
+            <Route path="ai-chat" element={routeElement(<AiChatPage />)} />
+            <Route
+              path="ai-results"
+              element={routeElement(<AiResultsPage />)}
+            />
+            <Route
+              path="batch-tasks"
+              element={routeElement(<BatchTasksPage />)}
+            />
+            <Route path="imports" element={routeElement(<ImportsPage />)} />
+            <Route path="stores" element={routeElement(<StoresPage />)} />
           </Route>
           <Route element={<RoleRoute allow={['admin']} />}>
-            <Route path="merchants" element={<MerchantsPage />} />
-            <Route path="rule-documents" element={<RuleDocumentsPage />} />
-            <Route path="users" element={<UsersPage />} />
+            <Route path="merchants" element={routeElement(<MerchantsPage />)} />
+            <Route
+              path="rule-documents"
+              element={routeElement(<RuleDocumentsPage />)}
+            />
+            <Route path="users" element={routeElement(<UsersPage />)} />
           </Route>
         </Route>
       </Route>

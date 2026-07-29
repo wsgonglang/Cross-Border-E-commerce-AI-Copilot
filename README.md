@@ -59,6 +59,7 @@ Web 地址为 `http://localhost:5173`。`migrate` 和 `demo-seed` 是一次性�
 - [架构与关键取舍](docs/architecture.md)
 - [8 分钟面试演示指南](docs/interview-demo.md)
 - [产品体验增强路线](docs/product-enhancement-roadmap.md)
+- [前端与 AI 质量增强路线](docs/frontend-quality-roadmap.md)
 
 ## 演示账号
 
@@ -179,6 +180,6 @@ npm run verify
 
 API 会接收符合格式的 `X-Request-Id`，否则生成 UUID；响应回传同一个 ID，请求完成后输出不包含查询参数和正文的结构化日志。Web API 错误会附带请求 ID，便于关联排障。
 
-当前 102 项自动化测试覆盖认证、角色守卫、商家隔离、店铺与刊登隔离、店铺币种约束、订单/看板/Agent 店铺上下文、运营指标与上一周期复算、viewer 只读 Agent 边界、商品分页隔离、负库存、订单多维状态机、组合筛选、保存视图恢复、批量部分失败与幂等、订单事件追溯、Agent 订单投影脱敏、AI 会话隔离、流式消息持久化、停止生成、人工标题保护、归档与永久删除前置条件、消息收藏和业务关联、导出与分享脱敏、分享授权/过期/撤销、三种目标语言结构化校验、Provider 失败落库、人工确认写回、重复确认幂等、商品版本冲突、Agent 工具规划、参数拒绝、工具审计、AgentRun 成功/失败持久化、成果聚合与状态过滤、草稿授权边界、批量任务的商家隔离、幂等、取消、Worker 重试、最终失败与重复投递、规则 RAG 基础评估、CSV/XLSX 解析边界、导入预览零写入、行级校验、映射键序无关幂等、导入 Worker 成功/失败，以及 Request ID 和日志注入防护。生产构建仍有前端主包体积提示，后续可结合路由懒加载处理。
+当前 106 项自动化测试覆盖认证、前端认证/角色路由、服务端角色守卫、商家隔离、店铺与刊登隔离、店铺币种约束、订单/看板/Agent 店铺上下文、运营指标与上一周期复算、viewer 只读 Agent 边界、商品分页隔离、负库存、订单多维状态机、组合筛选、保存视图恢复、批量部分失败与幂等、订单事件追溯、Agent 订单投影脱敏、AI 会话隔离、流式消息持久化、停止生成、人工标题保护、归档与永久删除前置条件、消息收藏和业务关联、导出与分享脱敏、分享授权/过期/撤销、三种目标语言结构化校验、Provider 失败落库、人工确认写回、重复确认幂等、商品版本冲突、Agent 工具规划、参数拒绝、工具审计、AgentRun 成功/失败持久化、成果聚合与状态过滤、草稿授权边界、批量任务的商家隔离、幂等、取消、Worker 重试、最终失败与重复投递、规则 RAG 基础评估、CSV/XLSX 解析边界、导入预览零写入、行级校验、映射键序无关幂等、导入 Worker 成功/失败，以及 Request ID 和日志注入防护。Web 页面和 AppLayout 已按路由懒加载，生产构建最大 JavaScript chunk 为 375.02 kB，不再出现 500 kB 大包提示。
 
 截至 2026-07-29，完整 `npm audit` 报告 17 项（1 moderate、16 high），`npm audit --omit=dev` 报告 12 项（1 moderate、11 high）。其中包含 React Router `7.18.1` 的 RSC Action CSRF 公告（本项目使用普通 `BrowserRouter`，未启用 RSC/Action）、ExcelJS 的 XLSX 生成侧 `archiver/brace-expansion` 与 `uuid` 依赖链，以及 ESLint/Nest CLI 开发工具链公告。导入端只读取受 5 MB/1000 行限制的文件且不调用 ExcelJS 写出能力；当前审计只提供 `--force` 降级或破坏性升级方案，因此暂不自动修复，后续跟随兼容的上游版本更新。
