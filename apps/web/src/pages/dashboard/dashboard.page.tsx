@@ -278,7 +278,7 @@ export function DashboardPage() {
         </div>
       ) : dashboard ? (
         <>
-          <Typography.Text type="secondary">
+          <Typography.Text type="secondary" className="dashboard-period">
             当前周期 {dashboard.period.startDate.slice(0, 10)} 至{' '}
             {dashboard.period.endDate.slice(0, 10)}，对比之前等长周期
           </Typography.Text>
@@ -330,9 +330,15 @@ export function DashboardPage() {
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]}>
+          <Row
+            gutter={[16, 16]}
+            className="dashboard-section dashboard-equal-row"
+          >
             <Col xs={24} xl={16}>
-              <Card title={`${days} 天销售与订单趋势`}>
+              <Card
+                title={`${days} 天销售与订单趋势`}
+                className="dashboard-full-card"
+              >
                 <TrendChart data={dashboard.trend} />
               </Card>
             </Col>
@@ -367,9 +373,12 @@ export function DashboardPage() {
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]} className="dashboard-section">
+          <Row
+            gutter={[16, 16]}
+            className="dashboard-section dashboard-equal-row"
+          >
             <Col xs={24} xl={12}>
-              <Card title="热销商品">
+              <Card title="热销商品" className="dashboard-full-card">
                 <Table
                   size="small"
                   rowKey="productName"
@@ -392,6 +401,7 @@ export function DashboardPage() {
             <Col xs={24} xl={12}>
               <Card
                 title="低库存明细"
+                className="dashboard-full-card"
                 extra={
                   <Button
                     type="link"
@@ -484,10 +494,14 @@ export function DashboardPage() {
             />
           </Card>
 
-          <Row gutter={[16, 16]} className="dashboard-section">
+          <Row
+            gutter={[16, 16]}
+            className="dashboard-section dashboard-equal-row"
+          >
             <Col xs={24} xl={12}>
               <Card
                 title="运行中任务"
+                className="dashboard-full-card"
                 extra={
                   <Button
                     type="link"
@@ -529,6 +543,7 @@ export function DashboardPage() {
             <Col xs={24} xl={12}>
               <Card
                 title="近期 AI 成果"
+                className="dashboard-full-card"
                 extra={
                   <Button
                     type="link"
