@@ -39,6 +39,7 @@ export interface AgentRunSummary extends AgentRunResponse {
   storeId?: string
   userId: string
   message: string
+  sourcePage?: string
   status: AgentRunStatus
   providerName?: string
   modelName?: string

@@ -115,6 +115,7 @@ function doSend(
 
 export function AiChatPage() {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
+  const user = useAppSelector((state) => state.auth.user)
   const { merchantId, storeId, currentStore } = useBusinessContext()
 
   const [sessions, setSessions] = useState<AiSessionSummary[]>([])
@@ -306,6 +307,12 @@ export function AiChatPage() {
             merchantId={merchantId}
             storeId={storeId || undefined}
             storeName={currentStore?.name}
+            sourcePage="ai-chat"
+            canWrite={
+              user?.roles.some((role) =>
+                ['admin', 'operator'].includes(role),
+              ) ?? false
+            }
           />
         ) : (
           <>

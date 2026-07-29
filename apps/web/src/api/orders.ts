@@ -5,6 +5,7 @@ import type {
   DashboardTrend,
   OrderStatus,
   OrderSummary,
+  OperationsDashboard,
   PaginatedOrders,
 } from '@cross-border/shared'
 
@@ -105,5 +106,18 @@ export function getDashboardOrders(
   return apiRequest(
     token,
     `/api/merchants/${merchantId}/dashboard/orders${query}`,
+  )
+}
+
+export function getOperationsDashboard(
+  token: string,
+  merchantId: string,
+  params: { days: number; storeId?: string },
+): Promise<OperationsDashboard> {
+  const query = new URLSearchParams({ days: String(params.days) })
+  if (params.storeId) query.set('storeId', params.storeId)
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/dashboard/operations?${query}`,
   )
 }

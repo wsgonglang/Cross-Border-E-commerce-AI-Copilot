@@ -6,6 +6,7 @@ import type {
   DashboardOverview,
   DashboardSalesData,
   DashboardTrend,
+  OperationsDashboard,
 } from '@cross-border/shared'
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
@@ -57,6 +58,20 @@ export class DashboardController {
     @Query() query: DashboardQueryDto,
   ): Promise<DashboardOrderData> {
     return this.dashboardService.getOrderData(
+      user,
+      merchantId,
+      query.days,
+      query.storeId,
+    )
+  }
+
+  @Get('operations')
+  getOperations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('merchantId') merchantId: string,
+    @Query() query: DashboardQueryDto,
+  ): Promise<OperationsDashboard> {
+    return this.dashboardService.getOperations(
       user,
       merchantId,
       query.days,

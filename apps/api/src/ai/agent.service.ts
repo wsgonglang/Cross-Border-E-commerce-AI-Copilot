@@ -38,6 +38,8 @@ export class AgentService {
     merchantId: string,
     message: string,
     storeId?: string,
+    days: number = 7,
+    sourcePage?: string,
   ): Promise<AgentRunResponse> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const store = storeId
@@ -48,17 +50,22 @@ export class AgentService {
       merchantId,
       message,
       storeId,
+      sourcePage,
     )
+    const periodContext = `近 ${days} 天（含上一周期对比）`
     const contextualMessage = store
-      ? `[当前店铺：${store.name} / ${store.platform} / ${store.market}，storeId=${store.id}] ${message}`
-      : message
+      ? `[当前店铺：${store.name} / ${store.platform} / ${store.market}，storeId=${store.id}；时间范围：${periodContext}] ${message}`
+      : `[当前商家全部店铺；时间范围：${periodContext}] ${message}`
     const explicitDraftIntent = /草稿|优化|翻译|DRAFT|OPTIMIZE|TRANSLATE/i.test(
       message,
+    )
+    const canWrite = actor.roles.some((role) =>
+      ['admin', 'operator'].includes(role),
     )
     const tools = AGENT_TOOL_DEFINITIONS.filter(
       (tool) =>
         tool.name !== 'create_product_optimization_draft' ||
-        explicitDraftIntent,
+        (explicitDraftIntent && canWrite),
     )
 
     let planned: Awaited<ReturnType<AiProvider['planAgentTools']>>
@@ -82,7 +89,7 @@ export class AgentService {
         draftToolExecuted = true
       }
       results.push(
-        await this.agentTools.execute(actor, merchantId, call, storeId),
+        await this.agentTools.execute(actor, merchantId, call, storeId, days),
       )
     }
 

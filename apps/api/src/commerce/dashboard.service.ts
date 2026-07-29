@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common'
 import type {
+  AiResultItem,
   AuthenticatedUser,
+  BatchTaskSummary,
   DashboardOrderData,
   DashboardOverview,
   DashboardSalesData,
   DashboardTrend,
+  OperationsDashboard,
+  OrderStatus,
 } from '@cross-border/shared'
 
 import { PrismaService } from '../database/prisma.service'
 import { MerchantAccessService } from './merchant-access.service'
+import { StoresService } from './stores.service'
 
 function localDateKey(date: Date): string {
   const year = date.getFullYear()
@@ -17,11 +22,21 @@ function localDateKey(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+function comparisonRate(current: number, previous: number): number | null {
+  if (previous === 0) return current === 0 ? 0 : null
+  return Math.round(((current - previous) / previous) * 10_000) / 100
+}
+
+function money(value: number): string {
+  return value.toFixed(2)
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly merchantAccess: MerchantAccessService,
+    private readonly storesService: StoresService,
   ) {}
 
   async getOverview(
@@ -294,6 +309,372 @@ export class DashboardService {
         dates: sortedDates,
         orders: sortedDates.map((d) => dateMap.get(d)!),
       },
+    }
+  }
+
+  async getOperations(
+    user: AuthenticatedUser,
+    merchantId: string,
+    days: number = 7,
+    storeId?: string,
+  ): Promise<OperationsDashboard> {
+    await this.merchantAccess.assertAccess(user, merchantId)
+    const store = storeId
+      ? await this.storesService.assertStore(user, merchantId, storeId)
+      : null
+    const merchant = store
+      ? null
+      : await this.prisma.merchant.findFirst({
+          where: { id: merchantId },
+          select: { defaultCurrency: true },
+        })
+
+    const endDate = new Date()
+    const startDate = new Date(endDate)
+    startDate.setDate(startDate.getDate() - days + 1)
+    startDate.setHours(0, 0, 0, 0)
+    const previousEndDate = new Date(startDate)
+    const previousStartDate = new Date(previousEndDate)
+    previousStartDate.setDate(previousStartDate.getDate() - days)
+
+    const orderScope = {
+      merchantId,
+      ...(storeId ? { storeId } : {}),
+    }
+    const listingScope = storeId
+      ? { listings: { some: { merchantId, storeId } } }
+      : {}
+
+    const [
+      currentOrders,
+      previousOrders,
+      lowStock,
+      lowStockCount,
+      pendingDrafts,
+      failedTasks,
+      actionableOrders,
+      activeTaskRecords,
+      recentRuns,
+      recentOptimizations,
+      runningAgentCount,
+    ] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          ...orderScope,
+          createdAt: { gte: startDate, lte: endDate },
+        },
+        select: {
+          status: true,
+          totalAmount: true,
+          createdAt: true,
+          items: {
+            select: {
+              productName: true,
+              quantity: true,
+              subtotal: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          ...orderScope,
+          createdAt: { gte: previousStartDate, lt: previousEndDate },
+        },
+        select: { status: true, totalAmount: true },
+      }),
+      this.prisma.sku.findMany({
+        where: {
+          merchantId,
+          stock: { lte: 5 },
+          status: 'ACTIVE',
+          product: listingScope,
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          stock: true,
+          product: { select: { id: true, code: true, title: true } },
+        },
+        orderBy: [{ stock: 'asc' }, { code: 'asc' }],
+        take: 8,
+      }),
+      this.prisma.sku.count({
+        where: {
+          merchantId,
+          stock: { lte: 5 },
+          status: 'ACTIVE',
+          product: listingScope,
+        },
+      }),
+      this.prisma.productOptimization.count({
+        where: {
+          merchantId,
+          status: 'DRAFT',
+          product: listingScope,
+        },
+      }),
+      this.prisma.batchOptimizationTask.count({
+        where: {
+          merchantId,
+          status: 'PARTIAL_FAILED',
+          ...(storeId
+            ? {
+                items: {
+                  some: {
+                    product: {
+                      listings: { some: { merchantId, storeId } },
+                    },
+                  },
+                },
+              }
+            : {}),
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...orderScope,
+          status: { in: ['PENDING', 'CONFIRMED', 'REFUNDING'] },
+        },
+      }),
+      this.prisma.batchOptimizationTask.findMany({
+        where: {
+          merchantId,
+          status: { in: ['PENDING', 'RUNNING'] },
+          ...(storeId
+            ? {
+                items: {
+                  some: {
+                    product: {
+                      listings: { some: { merchantId, storeId } },
+                    },
+                  },
+                },
+              }
+            : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.agentRun.findMany({
+        where: { merchantId, ...(storeId ? { storeId } : {}) },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.productOptimization.findMany({
+        where: {
+          merchantId,
+          product: listingScope,
+        },
+        include: {
+          product: { select: { id: true, code: true, title: true } },
+          batchItem: { select: { taskId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.agentRun.count({
+        where: {
+          merchantId,
+          ...(storeId ? { storeId } : {}),
+          status: { in: ['PLANNING', 'RUNNING'] },
+        },
+      }),
+    ])
+
+    const validCurrentOrders = currentOrders.filter(
+      (order) => !['CANCELLED', 'REFUNDED'].includes(order.status),
+    )
+    const validPreviousOrders = previousOrders.filter(
+      (order) => !['CANCELLED', 'REFUNDED'].includes(order.status),
+    )
+    const currentSales = validCurrentOrders.reduce(
+      (sum, order) => sum + Number(order.totalAmount),
+      0,
+    )
+    const previousSales = validPreviousOrders.reduce(
+      (sum, order) => sum + Number(order.totalAmount),
+      0,
+    )
+    const currentOrderCount = currentOrders.length
+    const previousOrderCount = previousOrders.length
+    const currentAverage =
+      validCurrentOrders.length > 0
+        ? currentSales / validCurrentOrders.length
+        : 0
+    const previousAverage =
+      validPreviousOrders.length > 0
+        ? previousSales / validPreviousOrders.length
+        : 0
+    const currentRefunds = currentOrders.filter(
+      (order) => order.status === 'REFUNDED',
+    ).length
+    const previousRefunds = previousOrders.filter(
+      (order) => order.status === 'REFUNDED',
+    ).length
+
+    const trendMap = new Map<string, { orders: number; sales: number }>()
+    for (let index = 0; index < days; index++) {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + index)
+      trendMap.set(localDateKey(date), { orders: 0, sales: 0 })
+    }
+    for (const order of currentOrders) {
+      const entry = trendMap.get(localDateKey(order.createdAt))
+      if (!entry) continue
+      entry.orders += 1
+      if (!['CANCELLED', 'REFUNDED'].includes(order.status)) {
+        entry.sales += Number(order.totalAmount)
+      }
+    }
+
+    const statusCounts = new Map<OrderStatus, number>()
+    const productTotals = new Map<
+      string,
+      { productName: string; quantity: number; sales: number }
+    >()
+    for (const order of currentOrders) {
+      const status = order.status
+      statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1)
+      if (['CANCELLED', 'REFUNDED'].includes(order.status)) continue
+      for (const item of order.items) {
+        const current = productTotals.get(item.productName) ?? {
+          productName: item.productName,
+          quantity: 0,
+          sales: 0,
+        }
+        current.quantity += item.quantity
+        current.sales += Number(item.subtotal)
+        productTotals.set(item.productName, current)
+      }
+    }
+
+    const recentResults: AiResultItem[] = [
+      ...recentRuns.map((run) => ({
+        id: `agent:${run.id}`,
+        type: 'AGENT_RUN' as const,
+        status: run.status,
+        title: run.message,
+        description: run.answer ?? run.error ?? 'Agent 正在执行',
+        createdAt: run.createdAt.toISOString(),
+        updatedAt: run.updatedAt.toISOString(),
+        agentRunId: run.id,
+      })),
+      ...recentOptimizations.map((optimization) => ({
+        id: `optimization:${optimization.id}`,
+        type: 'PRODUCT_OPTIMIZATION' as const,
+        status: optimization.status,
+        title: `${optimization.product.code} · ${optimization.product.title}`,
+        description:
+          optimization.error ??
+          `面向 ${optimization.targetLanguage} 的商品优化草稿`,
+        createdAt: optimization.createdAt.toISOString(),
+        updatedAt: optimization.updatedAt.toISOString(),
+        optimizationId: optimization.id,
+        product: optimization.product,
+        ...(optimization.batchItem
+          ? { batchTaskId: optimization.batchItem.taskId }
+          : {}),
+        targetLanguage: optimization.targetLanguage,
+      })),
+    ]
+      .sort((first, second) => second.createdAt.localeCompare(first.createdAt))
+      .slice(0, 5)
+
+    const activeTasks: BatchTaskSummary[] = activeTaskRecords.map((task) => {
+      const processed =
+        task.completedItems + task.failedItems + task.cancelledItems
+      return {
+        id: task.id,
+        merchantId: task.merchantId,
+        createdById: task.createdById,
+        idempotencyKey: task.idempotencyKey,
+        targetLanguage:
+          task.targetLanguage as BatchTaskSummary['targetLanguage'],
+        status: task.status,
+        totalItems: task.totalItems,
+        completedItems: task.completedItems,
+        failedItems: task.failedItems,
+        cancelledItems: task.cancelledItems,
+        progress:
+          task.totalItems === 0
+            ? 0
+            : Math.round((processed / task.totalItems) * 100),
+        startedAt: task.startedAt?.toISOString(),
+        completedAt: task.completedAt?.toISOString(),
+        cancelledAt: task.cancelledAt?.toISOString(),
+        createdAt: task.createdAt.toISOString(),
+        updatedAt: task.updatedAt.toISOString(),
+      }
+    })
+
+    const dates = Array.from(trendMap.keys()).sort()
+    return {
+      period: {
+        days,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        previousStartDate: previousStartDate.toISOString(),
+        previousEndDate: previousEndDate.toISOString(),
+      },
+      currency: store?.currency ?? merchant?.defaultCurrency ?? 'USD',
+      metrics: {
+        sales: {
+          value: money(currentSales),
+          previousValue: money(previousSales),
+          changeRate: comparisonRate(currentSales, previousSales),
+        },
+        orders: {
+          value: currentOrderCount,
+          previousValue: previousOrderCount,
+          changeRate: comparisonRate(currentOrderCount, previousOrderCount),
+        },
+        averageOrderValue: {
+          value: money(currentAverage),
+          previousValue: money(previousAverage),
+          changeRate: comparisonRate(currentAverage, previousAverage),
+        },
+        refunds: {
+          value: currentRefunds,
+          previousValue: previousRefunds,
+          changeRate: comparisonRate(currentRefunds, previousRefunds),
+        },
+      },
+      trend: {
+        dates,
+        orders: dates.map((date) => trendMap.get(date)!.orders),
+        sales: dates.map((date) => money(trendMap.get(date)!.sales)),
+      },
+      orderStatuses: Array.from(statusCounts.entries()).map(
+        ([status, count]) => ({ status, count }),
+      ),
+      topProducts: Array.from(productTotals.values())
+        .sort(
+          (first, second) =>
+            second.sales - first.sales || second.quantity - first.quantity,
+        )
+        .slice(0, 5)
+        .map((item) => ({ ...item, sales: money(item.sales) })),
+      lowStock: lowStock.map((sku) => ({
+        skuId: sku.id,
+        skuCode: sku.code,
+        skuName: sku.name,
+        productId: sku.product.id,
+        productCode: sku.product.code,
+        productTitle: sku.product.title,
+        stock: sku.stock,
+      })),
+      todos: {
+        pendingDrafts,
+        failedTasks,
+        actionableOrders,
+        lowStockItems: lowStockCount,
+      },
+      activeTasks,
+      recentResults,
+      runningAgentCount,
     }
   }
 }

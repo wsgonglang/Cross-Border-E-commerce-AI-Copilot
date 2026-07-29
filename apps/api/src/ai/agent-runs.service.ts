@@ -16,6 +16,7 @@ interface AgentRunRecord {
   storeId: string | null
   userId: string
   message: string
+  sourcePage: string | null
   answer: string | null
   status: 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
   providerName: string | null
@@ -50,6 +51,7 @@ export class AgentRunsService {
     merchantId: string,
     message: string,
     storeId?: string,
+    sourcePage?: string,
   ): Promise<string> {
     const run = await this.prisma.agentRun.create({
       data: {
@@ -57,6 +59,7 @@ export class AgentRunsService {
         ...(storeId ? { storeId } : {}),
         userId: actor.id,
         message,
+        ...(sourcePage ? { sourcePage } : {}),
         status: 'PLANNING',
       },
       select: { id: true },
@@ -155,6 +158,7 @@ export class AgentRunsService {
       ...(record.storeId ? { storeId: record.storeId } : {}),
       userId: record.userId,
       message: record.message,
+      ...(record.sourcePage ? { sourcePage: record.sourcePage } : {}),
       answer: record.answer ?? '',
       status: record.status,
       toolCalls,

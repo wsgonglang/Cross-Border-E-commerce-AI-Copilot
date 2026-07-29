@@ -45,6 +45,13 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 - 写工具只允许创建草稿，不允许直接修改商品、库存和订单。
 - 每次调用保存参数、结果或错误审计。
 
+### Agent 运营工作台
+
+- `GET /api/merchants/:merchantId/dashboard/operations` 在服务端按商家、可选店铺和 7/14/30 天窗口聚合真实订单、商品、SKU、草稿、批量任务与 AgentRun。
+- 销售额排除取消和已退款订单；订单数、客单价和退款量同时计算等长上一周期，上一周期为零时返回无基数而不是伪造增长率。
+- 待办使用当前业务状态复算，趋势、订单状态、热销商品和低库存均能追溯到 MySQL 业务记录；前端不展示没有来源的访客、转化率或预测指标。
+- 工作台 Agent 请求携带当前 `storeId`、时间天数和 `sourcePage`；经营概览工具复用同一聚合 Service。viewer 的服务端工具集合不包含创建草稿，operator/admin 的写工具仍只生成待人工确认草稿。
+
 ### 批量任务
 
 - 一个批次拆为多个商品任务项，每个任务项对应一个 BullMQ Job。

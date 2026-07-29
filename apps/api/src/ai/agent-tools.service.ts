@@ -35,6 +35,7 @@ export class AgentToolsService {
     merchantId: string,
     call: PlannedAgentToolCall,
     storeId?: string,
+    days: number = 7,
   ): Promise<AgentToolCallSummary> {
     if (!isAgentToolName(call.name)) {
       return this.failedCall(actor, merchantId, call, '模型请求了未授权工具')
@@ -56,6 +57,7 @@ export class AgentToolsService {
         call.name,
         input,
         storeId,
+        days,
       )
       const result: AgentToolCallSummary = {
         id: call.id,
@@ -87,6 +89,7 @@ export class AgentToolsService {
     name: AgentToolName,
     input: Record<string, unknown>,
     storeId?: string,
+    days: number = 7,
   ): Promise<unknown> {
     switch (name) {
       case 'search_products': {
@@ -156,7 +159,12 @@ export class AgentToolsService {
         }
       }
       case 'get_business_overview':
-        return this.dashboardService.getOverview(actor, merchantId, storeId)
+        return this.dashboardService.getOperations(
+          actor,
+          merchantId,
+          days,
+          storeId,
+        )
       case 'search_platform_rules':
         return this.rulesService.search(
           actor,

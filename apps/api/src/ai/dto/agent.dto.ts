@@ -24,6 +24,19 @@ export class AgentRunDto {
   @IsString()
   @MaxLength(30)
   storeId?: string
+
+  @ApiPropertyOptional({ example: 7, minimum: 1, maximum: 90 })
+  @IsOptional()
+  @Type(() => Number)
+  @Min(1)
+  @Max(90)
+  days?: number
+
+  @ApiPropertyOptional({ example: 'dashboard' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  sourcePage?: string
 }
 
 export class AiResultsQueryDto {

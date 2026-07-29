@@ -188,6 +188,56 @@ describe('AgentService', () => {
       'merchant-1',
       expect.any(Object),
       'store-1',
+      7,
+    )
+  })
+
+  it('keeps the dashboard Agent read-only for viewers and forwards the time range', async () => {
+    const viewer = {
+      ...operator,
+      id: 'viewer-1',
+      roles: ['viewer' as const],
+    }
+    const planAgentTools = vi.fn().mockResolvedValue({
+      toolCalls: [],
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    })
+    const agentRuns = runs()
+    const service = new AgentService(
+      {
+        assertAccess: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MerchantAccessService,
+      { execute: vi.fn() } as unknown as AgentToolsService,
+      agentRuns as unknown as AgentRunsService,
+      { assertStore: vi.fn() } as unknown as StoresService,
+      provider({ planAgentTools }),
+    )
+
+    await service.run(
+      viewer,
+      'merchant-1',
+      '请优化 P-DEMO-001 并分析经营数据',
+      undefined,
+      30,
+      'dashboard',
+    )
+
+    const planInput = planAgentTools.mock.calls[0]?.[0] as unknown as {
+      message: string
+      tools: Array<{ name: string }>
+    }
+    expect(planInput.message).toContain('近 30 天')
+    expect(
+      planInput.tools.some(
+        (tool) => tool.name === 'create_product_optimization_draft',
+      ),
+    ).toBe(false)
+    expect(agentRuns.start).toHaveBeenCalledWith(
+      viewer,
+      'merchant-1',
+      '请优化 P-DEMO-001 并分析经营数据',
+      undefined,
+      'dashboard',
     )
   })
 

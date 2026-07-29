@@ -3,14 +3,12 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import type { AgentRunResponse, AuthenticatedUser } from '@cross-border/shared'
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
-import { Roles } from '../auth/decorators/roles.decorator'
 import { AgentService } from './agent.service'
 import { AgentRunsService } from './agent-runs.service'
 import { AgentRunDto } from './dto/agent.dto'
 
 @ApiTags('agent')
 @ApiBearerAuth()
-@Roles('admin', 'operator')
 @Controller('api/merchants/:merchantId/ai/agent')
 export class AgentController {
   constructor(
@@ -24,7 +22,14 @@ export class AgentController {
     @Param('merchantId') merchantId: string,
     @Body() dto: AgentRunDto,
   ): Promise<AgentRunResponse> {
-    return this.agentService.run(user, merchantId, dto.message, dto.storeId)
+    return this.agentService.run(
+      user,
+      merchantId,
+      dto.message,
+      dto.storeId,
+      dto.days,
+      dto.sourcePage,
+    )
   }
 
   @Get('runs/:runId')

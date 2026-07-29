@@ -38,9 +38,20 @@ interface Props {
   merchantId: string
   storeId?: string
   storeName?: string
+  days?: number
+  sourcePage?: string
+  canWrite?: boolean
 }
 
-export function AgentPanel({ token, merchantId, storeId, storeName }: Props) {
+export function AgentPanel({
+  token,
+  merchantId,
+  storeId,
+  storeName,
+  days = 7,
+  sourcePage,
+  canWrite = true,
+}: Props) {
   const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [running, setRunning] = useState(false)
@@ -54,7 +65,13 @@ export function AgentPanel({ token, merchantId, storeId, storeName }: Props) {
     setRunning(true)
     setError(null)
     try {
-      setResult(await runAgent(token, merchantId, content, storeId))
+      setResult(
+        await runAgent(token, merchantId, content, {
+          storeId,
+          days,
+          sourcePage,
+        }),
+      )
     } catch (runError: unknown) {
       setError(runError instanceof Error ? runError.message : 'Agent 执行失败')
     } finally {
@@ -72,16 +89,20 @@ export function AgentPanel({ token, merchantId, storeId, storeName }: Props) {
       />
 
       <Space wrap className="agent-quick-prompts">
-        {quickPrompts.map((prompt) => (
-          <Button
-            key={prompt}
-            size="small"
-            onClick={() => void submit(prompt)}
-            disabled={running}
-          >
-            {prompt}
-          </Button>
-        ))}
+        {quickPrompts
+          .filter(
+            (prompt) => canWrite || !prompt.includes('创建西班牙语优化草稿'),
+          )
+          .map((prompt) => (
+            <Button
+              key={prompt}
+              size="small"
+              onClick={() => void submit(prompt)}
+              disabled={running}
+            >
+              {prompt}
+            </Button>
+          ))}
       </Space>
 
       <Card

@@ -91,3 +91,13 @@ export {
   type RuleSearchResult,
   type RuleSearchSource,
 } from './rule-knowledge'
+export {
+  type DashboardComparisonMetric,
+  type DashboardLowStockItem,
+  type DashboardMoneyComparisonMetric,
+  type DashboardPeriod,
+  type DashboardStatusItem,
+  type DashboardTodoSummary,
+  type DashboardTopProduct,
+  type OperationsDashboard,
+} from './operations-dashboard'
