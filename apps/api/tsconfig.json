@@ -9,7 +9,7 @@
     "outDir": "dist",
     "removeComments": true,
     "sourceMap": true,
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals", "multer"]
   },
   "include": ["src/**/*.ts"]
 }

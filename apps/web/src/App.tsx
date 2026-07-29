@@ -13,6 +13,7 @@ import { BatchTasksPage } from './pages/batch-tasks.page'
 import { DashboardPage } from './pages/dashboard.page'
 import { ForbiddenPage } from './pages/forbidden.page'
 import { LoginPage } from './pages/login.page'
+import { ImportsPage } from './pages/imports.page'
 import { MerchantsPage } from './pages/merchants.page'
 import { OrdersPage } from './pages/orders.page'
 import { ProductsPage } from './pages/products.page'
@@ -60,6 +61,7 @@ export function App() {
             <Route path="ai-chat" element={<AiChatPage />} />
             <Route path="ai-results" element={<AiResultsPage />} />
             <Route path="batch-tasks" element={<BatchTasksPage />} />
+            <Route path="imports" element={<ImportsPage />} />
             <Route path="stores" element={<StoresPage />} />
           </Route>
           <Route element={<RoleRoute allow={['admin']} />}>

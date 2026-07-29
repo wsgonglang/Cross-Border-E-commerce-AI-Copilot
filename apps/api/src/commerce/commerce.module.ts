@@ -38,6 +38,7 @@ import { StoresService } from './stores.service'
     MerchantAccessService,
     OrdersService,
     ProductsService,
+    SkusService,
     StoresService,
   ],
 })

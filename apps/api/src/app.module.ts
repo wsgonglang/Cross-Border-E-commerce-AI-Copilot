@@ -13,6 +13,7 @@ import { CommerceModule } from './commerce/commerce.module'
 import { DatabaseModule } from './database/database.module'
 import { HealthController } from './health/health.controller'
 import { HealthService } from './health/health.service'
+import { ImportsModule } from './imports/imports.module'
 import { RequestContextMiddleware } from './observability/request-context.middleware'
 import { UsersModule } from './users/users.module'
 
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module'
     CommerceModule,
     AiModule,
     BatchModule,
+    ImportsModule,
   ],
   controllers: [HealthController],
   providers: [HealthService, RequestContextMiddleware],

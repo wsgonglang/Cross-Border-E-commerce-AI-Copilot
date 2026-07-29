@@ -49,7 +49,7 @@ export interface AgentRunSummary extends AgentRunResponse {
   completedAt?: string
 }
 
-export type AiResultType = 'AGENT_RUN' | 'PRODUCT_OPTIMIZATION'
+export type AiResultType = 'AGENT_RUN' | 'PRODUCT_OPTIMIZATION' | 'IMPORT_JOB'
 
 export interface AiResultItem {
   id: string
@@ -68,6 +68,7 @@ export interface AiResultItem {
   }
   batchTaskId?: string
   targetLanguage?: string
+  importJobId?: string
 }
 
 export interface PaginatedAiResults {

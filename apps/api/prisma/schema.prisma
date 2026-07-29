@@ -97,6 +97,28 @@ enum AgentRunStatus {
   FAILED
 }
 
+enum ImportJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  PARTIAL_FAILED
+  CANCELLED
+}
+
+enum ImportItemStatus {
+  VALIDATION_FAILED
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ImportMode {
+  DRAFT_ONLY
+  DRAFT_AND_AI
+}
+
 model User {
   id                     String                    @id @default(cuid()) @db.VarChar(30)
   email                  String                    @unique @db.VarChar(191)
@@ -117,6 +139,7 @@ model User {
   createdSessionShares   AiSessionShare[]          @relation("SessionShareCreator")
   sessionShareRecipients AiSessionShareRecipient[]
   aiMessageLinks         AiMessageLink[]
+  importJobs             ImportJob[]
   createdAt              DateTime                  @default(now()) @map("created_at")
   updatedAt              DateTime                  @updatedAt @map("updated_at")
   deletedAt              DateTime?                 @map("deleted_at")
@@ -143,6 +166,7 @@ model Merchant {
   ruleDocuments   RuleDocument[]
   agentRuns       AgentRun[]
   aiSessionShares AiSessionShare[]
+  importJobs      ImportJob[]
   createdAt       DateTime                @default(now()) @map("created_at")
   updatedAt       DateTime                @updatedAt @map("updated_at")
   stores          Store[]
@@ -204,6 +228,7 @@ model Product {
   versions      ProductVersion[]
   batchItems    BatchOptimizationItem[]
   listings      ProductListing[]
+  importItems   ImportItem[]
   createdAt     DateTime                @default(now()) @map("created_at")
   updatedAt     DateTime                @updatedAt @map("updated_at")
 
@@ -253,6 +278,7 @@ model ProductOptimization {
   completionTokens   Int                       @default(0) @map("completion_tokens")
   totalTokens        Int                       @default(0) @map("total_tokens")
   batchItemId        String?                   @unique @map("batch_item_id") @db.VarChar(30)
+  importItemId       String?                   @unique @map("import_item_id") @db.VarChar(30)
   error              String?                   @db.VarChar(1000)
   appliedAt          DateTime?                 @map("applied_at")
   merchant           Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
@@ -260,6 +286,7 @@ model ProductOptimization {
   requestedBy        User                      @relation(fields: [requestedById], references: [id], onDelete: Restrict)
   version            ProductVersion?
   batchItem          BatchOptimizationItem?    @relation(fields: [batchItemId], references: [id], onDelete: SetNull)
+  importItem         ImportItem?               @relation(fields: [importItemId], references: [id], onDelete: SetNull)
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
 
@@ -313,6 +340,66 @@ model BatchOptimizationItem {
   @@index([taskId, status])
   @@index([productId, createdAt])
   @@map("batch_optimization_items")
+}
+
+model ImportJob {
+  id             String          @id @default(cuid()) @db.VarChar(30)
+  merchantId     String          @map("merchant_id") @db.VarChar(30)
+  createdById    String          @map("created_by_id") @db.VarChar(30)
+  idempotencyKey String          @map("idempotency_key") @db.VarChar(100)
+  fileName       String          @map("file_name") @db.VarChar(255)
+  fileHash       String          @map("file_hash") @db.Char(64)
+  fileType       String          @map("file_type") @db.VarChar(16)
+  worksheet      String?         @db.VarChar(120)
+  headerRow      Int             @default(1) @map("header_row")
+  mapping        Json
+  mode           ImportMode
+  targetLanguage String?         @map("target_language") @db.VarChar(16)
+  status         ImportJobStatus @default(PENDING)
+  totalItems     Int             @map("total_items")
+  validItems     Int             @map("valid_items")
+  invalidItems   Int             @map("invalid_items")
+  completedItems Int             @default(0) @map("completed_items")
+  failedItems    Int             @default(0) @map("failed_items")
+  cancelledItems Int             @default(0) @map("cancelled_items")
+  cancelledAt    DateTime?       @map("cancelled_at")
+  startedAt      DateTime?       @map("started_at")
+  completedAt    DateTime?       @map("completed_at")
+  merchant       Merchant        @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  createdBy      User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items          ImportItem[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId, createdAt])
+  @@index([merchantId, status, createdAt])
+  @@map("import_jobs")
+}
+
+model ImportItem {
+  id             String               @id @default(cuid()) @db.VarChar(30)
+  jobId          String               @map("job_id") @db.VarChar(30)
+  rowNumber      Int                  @map("row_number")
+  status         ImportItemStatus
+  sourceData     Json                 @map("source_data")
+  normalizedData Json?                @map("normalized_data")
+  warnings       Json                 @default("[]")
+  error          String?              @db.VarChar(1000)
+  productId      String?              @map("product_id") @db.VarChar(30)
+  attempts       Int                  @default(0)
+  startedAt      DateTime?            @map("started_at")
+  completedAt    DateTime?            @map("completed_at")
+  job            ImportJob            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  product        Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  optimization   ProductOptimization?
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  @@unique([jobId, rowNumber])
+  @@index([jobId, status, rowNumber])
+  @@index([productId])
+  @@map("import_items")
 }
 
 model RuleDocument {

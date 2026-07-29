@@ -106,3 +106,20 @@ export {
   type DashboardTopProduct,
   type OperationsDashboard,
 } from './operations-dashboard'
+export {
+  IMPORT_FIELD_KEYS,
+  type ImportFieldKey,
+  type ImportFileAnalysis,
+  type ImportItemStatus,
+  type ImportItemSummary,
+  type ImportJobDetail,
+  type ImportJobStatus,
+  type ImportJobSummary,
+  type ImportMapping,
+  type ImportMode,
+  type ImportPreview,
+  type ImportPreviewRow,
+  type ImportWorksheetAnalysis,
+  type NormalizedImportRow,
+  type PaginatedImportJobs,
+} from './structured-import'

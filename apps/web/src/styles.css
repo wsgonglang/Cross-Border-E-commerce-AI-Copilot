@@ -950,6 +950,25 @@ textarea {
   align-items: flex-start;
 }
 
+.import-card {
+  margin-bottom: 18px;
+}
+
+.native-file-picker {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 14px;
+  color: #fff;
+  cursor: pointer;
+  background: #1677ff;
+  border-radius: 6px;
+}
+
+.native-file-picker input {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .optimization-comparison {
     grid-template-columns: 1fr;

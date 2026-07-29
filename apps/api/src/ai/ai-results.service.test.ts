@@ -48,6 +48,20 @@ describe('AiResultsService', () => {
           },
         ]),
       },
+      importJob: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'import-1',
+            fileName: 'products.xlsx',
+            status: 'COMPLETED',
+            completedItems: 8,
+            totalItems: 10,
+            failedItems: 2,
+            createdAt: new Date('2026-07-29T07:00:00.000Z'),
+            updatedAt: new Date('2026-07-29T07:02:00.000Z'),
+          },
+        ]),
+      },
     }
     const service = new AiResultsService(
       prisma as unknown as PrismaService,
@@ -67,7 +81,10 @@ describe('AiResultsService', () => {
     expect(prisma.productOptimization.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { merchantId: 'merchant-1' } }),
     )
-    expect(result.total).toBe(2)
+    expect(prisma.importJob.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { merchantId: 'merchant-1' } }),
+    )
+    expect(result.total).toBe(3)
     expect(result.items[0]).toMatchObject({
       type: 'AGENT_RUN',
       agentRunId: 'run-1',
@@ -78,15 +95,21 @@ describe('AiResultsService', () => {
       batchTaskId: 'batch-1',
       product: { id: 'product-1' },
     })
+    expect(result.items[2]).toMatchObject({
+      type: 'IMPORT_JOB',
+      importJobId: 'import-1',
+    })
   })
 
   it('applies a compatible status filter without leaking other result types', async () => {
     const agentFindMany = vi.fn().mockResolvedValue([])
     const optimizationFindMany = vi.fn().mockResolvedValue([])
+    const importFindMany = vi.fn().mockResolvedValue([])
     const service = new AiResultsService(
       {
         agentRun: { findMany: agentFindMany },
         productOptimization: { findMany: optimizationFindMany },
+        importJob: { findMany: importFindMany },
       } as unknown as PrismaService,
       {
         assertAccess: vi.fn().mockResolvedValue(undefined),
@@ -111,6 +134,14 @@ describe('AiResultsService', () => {
     expect(optimizationFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { merchantId: 'merchant-1', status: 'DRAFT' },
+      }),
+    )
+    expect(importFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          merchantId: 'merchant-1',
+          id: '__no_matching_import_job__',
+        },
       }),
     )
   })

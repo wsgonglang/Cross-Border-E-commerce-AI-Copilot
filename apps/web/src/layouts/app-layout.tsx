@@ -10,6 +10,7 @@ import {
   ShopOutlined,
   TagsOutlined,
   TeamOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 import { Avatar, Button, Select, Space, Typography } from 'antd'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
@@ -68,6 +69,10 @@ export function AppLayout() {
               <NavLink to="/ai-results">
                 <FileDoneOutlined />
                 AI 成果中心
+              </NavLink>
+              <NavLink to="/imports">
+                <UploadOutlined />
+                结构化导入
               </NavLink>
               <NavLink to="/stores">
                 <GlobalOutlined />

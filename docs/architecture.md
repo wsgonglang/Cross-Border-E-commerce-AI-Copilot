@@ -16,7 +16,7 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 
 - Web 负责交互、状态展示和前端权限提示，不是最终安全边界。
 - API 负责 JWT、RBAC、商家隔离、输入校验、事务、幂等和审计。
-- Worker 只处理批量 AI 草稿；Redis 保存队列，MySQL 保存最终业务事实。
+- Worker 处理批量 AI 草稿和结构化商品导入；Redis 保存队列，MySQL 保存最终业务事实。
 - AI Provider 统一封装流式输出、结构化结果和 Tool Calling；测试使用零费用 Mock Provider。
 
 ## 核心链路
@@ -68,6 +68,15 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 - 取消只终止未执行项，正在执行的项目安全收尾。
 - 进度、失败明细和草稿关联最终写入 MySQL。
 
+### 结构化导入
+
+- Web 只接受 CSV/XLSX，并在提交前完成工作表、表头和字段映射；分析与预览不写商品、SKU 或任务数据。
+- API 将文件限制在 5 MB、10 个工作表、1000 行和 80 列；XLSX 只读取基础值，公式直接拒绝，不执行宏或外部链接。
+- 预览在当前 `merchantId` 内检查商品/SKU 冲突、覆盖风险和文件内重复；无效行保留失败原因，不阻塞有效行。
+- `ImportJob/ImportItem` 保存文件哈希、映射、幂等键、逐行状态和最终结果。BullMQ 每个有效行一个 Job，Worker 通过现有 Product、SKU 和 ProductOptimization Service 写入，不绕过权限、业务规则和审计。
+- “仅导入草稿”只创建/更新 DRAFT 商品和 SKU；“导入后创建 AI 优化”额外生成待人工确认的优化草稿，仍不直接修改正式商品。
+- 成果中心聚合导入任务并使用 `jobId` 深链接回任务详情；失败明细由服务端从 MySQL 生成 CSV。
+
 ### 规则 RAG
 
 - 规则原文按标题和段落确定性切分。
@@ -81,7 +90,7 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 - API 接收安全的 `X-Request-Id`，否则生成 UUID。
 - 响应回传同一个 ID；Web 错误信息附带该 ID。
 - 请求完成日志为结构化 JSON，只记录 method、path、status 和 duration，不记录查询参数、令牌或请求正文。
-- 商品修改、Agent 工具、批量任务和规则文档有业务审计，Request ID 用于技术排障，两者职责不同。
+- 商品修改、Agent 工具、批量任务、结构化导入和规则文档有业务审计，Request ID 用于技术排障，两者职责不同。
 
 ## 为什么采用模块化单体
 
@@ -93,4 +102,5 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 - 演示规则不是法律或平台合规意见。
 - 词法检索适合当前小型文档集；数据量和语义需求增长后可替换为 embedding 检索。
 - 前端仍有主包体积优化空间。
+- ExcelJS 当前生产依赖链仍有仅能通过破坏性降级处理的上游审计公告；项目通过严格文件/行列限制、只读解析和禁用公式降低导入面风险，并持续跟踪兼容修复。
 - Docker Compose 使用本地演示密钥和密码，生产环境必须由密钥管理系统替换。

@@ -132,6 +132,30 @@ export class ProductsService {
     }
   }
 
+  async upsertImportedDraft(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    dto: Omit<CreateProductDto, 'status'>,
+  ): Promise<ProductSummary> {
+    await this.merchantAccess.assertAccess(actor, merchantId)
+    const current = await this.prisma.product.findFirst({
+      where: { merchantId, code: dto.code },
+      select: { id: true, status: true },
+    })
+    if (!current) {
+      return this.create(actor, merchantId, { ...dto, status: 'DRAFT' })
+    }
+    if (current.status !== 'DRAFT') {
+      throw new ConflictException('同编码正式商品已存在，不允许通过导入覆盖')
+    }
+    return this.update(actor, merchantId, current.id, {
+      title: dto.title,
+      description: dto.description,
+      language: dto.language,
+      status: 'DRAFT',
+    })
+  }
+
   async update(
     actor: AuthenticatedUser,
     merchantId: string,

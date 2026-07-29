@@ -41,8 +41,8 @@ export class AgentRunDto {
 
 export class AiResultsQueryDto {
   @IsOptional()
-  @IsIn(['ALL', 'AGENT_RUN', 'PRODUCT_OPTIMIZATION'])
-  type: 'ALL' | 'AGENT_RUN' | 'PRODUCT_OPTIMIZATION' = 'ALL'
+  @IsIn(['ALL', 'AGENT_RUN', 'PRODUCT_OPTIMIZATION', 'IMPORT_JOB'])
+  type: 'ALL' | 'AGENT_RUN' | 'PRODUCT_OPTIMIZATION' | 'IMPORT_JOB' = 'ALL'
 
   @IsOptional()
   @IsString()

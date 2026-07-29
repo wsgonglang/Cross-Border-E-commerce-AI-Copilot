@@ -26,6 +26,7 @@ import { useAppSelector } from '../store/hooks'
 const typeLabels: Record<AiResultItem['type'], string> = {
   AGENT_RUN: 'Agent 运行',
   PRODUCT_OPTIMIZATION: '商品优化草稿',
+  IMPORT_JOB: '结构化导入',
 }
 
 const statusColors: Record<string, string> = {
@@ -148,6 +149,7 @@ export function AiResultsPage() {
           options={[
             { value: 'AGENT_RUN', label: 'Agent 运行' },
             { value: 'PRODUCT_OPTIMIZATION', label: '商品优化草稿' },
+            { value: 'IMPORT_JOB', label: '结构化导入' },
           ]}
           onChange={(value: AiResultType | undefined) => {
             setType(value)
@@ -169,6 +171,9 @@ export function AiResultsPage() {
             'APPLIED',
             'REJECTED',
             'ERROR',
+            'PENDING',
+            'PARTIAL_FAILED',
+            'CANCELLED',
           ].map((value) => ({ value, label: value }))}
           onChange={(value) => {
             setStatus(value)
@@ -229,7 +234,9 @@ export function AiResultsPage() {
                   ? '批量任务'
                   : item.type === 'AGENT_RUN'
                     ? '业务 Agent'
-                    : '单商品',
+                    : item.type === 'IMPORT_JOB'
+                      ? '导入中心'
+                      : '单商品',
             },
             {
               title: '创建时间',
@@ -266,6 +273,16 @@ export function AiResultsPage() {
                       }
                     >
                       批次
+                    </Button>
+                  ) : null}
+                  {item.importJobId ? (
+                    <Button
+                      type="link"
+                      onClick={() =>
+                        void navigate(`/imports?jobId=${item.importJobId}`)
+                      }
+                    >
+                      导入详情
                     </Button>
                   ) : null}
                 </Space>

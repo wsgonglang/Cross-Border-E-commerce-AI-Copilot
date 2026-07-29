@@ -83,12 +83,30 @@ export class ProductOptimizationsService {
     )
   }
 
+  async createFromImport(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    productId: string,
+    targetLanguage: CreateProductOptimizationDto['targetLanguage'],
+    importItemId: string,
+  ): Promise<ProductOptimizationSummary> {
+    return this.createInternal(
+      actor,
+      merchantId,
+      productId,
+      targetLanguage,
+      undefined,
+      importItemId,
+    )
+  }
+
   private async createInternal(
     actor: AuthenticatedUser,
     merchantId: string,
     productId: string,
     targetLanguage: CreateProductOptimizationDto['targetLanguage'],
     batchItemId?: string,
+    importItemId?: string,
   ): Promise<ProductOptimizationSummary> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const product = await this.prisma.product.findFirst({
@@ -109,7 +127,11 @@ export class ProductOptimizationsService {
       ? await this.prisma.productOptimization.findUnique({
           where: { batchItemId },
         })
-      : null
+      : importItemId
+        ? await this.prisma.productOptimization.findUnique({
+            where: { importItemId },
+          })
+        : null
     if (
       existing &&
       ['DRAFT', 'APPLIED', 'REJECTED'].includes(existing.status)
@@ -140,6 +162,7 @@ export class ProductOptimizationsService {
             providerName: this.aiProvider.name,
             modelName: this.aiProvider.model,
             batchItemId,
+            importItemId,
           },
         })
 

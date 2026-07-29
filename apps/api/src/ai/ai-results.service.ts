@@ -28,8 +28,17 @@ export class AiResultsService {
     const optimizationStatus = (
       ['GENERATING', 'DRAFT', 'APPLIED', 'REJECTED', 'ERROR'] as const
     ).find((status) => status === query.status)
-    const [runs, optimizations] = await Promise.all([
-      query.type === 'PRODUCT_OPTIMIZATION'
+    const importStatus = (
+      [
+        'PENDING',
+        'RUNNING',
+        'COMPLETED',
+        'PARTIAL_FAILED',
+        'CANCELLED',
+      ] as const
+    ).find((status) => status === query.status)
+    const [runs, optimizations, importJobs] = await Promise.all([
+      query.type === 'PRODUCT_OPTIMIZATION' || query.type === 'IMPORT_JOB'
         ? Promise.resolve([])
         : this.prisma.agentRun.findMany({
             where: {
@@ -43,7 +52,7 @@ export class AiResultsService {
             orderBy: { createdAt: 'desc' },
             take: 200,
           }),
-      query.type === 'AGENT_RUN'
+      query.type === 'AGENT_RUN' || query.type === 'IMPORT_JOB'
         ? Promise.resolve([])
         : this.prisma.productOptimization.findMany({
             where: {
@@ -57,6 +66,20 @@ export class AiResultsService {
             include: {
               product: { select: { id: true, code: true, title: true } },
               batchItem: { select: { taskId: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+          }),
+      query.type === 'AGENT_RUN' || query.type === 'PRODUCT_OPTIMIZATION'
+        ? Promise.resolve([])
+        : this.prisma.importJob.findMany({
+            where: {
+              merchantId,
+              ...(query.status
+                ? importStatus
+                  ? { status: importStatus }
+                  : { id: '__no_matching_import_job__' }
+                : {}),
             },
             orderBy: { createdAt: 'desc' },
             take: 200,
@@ -90,6 +113,16 @@ export class AiResultsService {
           ? { batchTaskId: optimization.batchItem.taskId }
           : {}),
         targetLanguage: optimization.targetLanguage,
+      })),
+      ...importJobs.map((job) => ({
+        id: `import:${job.id}`,
+        type: 'IMPORT_JOB' as const,
+        status: job.status,
+        title: `结构化导入 · ${job.fileName}`,
+        description: `${job.completedItems}/${job.totalItems} 行完成，${job.failedItems} 行失败`,
+        createdAt: job.createdAt.toISOString(),
+        updatedAt: job.updatedAt.toISOString(),
+        importJobId: job.id,
       })),
     ].sort((first, second) => second.createdAt.localeCompare(first.createdAt))
 

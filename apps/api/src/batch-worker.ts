@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core'
 
 import { AppModule } from './app.module'
 import { BatchWorkerRunnerService } from './batch/batch-worker-runner.service'
+import { ImportWorkerRunnerService } from './imports/import-worker-runner.service'
 
 export async function startBatchWorker(workerName: string): Promise<void> {
   const application = await NestFactory.createApplicationContext(AppModule, {
@@ -11,4 +12,5 @@ export async function startBatchWorker(workerName: string): Promise<void> {
   })
   application.enableShutdownHooks()
   application.get(BatchWorkerRunnerService).start(workerName)
+  application.get(ImportWorkerRunnerService).start(workerName)
 }

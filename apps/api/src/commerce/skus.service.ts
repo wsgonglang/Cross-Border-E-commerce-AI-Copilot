@@ -56,6 +56,34 @@ export class SkusService {
     }
   }
 
+  async upsertImported(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    productId: string,
+    dto: CreateSkuDto,
+  ): Promise<SkuSummary> {
+    await this.merchantAccess.assertAccess(actor, merchantId)
+    const current = await this.prisma.sku.findFirst({
+      where: { merchantId, code: dto.code },
+    })
+    if (!current) return this.create(actor, merchantId, productId, dto)
+    if (current.productId !== productId) {
+      throw new ConflictException('SKU 编码已属于当前商家的其他商品')
+    }
+    const updated = await this.update(actor, merchantId, current.id, {
+      name: dto.name,
+      price: dto.price,
+      status: 'ACTIVE',
+    })
+    if (updated.stock !== dto.stock) {
+      return this.adjustStock(actor, merchantId, current.id, {
+        delta: dto.stock - updated.stock,
+        reason: '结构化导入同步库存',
+      })
+    }
+    return updated
+  }
+
   async update(
     actor: AuthenticatedUser,
     merchantId: string,
