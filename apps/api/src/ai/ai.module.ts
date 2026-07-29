@@ -5,6 +5,7 @@ import { CommerceModule } from '../commerce/commerce.module'
 import { DatabaseModule } from '../database/database.module'
 import { AgentController } from './agent.controller'
 import { AgentService } from './agent.service'
+import { AgentRunsService } from './agent-runs.service'
 import { AgentToolsService } from './agent-tools.service'
 import { AiChatController } from './ai-chat.controller'
 import { AiSessionsController } from './ai-sessions.controller'
@@ -19,6 +20,8 @@ import { ProductOptimizationsController } from './product-optimizations.controll
 import { ProductOptimizationsService } from './product-optimizations.service'
 import { PlatformRulesService } from './platform-rules.service'
 import { RuleDocumentsController } from './rule-documents.controller'
+import { AiResultsController } from './ai-results.controller'
+import { AiResultsService } from './ai-results.service'
 
 @Module({
   imports: [DatabaseModule, CommerceModule],
@@ -26,6 +29,7 @@ import { RuleDocumentsController } from './rule-documents.controller'
     AiSessionsController,
     AiChatController,
     AgentController,
+    AiResultsController,
     ProductOptimizationsController,
     RuleDocumentsController,
   ],
@@ -33,6 +37,8 @@ import { RuleDocumentsController } from './rule-documents.controller'
     AiSessionsService,
     AiService,
     AgentService,
+    AgentRunsService,
+    AiResultsService,
     AgentToolsService,
     PlatformRulesService,
     ProductOptimizationsService,

@@ -20,7 +20,8 @@ import {
   Typography,
   message,
 } from 'antd'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import {
   cancelBatchTask,
@@ -67,6 +68,8 @@ function createIdempotencyKey(): string {
 }
 
 export function BatchTasksPage() {
+  const [searchParams] = useSearchParams()
+  const openedDeepLinkRef = useRef(false)
   const token = useAppSelector((state) => state.auth.accessToken)
   const [form] = Form.useForm<CreateTaskForm>()
   const [merchants, setMerchants] = useState<MerchantSummary[]>([])
@@ -89,14 +92,20 @@ export function BatchTasksPage() {
     void getMerchants(token)
       .then((result) => {
         setMerchants(result)
-        setMerchantId((current) => current ?? result[0]?.id)
+        const requestedMerchant = searchParams.get('merchantId')
+        setMerchantId(
+          (current) =>
+            current ??
+            result.find((merchant) => merchant.id === requestedMerchant)?.id ??
+            result[0]?.id,
+        )
       })
       .catch((loadError: unknown) => {
         setError(
           loadError instanceof Error ? loadError.message : '商家加载失败',
         )
       })
-  }, [token])
+  }, [searchParams, token])
 
   const loadProducts = useCallback(async () => {
     if (!token || !merchantId) return
@@ -198,6 +207,22 @@ export function BatchTasksPage() {
       )
     }
   }
+
+  useEffect(() => {
+    const taskId = searchParams.get('taskId')
+    if (!taskId || !token || !merchantId || openedDeepLinkRef.current) return
+    openedDeepLinkRef.current = true
+    void getBatchTask(token, merchantId, taskId)
+      .then((task) => {
+        setDetail(task)
+        setDetailOpen(true)
+      })
+      .catch((loadError: unknown) => {
+        setError(
+          loadError instanceof Error ? loadError.message : '任务详情加载失败',
+        )
+      })
+  }, [merchantId, searchParams, token])
 
   const cancelTask = async (taskId: string) => {
     if (!token || !merchantId) return

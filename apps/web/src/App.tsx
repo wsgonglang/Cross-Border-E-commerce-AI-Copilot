@@ -6,6 +6,7 @@ import { AuthenticatedRoute } from './components/authenticated-route'
 import { RoleRoute } from './components/role-route'
 import { AppLayout } from './layouts/app-layout'
 import { AiChatPage } from './pages/ai-chat.page'
+import { AiResultsPage } from './pages/ai-results.page'
 import { BatchTasksPage } from './pages/batch-tasks.page'
 import { DashboardPage } from './pages/dashboard.page'
 import { ForbiddenPage } from './pages/forbidden.page'
@@ -47,6 +48,7 @@ export function App() {
           <Route path="403" element={<ForbiddenPage />} />
           <Route element={<RoleRoute allow={['admin', 'operator']} />}>
             <Route path="ai-chat" element={<AiChatPage />} />
+            <Route path="ai-results" element={<AiResultsPage />} />
             <Route path="batch-tasks" element={<BatchTasksPage />} />
           </Route>
           <Route element={<RoleRoute allow={['admin']} />}>

@@ -1,8 +1,10 @@
 # Cross-Border E-commerce AI Copilot
 
-面向跨境电商运营人员的 AI 全栈业务应用。阶段 0 至阶段 10 的核心版已完成数据库认证/RBAC、商家商品 SKU、订单与看板、AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG，以及 Request ID、CI、Docker 和交付文档。当前进入产品体验增强阶段，将继续实现 AI 成果中心、多店铺上下文、Agent 运营工作台、会话生产力、CSV/XLSX 导入和订单运营视图。
+面向跨境电商运营人员的 AI 全栈业务应用。阶段 0 至阶段 11 已完成数据库认证/RBAC、商家商品 SKU、订单与看板、AI 会话、单商品 AI 优化闭环、受控 Agent Tool Calling、Redis/BullMQ 批量任务、带权限和引用的规则 RAG、AI 成果中心，以及 Request ID、CI、Docker 和交付文档。下一阶段将继续实现多店铺上下文、Agent 运营工作台、会话生产力、CSV/XLSX 导入和订单运营视图。
 
 增强范围和逐阶段验收标准见 [产品体验增强路线](docs/product-enhancement-roadmap.md)。商品与 SKU 导入只支持结构化 CSV/XLSX，不支持 Markdown 商品导入；规则知识库原有的 Markdown/纯文本导入保持不变。
+
+AI 业务 Agent 的每次运行、回答、用量和工具轨迹都会保存为 `AgentRun/AgentToolCall`。运营人员可从侧栏“AI 成果中心”按类型和状态查询 Agent 运行与商品优化草稿，直接进入准确商品草稿或原批量任务；工作台同时展示待人工确认草稿数量和最近成果。成果中心只做统一索引，商品草稿的最终状态仍以 `ProductOptimization` 为准。
 
 ## 工程结构
 
@@ -138,6 +140,6 @@ npm run verify
 
 API 会接收符合格式的 `X-Request-Id`，否则生成 UUID；响应回传同一个 ID，请求完成后输出不包含查询参数和正文的结构化日志。Web API 错误会附带请求 ID，便于关联排障。
 
-当前自动化测试覆盖认证、角色守卫、商家隔离、商品分页隔离、负库存、订单状态机、看板聚合、AI 会话隔离、流式消息持久化、停止生成、三种目标语言结构化校验、Provider 失败落库、人工确认写回、重复确认幂等、商品版本冲突、Agent 工具规划、参数拒绝、工具审计、草稿授权边界、批量任务的商家隔离、幂等、取消、Worker 重试、最终失败与重复投递、规则 RAG 基础评估，以及 Request ID 和日志注入防护。生产构建仍有前端主包体积提示，后续可结合路由懒加载处理。
+当前 69 项自动化测试覆盖认证、角色守卫、商家隔离、商品分页隔离、负库存、订单状态机、看板聚合、AI 会话隔离、流式消息持久化、停止生成、三种目标语言结构化校验、Provider 失败落库、人工确认写回、重复确认幂等、商品版本冲突、Agent 工具规划、参数拒绝、工具审计、AgentRun 成功/失败持久化、成果聚合与状态过滤、草稿授权边界、批量任务的商家隔离、幂等、取消、Worker 重试、最终失败与重复投递、规则 RAG 基础评估，以及 Request ID 和日志注入防护。生产构建仍有前端主包体积提示，后续可结合路由懒加载处理。
 
 截至 2026-07-29，完整 `npm audit` 报告 9 个 high（其中 7 个来自 ESLint/Nest CLI 开发工具链的 `brace-expansion` 公告），`npm audit --omit=dev` 报告 2 个 high，均来自 React Router `7.18.1` 的 RSC Action CSRF 公告。本项目使用普通 `BrowserRouter`，没有启用 RSC 或 Action 请求；当前审计仅提供 `--force` 降级或跨主版本升级方案，因此暂不做破坏性自动修复，后续跟随无破坏性上游版本更新。

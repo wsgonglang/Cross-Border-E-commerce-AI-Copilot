@@ -1,0 +1,42 @@
+CREATE TABLE `agent_runs` (
+  `id` VARCHAR(30) NOT NULL,
+  `merchant_id` VARCHAR(30) NOT NULL,
+  `user_id` VARCHAR(30) NOT NULL,
+  `message` VARCHAR(1000) NOT NULL,
+  `answer` MEDIUMTEXT NULL,
+  `status` ENUM('PLANNING', 'RUNNING', 'COMPLETED', 'FAILED') NOT NULL DEFAULT 'PLANNING',
+  `source_page` VARCHAR(120) NULL,
+  `provider_name` VARCHAR(64) NULL,
+  `model_name` VARCHAR(128) NULL,
+  `prompt_tokens` INTEGER NOT NULL DEFAULT 0,
+  `completion_tokens` INTEGER NOT NULL DEFAULT 0,
+  `total_tokens` INTEGER NOT NULL DEFAULT 0,
+  `created_optimization_ids` JSON NOT NULL,
+  `error` VARCHAR(1000) NULL,
+  `completed_at` DATETIME(3) NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
+  INDEX `agent_runs_merchant_id_created_at_idx` (`merchant_id`, `created_at`),
+  INDEX `agent_runs_merchant_id_status_created_at_idx` (`merchant_id`, `status`, `created_at`),
+  INDEX `agent_runs_user_id_created_at_idx` (`user_id`, `created_at`),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `agent_runs_merchant_id_fkey` FOREIGN KEY (`merchant_id`) REFERENCES `merchants` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `agent_runs_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `agent_tool_calls` (
+  `id` VARCHAR(30) NOT NULL,
+  `run_id` VARCHAR(30) NOT NULL,
+  `external_call_id` VARCHAR(120) NOT NULL,
+  `name` VARCHAR(80) NOT NULL,
+  `status` VARCHAR(16) NOT NULL,
+  `sequence` INTEGER NOT NULL,
+  `input` JSON NOT NULL,
+  `output` JSON NULL,
+  `error` VARCHAR(1000) NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE INDEX `agent_tool_calls_run_id_external_call_id_key` (`run_id`, `external_call_id`),
+  INDEX `agent_tool_calls_run_id_sequence_idx` (`run_id`, `sequence`),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `agent_tool_calls_run_id_fkey` FOREIGN KEY (`run_id`) REFERENCES `agent_runs` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

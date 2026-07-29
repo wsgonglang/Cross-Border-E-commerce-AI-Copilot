@@ -20,6 +20,7 @@ export interface AgentToolCallSummary {
 }
 
 export interface AgentRunResponse {
+  runId: string
   answer: string
   toolCalls: AgentToolCallSummary[]
   usage: {
@@ -28,4 +29,48 @@ export interface AgentRunResponse {
     totalTokens: number
   }
   createdOptimizationIds: string[]
+}
+
+export type AgentRunStatus = 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+
+export interface AgentRunSummary extends AgentRunResponse {
+  id: string
+  merchantId: string
+  userId: string
+  message: string
+  status: AgentRunStatus
+  providerName?: string
+  modelName?: string
+  error?: string
+  createdAt: string
+  updatedAt: string
+  completedAt?: string
+}
+
+export type AiResultType = 'AGENT_RUN' | 'PRODUCT_OPTIMIZATION'
+
+export interface AiResultItem {
+  id: string
+  type: AiResultType
+  status: string
+  title: string
+  description: string
+  createdAt: string
+  updatedAt: string
+  agentRunId?: string
+  optimizationId?: string
+  product?: {
+    id: string
+    code: string
+    title: string
+  }
+  batchTaskId?: string
+  targetLanguage?: string
+}
+
+export interface PaginatedAiResults {
+  items: AiResultItem[]
+  page: number
+  pageSize: number
+  total: number
 }

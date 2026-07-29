@@ -11,6 +11,7 @@ import {
 } from 'antd'
 import { RobotOutlined, SendOutlined } from '@ant-design/icons'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { runAgent } from '../api/agent'
 
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function AgentPanel({ token, merchantId }: Props) {
+  const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<AgentRunResponse | null>(null)
@@ -126,6 +128,47 @@ export function AgentPanel({ token, merchantId }: Props) {
                 description="请前往商品管理打开 AI 优化抽屉，核对原文、风险和建议后再人工写回。"
               />
             ) : null}
+            <Space wrap style={{ marginTop: 12 }}>
+              <Button onClick={() => void navigate('/ai-results')}>
+                前往 AI 成果中心
+              </Button>
+              {result.toolCalls.flatMap((call) => {
+                if (
+                  call.name !== 'create_product_optimization_draft' ||
+                  call.status !== 'success' ||
+                  typeof call.output !== 'object' ||
+                  call.output === null
+                ) {
+                  return []
+                }
+                const output = call.output as Record<string, unknown>
+                if (
+                  typeof output.productId !== 'string' ||
+                  typeof output.optimizationId !== 'string'
+                ) {
+                  return []
+                }
+                const params = new URLSearchParams({
+                  merchantId,
+                  productId: output.productId,
+                  optimizationId: output.optimizationId,
+                  ...(typeof output.productCode === 'string'
+                    ? { keyword: output.productCode }
+                    : {}),
+                })
+                return [
+                  <Button
+                    type="primary"
+                    key={output.optimizationId}
+                    onClick={() =>
+                      void navigate(`/products?${params.toString()}`)
+                    }
+                  >
+                    立即审核草稿
+                  </Button>,
+                ]
+              })}
+            </Space>
           </Card>
 
           <Card size="small" title="工具执行轨迹">

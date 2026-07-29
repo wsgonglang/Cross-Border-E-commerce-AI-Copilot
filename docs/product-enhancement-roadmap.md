@@ -127,6 +127,8 @@ AgentRun
 
 ### 阶段 11：AI 成果中心
 
+状态：**已完成（2026-07-29）**。已通过自动化测试、真实 MySQL/Compose API 联调和浏览器交互验收。
+
 范围：
 
 - `AgentRun/AgentToolCall` 模型、迁移、Service 和 API；

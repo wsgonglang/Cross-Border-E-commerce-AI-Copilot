@@ -1,8 +1,26 @@
-import { Alert, Card, Col, Row, Spin, Statistic } from 'antd'
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  List,
+  Row,
+  Space,
+  Spin,
+  Statistic,
+  Tag,
+  Typography,
+} from 'antd'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import type { DashboardOverview, DashboardTrend } from '@cross-border/shared'
+import type {
+  AiResultItem,
+  DashboardOverview,
+  DashboardTrend,
+} from '@cross-border/shared'
 
+import { getAiResults } from '../api/ai-results'
 import { getDashboardOverview, getDashboardTrend } from '../api/orders'
 import { useAppSelector } from '../store/hooks'
 
@@ -119,23 +137,38 @@ function TrendChart({ data }: { data: DashboardTrend }) {
 export function DashboardPage() {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const user = useAppSelector((state) => state.auth.user)
+  const navigate = useNavigate()
 
   const merchantId = user?.merchantIds[0] ?? ''
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [trend, setTrend] = useState<DashboardTrend | null>(null)
+  const [pendingDrafts, setPendingDrafts] = useState(0)
+  const [recentResults, setRecentResults] = useState<AiResultItem[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token || !merchantId) return
     const load = async () => {
       try {
-        const [ov, tr] = await Promise.all([
+        const [ov, tr, drafts, recent] = await Promise.all([
           getDashboardOverview(token, merchantId),
           getDashboardTrend(token, merchantId),
+          getAiResults(token, merchantId, {
+            page: 1,
+            pageSize: 1,
+            type: 'PRODUCT_OPTIMIZATION',
+            status: 'DRAFT',
+          }),
+          getAiResults(token, merchantId, {
+            page: 1,
+            pageSize: 3,
+          }),
         ])
         setOverview(ov)
         setTrend(tr)
+        setPendingDrafts(drafts.total)
+        setRecentResults(recent.items)
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : '加载失败')
       } finally {
@@ -217,6 +250,47 @@ export function DashboardPage() {
 
           <Card title="近 14 天趋势" style={{ marginTop: 18 }}>
             {trend ? <TrendChart data={trend} /> : null}
+          </Card>
+
+          <Card
+            title="AI 待办与近期成果"
+            style={{ marginTop: 18 }}
+            extra={
+              <Button type="link" onClick={() => void navigate('/ai-results')}>
+                进入成果中心
+              </Button>
+            }
+          >
+            <Row gutter={24}>
+              <Col xs={24} md={6}>
+                <Statistic
+                  title="待人工确认草稿"
+                  value={pendingDrafts}
+                  suffix="项"
+                  valueStyle={
+                    pendingDrafts > 0 ? { color: '#d97706' } : undefined
+                  }
+                />
+              </Col>
+              <Col xs={24} md={18}>
+                <List
+                  size="small"
+                  locale={{ emptyText: '暂无 AI 成果' }}
+                  dataSource={recentResults}
+                  renderItem={(item) => (
+                    <List.Item>
+                      <Space>
+                        <Tag>
+                          {item.type === 'AGENT_RUN' ? 'Agent' : '商品优化'}
+                        </Tag>
+                        <Typography.Text ellipsis>{item.title}</Typography.Text>
+                        <Tag>{item.status}</Tag>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              </Col>
+            </Row>
           </Card>
         </>
       ) : null}

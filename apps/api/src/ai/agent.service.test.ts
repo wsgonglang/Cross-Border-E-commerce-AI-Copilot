@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { MerchantAccessService } from '../commerce/merchant-access.service'
 import type { AiProvider } from './ai-provider.service'
 import { AgentService } from './agent.service'
+import type { AgentRunsService } from './agent-runs.service'
 import type { AgentToolsService } from './agent-tools.service'
 
 const operator = {
@@ -33,6 +34,15 @@ function provider(overrides: Partial<AiProvider> = {}): AiProvider {
   }
 }
 
+function runs() {
+  return {
+    start: vi.fn().mockResolvedValue('run-1'),
+    markRunning: vi.fn().mockResolvedValue(undefined),
+    complete: vi.fn().mockResolvedValue(undefined),
+    fail: vi.fn().mockResolvedValue(undefined),
+  }
+}
+
 describe('AgentService', () => {
   it('executes planned tools and returns created draft ids and usage', async () => {
     const aiProvider = provider({
@@ -59,11 +69,13 @@ describe('AgentService', () => {
         output: { optimizationId: 'optimization-1' },
       }),
     }
+    const agentRuns = runs()
     const service = new AgentService(
       {
         assertAccess: vi.fn().mockResolvedValue(undefined),
       } as unknown as MerchantAccessService,
       tools as unknown as AgentToolsService,
+      agentRuns as unknown as AgentRunsService,
       aiProvider,
     )
 
@@ -73,9 +85,17 @@ describe('AgentService', () => {
       '为 P-DEMO-001 创建英文优化草稿',
     )
 
+    expect(result.runId).toBe('run-1')
     expect(result.answer).toBe('已完成')
     expect(result.createdOptimizationIds).toEqual(['optimization-1'])
     expect(result.usage.totalTokens).toBe(8)
+    expect(agentRuns.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-1',
+        answer: '已完成',
+        createdOptimizationIds: ['optimization-1'],
+      }),
+    )
   })
 
   it('does not expose or execute the draft tool without explicit intent', async () => {
@@ -98,6 +118,7 @@ describe('AgentService', () => {
         assertAccess: vi.fn().mockResolvedValue(undefined),
       } as unknown as MerchantAccessService,
       tools as unknown as AgentToolsService,
+      runs() as unknown as AgentRunsService,
       provider({ planAgentTools }),
     )
 
@@ -116,11 +137,13 @@ describe('AgentService', () => {
   })
 
   it('returns a safe gateway error when planning fails', async () => {
+    const agentRuns = runs()
     const service = new AgentService(
       {
         assertAccess: vi.fn().mockResolvedValue(undefined),
       } as unknown as MerchantAccessService,
       { execute: vi.fn() } as unknown as AgentToolsService,
+      agentRuns as unknown as AgentRunsService,
       provider({
         planAgentTools: vi.fn().mockRejectedValue(new Error('provider secret')),
       }),
@@ -129,5 +152,9 @@ describe('AgentService', () => {
     await expect(
       service.run(operator, 'merchant-1', '查询商品'),
     ).rejects.toBeInstanceOf(BadGatewayException)
+    expect(agentRuns.fail).toHaveBeenCalledWith(
+      'run-1',
+      'AI Agent planning failed',
+    )
   })
 })

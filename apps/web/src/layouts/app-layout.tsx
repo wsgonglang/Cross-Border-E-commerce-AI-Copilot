@@ -4,6 +4,7 @@ import {
   ClusterOutlined,
   LogoutOutlined,
   RobotOutlined,
+  FileDoneOutlined,
   ShoppingCartOutlined,
   ShopOutlined,
   TagsOutlined,
@@ -52,6 +53,10 @@ export function AppLayout() {
               <NavLink to="/batch-tasks">
                 <ClusterOutlined />
                 批量 AI 任务
+              </NavLink>
+              <NavLink to="/ai-results">
+                <FileDoneOutlined />
+                AI 成果中心
               </NavLink>
             </>
           ) : null}

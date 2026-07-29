@@ -17,6 +17,18 @@ export function getProductOptimizations(
   return apiRequest(token, basePath(merchantId, productId))
 }
 
+export function getProductOptimization(
+  token: string,
+  merchantId: string,
+  productId: string,
+  optimizationId: string,
+): Promise<ProductOptimizationSummary> {
+  return apiRequest(
+    token,
+    `${basePath(merchantId, productId)}/${optimizationId}`,
+  )
+}
+
 export function createProductOptimization(
   token: string,
   merchantId: string,

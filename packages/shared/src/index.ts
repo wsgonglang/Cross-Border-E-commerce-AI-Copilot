@@ -56,6 +56,11 @@ export {
 export {
   AGENT_TOOL_NAMES,
   type AgentRunResponse,
+  type AgentRunStatus,
+  type AgentRunSummary,
+  type AiResultItem,
+  type AiResultType,
+  type PaginatedAiResults,
   type AgentToolCallSummary,
   type AgentToolName,
   type AgentToolStatus,

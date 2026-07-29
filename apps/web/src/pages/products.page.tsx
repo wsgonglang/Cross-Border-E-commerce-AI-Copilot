@@ -22,6 +22,7 @@ import {
   message,
 } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import {
   adjustStock,
@@ -51,6 +52,7 @@ const productStatusLabels: Record<ProductStatus, string> = {
 }
 
 export function ProductsPage() {
+  const [searchParams] = useSearchParams()
   const token = useAppSelector((state) => state.auth.accessToken)
   const user = useAppSelector((state) => state.auth.user)
   const canWrite =
@@ -64,7 +66,9 @@ export function ProductsPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [keyword, setKeyword] = useState<string>()
+  const [keyword, setKeyword] = useState<string | undefined>(
+    searchParams.get('keyword') ?? undefined,
+  )
   const [status, setStatus] = useState<ProductStatus>()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -90,7 +94,13 @@ export function ProductsPage() {
       try {
         const result = await getMerchants(token)
         setMerchants(result)
-        setMerchantId((current) => current ?? result[0]?.id)
+        const requestedMerchant = searchParams.get('merchantId')
+        setMerchantId(
+          (current) =>
+            current ??
+            result.find((merchant) => merchant.id === requestedMerchant)?.id ??
+            result[0]?.id,
+        )
       } catch (loadError: unknown) {
         setError(
           loadError instanceof Error ? loadError.message : '商家加载失败',
@@ -98,7 +108,7 @@ export function ProductsPage() {
       }
     }
     void loadMerchants()
-  }, [token])
+  }, [searchParams, token])
 
   const loadProducts = useCallback(async () => {
     if (!token || !merchantId) {
@@ -127,6 +137,15 @@ export function ProductsPage() {
     const timer = window.setTimeout(() => void loadProducts(), 0)
     return () => window.clearTimeout(timer)
   }, [loadProducts])
+
+  useEffect(() => {
+    const requestedProductId = searchParams.get('productId')
+    if (!requestedProductId) return
+    const product = products.find((item) => item.id === requestedProductId)
+    if (!product) return
+    const timer = window.setTimeout(() => setOptimizationProduct(product), 0)
+    return () => window.clearTimeout(timer)
+  }, [products, searchParams])
 
   const currentMerchant = useMemo(
     () => merchants.find((merchant) => merchant.id === merchantId),
@@ -618,6 +637,11 @@ export function ProductsPage() {
           token={token}
           merchantId={merchantId}
           product={optimizationProduct}
+          initialOptimizationId={
+            optimizationProduct
+              ? (searchParams.get('optimizationId') ?? undefined)
+              : undefined
+          }
           onClose={() => setOptimizationProduct(null)}
           onApplied={loadProducts}
         />

@@ -26,6 +26,7 @@ import {
   applyProductOptimization,
   createProductOptimization,
   getProductOptimizations,
+  getProductOptimization,
   rejectProductOptimization,
 } from '../api/product-optimizations'
 
@@ -45,6 +46,7 @@ interface Props {
   token: string
   merchantId: string
   product: ProductSummary | null
+  initialOptimizationId?: string
   onClose: () => void
   onApplied: () => Promise<void>
 }
@@ -54,6 +56,7 @@ export function ProductOptimizationDrawer({
   token,
   merchantId,
   product,
+  initialOptimizationId,
   onClose,
   onApplied,
 }: Props) {
@@ -69,9 +72,19 @@ export function ProductOptimizationDrawer({
   useEffect(() => {
     if (!open || !product) return
     let active = true
-    void getProductOptimizations(token, merchantId, product.id)
-      .then((records) => {
-        if (active) setOptimization(records[0] ?? null)
+    const request = initialOptimizationId
+      ? getProductOptimization(
+          token,
+          merchantId,
+          product.id,
+          initialOptimizationId,
+        )
+      : getProductOptimizations(token, merchantId, product.id).then(
+          (records) => records[0] ?? null,
+        )
+    void request
+      .then((record) => {
+        if (active) setOptimization(record)
       })
       .catch((error: unknown) => {
         if (active) {
@@ -86,7 +99,7 @@ export function ProductOptimizationDrawer({
     return () => {
       active = false
     }
-  }, [merchantId, messageApi, open, product, token])
+  }, [initialOptimizationId, merchantId, messageApi, open, product, token])
 
   const generate = async () => {
     if (!product) return
