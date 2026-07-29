@@ -10,7 +10,7 @@
     "dev:web": "npm run dev --workspace @cross-border/web",
     "dev:api": "npm run dev --workspace @cross-border/api",
     "dev:worker": "npm run dev --workspace @cross-border/worker",
-    "build:workspace-deps": "npm run build --workspace @cross-border/shared",
+    "build:workspace-deps": "npm run build --workspace @cross-border/shared && npm run prisma:generate --workspace @cross-border/api",
     "build": "npm run build --workspace @cross-border/shared && npm run build --workspace @cross-border/api && npm run build --workspace @cross-border/worker && npm run build --workspace @cross-border/web",
     "lint": "npm run build:workspace-deps && npm run lint:check",
     "lint:check": "eslint \"apps/**/*.{ts,tsx}\" \"packages/**/*.{ts,tsx}\"",
