@@ -1,0 +1,21 @@
+.shared-session-page {
+  max-width: 1100px;
+}
+
+.shared-session-page > .ant-alert {
+  margin-bottom: 18px;
+}
+
+.shared-session-card .ai-chat-message {
+  max-width: 900px;
+}
+
+.shared-session-card .ai-chat-message-content {
+  max-width: min(760px, calc(100vw - 260px));
+}
+
+@media (max-width: 768px) {
+  .shared-session-card .ai-chat-message-content {
+    max-width: calc(100vw - 120px);
+  }
+}

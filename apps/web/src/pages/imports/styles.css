@@ -1,0 +1,48 @@
+.import-card {
+  margin-bottom: 18px;
+}
+
+.import-analysis-alert {
+  margin-top: 16px;
+}
+
+.import-mapping-toolbar {
+  margin-bottom: 16px;
+}
+
+.import-worksheet-select {
+  width: 220px;
+}
+
+.import-mapping-select {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.import-preview-button,
+.import-detail-table {
+  margin-top: 20px;
+}
+
+.import-stat-valid .ant-statistic-content {
+  color: #2f855a;
+}
+
+.import-stat-invalid .ant-statistic-content {
+  color: #c53030;
+}
+
+.native-file-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: #fff;
+  background: #0f766e;
+  cursor: pointer;
+}
+
+.native-file-picker input {
+  display: none;
+}

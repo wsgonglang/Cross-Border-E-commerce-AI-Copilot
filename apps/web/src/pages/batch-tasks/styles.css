@@ -1,0 +1,26 @@
+.batch-toolbar {
+  grid-template-columns: minmax(240px, 360px);
+}
+
+.batch-task-table {
+  margin-top: 18px;
+}
+
+.batch-progress {
+  min-width: 210px;
+}
+
+.batch-progress > span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.batch-create-form {
+  margin-top: 20px;
+}
+
+.batch-detail-summary {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}

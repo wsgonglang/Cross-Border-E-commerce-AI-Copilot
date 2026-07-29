@@ -1,0 +1,133 @@
+.dashboard-workspace {
+  max-width: 1600px;
+}
+
+.dashboard-loading {
+  display: grid;
+  min-height: 420px;
+  place-items: center;
+}
+
+.dashboard-metrics,
+.dashboard-section {
+  margin-top: 18px;
+}
+
+.dashboard-metrics .ant-card {
+  height: 100%;
+}
+
+.dashboard-metrics .ant-statistic-title {
+  color: #667085;
+  font-size: 13px;
+}
+
+.dashboard-metrics .ant-statistic-content {
+  color: #101828;
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.metric-comparison {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.metric-positive {
+  color: #15803d;
+}
+
+.metric-negative {
+  color: #b42318;
+}
+
+.metric-comparison.muted {
+  color: #98a2b3;
+}
+
+.dashboard-chart-scroll {
+  overflow-x: auto;
+}
+
+.dashboard-trend-chart {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: 260px;
+}
+
+.dashboard-full-card,
+.dashboard-full-card .ant-card-body {
+  height: 100%;
+}
+
+.dashboard-status-list,
+.dashboard-status-heading,
+.dashboard-list-row {
+  width: 100%;
+}
+
+.dashboard-status-heading {
+  justify-content: space-between;
+}
+
+.dashboard-todo {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  color: #344054;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    transform 0.2s;
+}
+
+.dashboard-todo:hover {
+  border-color: #84c8be;
+  background: #f8fbfa;
+  transform: translateY(-1px);
+}
+
+.dashboard-todo strong {
+  color: #0f766e;
+  font-size: 24px;
+}
+
+.dashboard-suggestions {
+  margin-top: 12px;
+}
+
+.suggestion-icon {
+  padding: 9px;
+  border-radius: 50%;
+  color: #0f766e;
+  background: #e7f6f2;
+  font-size: 18px;
+}
+
+.dashboard-running-summary {
+  margin-bottom: 10px;
+}
+
+.clickable-list-item {
+  cursor: pointer;
+}
+
+.clickable-list-item:hover {
+  background: #f9fafb;
+}
+
+.dashboard-agent-card .agent-panel {
+  padding: 0;
+  overflow: visible;
+}

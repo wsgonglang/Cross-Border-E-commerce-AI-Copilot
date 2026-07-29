@@ -19,6 +19,24 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 - Worker 处理批量 AI 草稿和结构化商品导入；Redis 保存队列，MySQL 保存最终业务事实。
 - AI Provider 统一封装流式输出、结构化结果和 Tool Calling；测试使用零费用 Mock Provider。
 
+## Web 前端组织与视觉基线
+
+`apps/web/src` 按页面、布局和可复用组件共置代码与样式：
+
+```text
+pages/<module>/<module>.page.tsx
+pages/<module>/styles.css
+layouts/<layout>/<layout>.tsx
+layouts/<layout>/styles.css
+components/<component>/<component>.tsx
+components/<component>/styles.css
+```
+
+- 根级 `styles.css` 只保存 reset、共享页面容器、通用表格壳和少量跨页面规则，不继续堆叠具体业务页面样式。
+- 页面和组件不使用静态内联 `style={{ ... }}`；固定视觉规则放入同目录 CSS，动态业务状态通过语义 class 切换。
+- 设计令牌由 Ant Design `ConfigProvider` 统一管理。视觉基线参考 Ant Design Pro 的企业信息层级，以及 Saleor、Medusa 开源电商后台的紧凑表格和克制数据表面，但不复制其代码或品牌。
+- 侧边栏按总览、业务运营、AI 工作空间和系统管理分组；前端角色过滤只改善体验，最终权限仍由 API 校验。
+
 ## 核心链路
 
 ### 商家、店铺与商品刊登

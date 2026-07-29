@@ -10,7 +10,7 @@ AI 业务 Agent 的每次运行、回答、用量和工具轨迹都会保存为 
 
 ```text
 apps/
-├── web/       React 管理后台
+├── web/       React 管理后台；页面、布局和业务组件采用 TSX/CSS 同目录共置
 ├── api/       NestJS 业务 API
 └── worker/    异步任务进程
 packages/
@@ -18,6 +18,8 @@ packages/
 ```
 
 `ai-chat/` 与 `ecommerce-admin/` 仅作为只读参考，不属于新工程工作区。
+
+Web 根级样式只包含设计令牌对应的共享基础规则；具体页面样式位于 `apps/web/src/pages/<module>/styles.css`，布局与可复用业务组件遵循相同的共置约定。视觉采用 Ant Design Pro、Saleor Dashboard 和 Medusa Admin 常见的紧凑运营后台层级，不引入第二套 UI 框架。
 
 ## 本地运行
 

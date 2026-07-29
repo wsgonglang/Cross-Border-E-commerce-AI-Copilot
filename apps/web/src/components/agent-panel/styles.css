@@ -1,0 +1,38 @@
+.agent-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.agent-quick-prompts {
+  margin-top: -4px;
+}
+
+.agent-run-button {
+  margin-top: 12px;
+}
+
+.agent-result-actions {
+  margin-top: 12px;
+}
+
+.agent-answer {
+  white-space: pre-wrap;
+}
+
+.agent-tool-result {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid #eaecf0;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

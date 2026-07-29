@@ -22,7 +22,46 @@ createRoot(root).render(
       theme={{
         token: {
           colorPrimary: '#0f766e',
-          borderRadius: 10,
+          colorInfo: '#0f766e',
+          colorLink: '#0f766e',
+          colorBgLayout: '#f5f6f8',
+          colorBgContainer: '#ffffff',
+          colorText: '#1f2937',
+          colorTextSecondary: '#667085',
+          colorBorder: '#d0d5dd',
+          colorBorderSecondary: '#eaecf0',
+          borderRadius: 8,
+          fontSize: 14,
+          controlHeight: 36,
+          boxShadowSecondary: '0 12px 32px rgb(16 24 40 / 10%)',
+        },
+        components: {
+          Button: {
+            borderRadius: 8,
+            primaryShadow: 'none',
+            fontWeight: 600,
+          },
+          Card: {
+            borderRadiusLG: 10,
+            headerHeight: 48,
+            headerFontSize: 15,
+            bodyPadding: 20,
+          },
+          Table: {
+            headerBg: '#f8fafc',
+            headerColor: '#475467',
+            rowHoverBg: '#f9fafb',
+            borderColor: '#eaecf0',
+            cellPaddingBlock: 12,
+            cellPaddingInline: 16,
+          },
+          Input: {
+            activeShadow: '0 0 0 3px rgb(15 118 110 / 10%)',
+          },
+          Select: {
+            activeBorderColor: '#0f766e',
+            activeOutlineColor: 'rgb(15 118 110 / 10%)',
+          },
         },
       }}
     >

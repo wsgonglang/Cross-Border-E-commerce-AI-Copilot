@@ -1,0 +1,33 @@
+.rule-toolbar {
+  grid-template-columns: minmax(240px, 360px) minmax(320px, 1fr);
+}
+
+.rule-search-card,
+.rule-document-table {
+  margin-top: 18px;
+}
+
+.rule-search-card .ant-list-item-meta-description p {
+  margin: 8px 0;
+  color: #475467;
+  line-height: 1.7;
+}
+
+.rule-document-content {
+  margin-top: 20px;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  color: #344054;
+  background: #f9fafb;
+  font-family: inherit;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 680px) {
+  .rule-toolbar {
+    grid-template-columns: 1fr;
+  }
+}

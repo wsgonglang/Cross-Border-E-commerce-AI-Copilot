@@ -1,0 +1,11 @@
+.ai-results-page {
+  min-width: 0;
+}
+
+.ai-result-description {
+  margin-bottom: 0 !important;
+}
+
+.ai-result-trace-title {
+  margin-top: 24px !important;
+}
