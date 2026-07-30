@@ -22,6 +22,7 @@ import {
   message,
 } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
 import {
@@ -37,6 +38,8 @@ import {
 } from '../../api/commerce'
 import { ProductOptimizationDrawer } from '../../components/product-optimization-drawer/product-optimization-drawer'
 import { useBusinessContext } from '../../contexts/business-context'
+import { formatDateTime } from '../../i18n/formatters'
+import type { AppLanguage } from '../../i18n/i18n'
 import { useProductsQuery } from '../../queries/commerce.queries'
 import { queryKeys } from '../../queries/query-keys'
 import { useAppSelector } from '../../store/hooks'
@@ -48,14 +51,17 @@ interface StockForm {
   reason: string
 }
 
-const productStatusLabels: Record<ProductStatus, string> = {
-  DRAFT: '草稿',
-  ACTIVE: '在售',
-  ARCHIVED: '已归档',
-}
 const emptyProducts: ProductSummary[] = []
 
 export function ProductsPage() {
+  const { t, i18n } = useTranslation()
+  const language: AppLanguage =
+    i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'zh-CN'
+  const productStatusLabels: Record<ProductStatus, string> = {
+    DRAFT: t('products.status.DRAFT'),
+    ACTIVE: t('products.status.ACTIVE'),
+    ARCHIVED: t('products.status.ARCHIVED'),
+  }
   const [searchParams] = useSearchParams()
   const token = useAppSelector((state) => state.auth.accessToken)
   const user = useAppSelector((state) => state.auth.user)
@@ -163,10 +169,16 @@ export function ProductsPage() {
       }
       setProductModalOpen(false)
       await refreshProducts()
-      void messageApi.success(editingProduct ? '商品已更新' : '商品已创建')
+      void messageApi.success(
+        editingProduct
+          ? t('products.productSaved')
+          : t('products.productCreated'),
+      )
     } catch (saveError: unknown) {
       void messageApi.error(
-        saveError instanceof Error ? saveError.message : '商品保存失败',
+        saveError instanceof Error
+          ? saveError.message
+          : t('products.productSaveFailed'),
       )
     } finally {
       setSaving(false)
@@ -217,10 +229,14 @@ export function ProductsPage() {
       }
       setSkuModalOpen(false)
       await refreshProducts()
-      void messageApi.success(editingSku ? 'SKU 已更新' : 'SKU 已创建')
+      void messageApi.success(
+        editingSku ? t('products.skuUpdated') : t('products.skuCreated'),
+      )
     } catch (saveError: unknown) {
       void messageApi.error(
-        saveError instanceof Error ? saveError.message : 'SKU 保存失败',
+        saveError instanceof Error
+          ? saveError.message
+          : t('products.skuSaveFailed'),
       )
     } finally {
       setSaving(false)
@@ -232,10 +248,12 @@ export function ProductsPage() {
     try {
       await disableSku(token, merchantId, sku.id)
       await refreshProducts()
-      void messageApi.success('SKU 已停用')
+      void messageApi.success(t('products.skuDisabled'))
     } catch (updateError: unknown) {
       void messageApi.error(
-        updateError instanceof Error ? updateError.message : 'SKU 停用失败',
+        updateError instanceof Error
+          ? updateError.message
+          : t('products.skuDisableFailed'),
       )
     }
   }
@@ -254,10 +272,12 @@ export function ProductsPage() {
       await adjustStock(token, merchantId, stockSku.id, values)
       setStockModalOpen(false)
       await refreshProducts()
-      void messageApi.success('库存已调整')
+      void messageApi.success(t('products.stockAdjusted'))
     } catch (saveError: unknown) {
       void messageApi.error(
-        saveError instanceof Error ? saveError.message : '库存调整失败',
+        saveError instanceof Error
+          ? saveError.message
+          : t('products.stockAdjustFailed'),
       )
     } finally {
       setSaving(false)
@@ -271,7 +291,9 @@ export function ProductsPage() {
       setAuditOpen(true)
     } catch (loadError: unknown) {
       void messageApi.error(
-        loadError instanceof Error ? loadError.message : '审计日志加载失败',
+        loadError instanceof Error
+          ? loadError.message
+          : t('products.auditLoadFailed'),
       )
     }
   }
@@ -281,21 +303,23 @@ export function ProductsPage() {
       {messageContext}
       <header className="workspace-header">
         <div>
-          <span className="page-kicker">Catalog & inventory</span>
-          <h1>商品与 SKU</h1>
+          <span className="page-kicker">{t('products.kicker')}</span>
+          <h1>{t('products.title')}</h1>
           <p>
             {currentStore
-              ? `当前显示已刊登到 ${currentStore.name} 的主商品；库存仍属于商家级 SKU。`
-              : '商品、变体、库存和每次修改都受商家隔离与服务端权限保护。'}
+              ? t('products.listedStore', { store: currentStore.name })
+              : t('products.description')}
           </p>
         </div>
         <Space>
           {canWrite ? (
-            <Button onClick={() => void showAudit()}>操作审计</Button>
+            <Button onClick={() => void showAudit()}>
+              {t('products.audit')}
+            </Button>
           ) : null}
           {canWrite ? (
             <Button type="primary" onClick={() => openProduct()}>
-              新建商品
+              {t('products.create')}
             </Button>
           ) : null}
         </Space>
@@ -304,7 +328,7 @@ export function ProductsPage() {
       <div className="catalog-toolbar">
         <Input.Search
           allowClear
-          placeholder="搜索商品编码、标题或 SKU"
+          placeholder={t('products.search')}
           onSearch={(value) => {
             setKeyword(value || undefined)
             setPage(1)
@@ -312,7 +336,7 @@ export function ProductsPage() {
         />
         <Select
           allowClear
-          placeholder="全部状态"
+          placeholder={t('products.allStatus')}
           onChange={(value: ProductStatus | undefined) => {
             setStatus(value)
             setPage(1)
@@ -353,24 +377,26 @@ export function ProductsPage() {
                   dataSource={product.skus}
                   columns={[
                     { title: 'SKU', dataIndex: 'code' },
-                    { title: '规格', dataIndex: 'name' },
+                    { title: t('products.specification'), dataIndex: 'name' },
                     {
-                      title: '售价',
+                      title: t('products.price'),
                       render: (_, sku) => `${sku.currency} ${sku.price}`,
                     },
-                    { title: '库存', dataIndex: 'stock' },
+                    { title: t('products.stock'), dataIndex: 'stock' },
                     {
-                      title: '状态',
+                      title: t('common.status'),
                       render: (_, sku) => (
                         <Tag
                           color={sku.status === 'ACTIVE' ? 'green' : 'default'}
                         >
-                          {sku.status === 'ACTIVE' ? '启用' : '停用'}
+                          {sku.status === 'ACTIVE'
+                            ? t('common.active')
+                            : t('common.disabled')}
                         </Tag>
                       ),
                     },
                     {
-                      title: '操作',
+                      title: t('common.actions'),
                       render: (_, sku) =>
                         canWrite ? (
                           <Space>
@@ -378,14 +404,14 @@ export function ProductsPage() {
                               type="link"
                               onClick={() => openSku(product, sku)}
                             >
-                              编辑
+                              {t('common.edit')}
                             </Button>
                             <Button
                               type="link"
                               onClick={() => openStock(sku)}
                               disabled={sku.status !== 'ACTIVE'}
                             >
-                              调整库存
+                              {t('products.adjustStock')}
                             </Button>
                             <Button
                               type="link"
@@ -393,7 +419,7 @@ export function ProductsPage() {
                               disabled={sku.status !== 'ACTIVE'}
                               onClick={() => void setSkuDisabled(sku)}
                             >
-                              停用
+                              {t('products.disable')}
                             </Button>
                           </Space>
                         ) : null,
@@ -403,22 +429,26 @@ export function ProductsPage() {
               ) : (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="暂无 SKU"
+                  description={t('products.emptySku')}
                 />
               ),
           }}
           columns={[
-            { title: '商品编码', dataIndex: 'code' },
-            { title: '标题', dataIndex: 'title' },
-            { title: '语言', dataIndex: 'language', width: 100 },
+            { title: t('products.code'), dataIndex: 'code' },
+            { title: t('products.titleField'), dataIndex: 'title' },
             {
-              title: '版本',
+              title: t('common.language'),
+              dataIndex: 'language',
+              width: 100,
+            },
+            {
+              title: t('products.version'),
               dataIndex: 'version',
               width: 72,
               render: (value: number) => `v${value}`,
             },
             {
-              title: '状态',
+              title: t('common.status'),
               dataIndex: 'status',
               width: 100,
               render: (value: ProductStatus) => (
@@ -433,27 +463,27 @@ export function ProductsPage() {
               render: (_, product) => product.skus.length,
             },
             {
-              title: '操作',
+              title: t('common.actions'),
               width: 260,
               render: (_, product) =>
                 canWrite ? (
                   <Space>
                     <Button type="link" onClick={() => openProduct(product)}>
-                      编辑
+                      {t('common.edit')}
                     </Button>
                     <Button
                       type="link"
                       onClick={() => setOptimizationProduct(product)}
                       disabled={product.status === 'ARCHIVED'}
                     >
-                      AI 优化
+                      {t('products.aiOptimize')}
                     </Button>
                     <Button
                       type="link"
                       onClick={() => openSku(product)}
                       disabled={product.status === 'ARCHIVED'}
                     >
-                      新增 SKU
+                      {t('products.addSku')}
                     </Button>
                   </Space>
                 ) : null,
@@ -463,7 +493,9 @@ export function ProductsPage() {
       </div>
 
       <Modal
-        title={editingProduct ? '编辑商品' : '新建商品'}
+        title={
+          editingProduct ? t('products.editProduct') : t('products.create')
+        }
         open={productModalOpen}
         confirmLoading={saving}
         onOk={() => void saveProduct()}
@@ -473,21 +505,25 @@ export function ProductsPage() {
         <Form form={productForm} layout="vertical">
           <Form.Item
             name="code"
-            label="商品编码"
+            label={t('products.code')}
             rules={[{ required: true }, { pattern: /^[A-Z0-9][A-Z0-9_-]+$/ }]}
           >
             <Input disabled={Boolean(editingProduct)} />
           </Form.Item>
-          <Form.Item name="title" label="标题" rules={[{ required: true }]}>
+          <Form.Item
+            name="title"
+            label={t('products.titleField')}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="描述">
+          <Form.Item name="description" label={t('products.descriptionField')}>
             <Input.TextArea rows={5} />
           </Form.Item>
           <div className="form-grid">
             <Form.Item
               name="language"
-              label="语言"
+              label={t('common.language')}
               rules={[{ required: true }]}
             >
               <Select
@@ -497,7 +533,11 @@ export function ProductsPage() {
                 }))}
               />
             </Form.Item>
-            <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+            <Form.Item
+              name="status"
+              label={t('common.status')}
+              rules={[{ required: true }]}
+            >
               <Select
                 options={Object.entries(productStatusLabels).map(
                   ([value, label]) => ({ value, label }),
@@ -509,7 +549,7 @@ export function ProductsPage() {
       </Modal>
 
       <Modal
-        title={editingSku ? '编辑 SKU' : '新增 SKU'}
+        title={editingSku ? t('products.editSku') : t('products.addSku')}
         open={skuModalOpen}
         confirmLoading={saving}
         onOk={() => void saveSku()}
@@ -518,21 +558,29 @@ export function ProductsPage() {
         <Form form={skuForm} layout="vertical">
           <Form.Item
             name="code"
-            label="SKU 编码"
+            label={t('products.skuCode')}
             rules={[{ required: true }, { pattern: /^[A-Z0-9][A-Z0-9_-]+$/ }]}
           >
             <Input disabled={Boolean(editingSku)} />
           </Form.Item>
-          <Form.Item name="name" label="规格名称" rules={[{ required: true }]}>
+          <Form.Item
+            name="name"
+            label={t('products.skuName')}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
           <div className="form-grid">
-            <Form.Item name="price" label="售价" rules={[{ required: true }]}>
+            <Form.Item
+              name="price"
+              label={t('products.price')}
+              rules={[{ required: true }]}
+            >
               <Input />
             </Form.Item>
             <Form.Item
               name="currency"
-              label="币种"
+              label={t('products.currency')}
               rules={[{ required: true }]}
             >
               <Select
@@ -544,14 +592,20 @@ export function ProductsPage() {
               />
             </Form.Item>
           </div>
-          <Form.Item name="stock" label="初始库存" rules={[{ required: true }]}>
+          <Form.Item
+            name="stock"
+            label={t('products.initialStock')}
+            rules={[{ required: true }]}
+          >
             <InputNumber disabled={Boolean(editingSku)} min={0} precision={0} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={`调整库存 · ${stockSku?.code ?? ''}`}
+        title={t('products.adjustStockTitle', {
+          code: stockSku?.code ?? '',
+        })}
         open={stockModalOpen}
         confirmLoading={saving}
         onOk={() => void saveStock()}
@@ -560,20 +614,24 @@ export function ProductsPage() {
         <Form form={stockForm} layout="vertical">
           <Form.Item
             name="delta"
-            label="调整数量"
-            extra="正数增加，负数扣减"
+            label={t('products.delta')}
+            extra={t('products.deltaHelp')}
             rules={[{ required: true }]}
           >
             <InputNumber precision={0} />
           </Form.Item>
-          <Form.Item name="reason" label="原因" rules={[{ required: true }]}>
+          <Form.Item
+            name="reason"
+            label={t('products.reason')}
+            rules={[{ required: true }]}
+          >
             <Input />
           </Form.Item>
         </Form>
       </Modal>
 
       <Drawer
-        title="最近 100 条业务审计"
+        title={t('products.auditTitle')}
         width={560}
         open={auditOpen}
         onClose={() => setAuditOpen(false)}
@@ -586,13 +644,15 @@ export function ProductsPage() {
             column={1}
             bordered
           >
-            <Descriptions.Item label="时间">
-              {new Date(log.createdAt).toLocaleString()}
+            <Descriptions.Item label={t('products.time')}>
+              {formatDateTime(log.createdAt, language)}
             </Descriptions.Item>
-            <Descriptions.Item label="操作">
+            <Descriptions.Item label={t('common.actions')}>
               {log.entityType} · {log.action}
             </Descriptions.Item>
-            <Descriptions.Item label="对象">{log.entityId}</Descriptions.Item>
+            <Descriptions.Item label={t('products.object')}>
+              {log.entityId}
+            </Descriptions.Item>
           </Descriptions>
         ))}
       </Drawer>

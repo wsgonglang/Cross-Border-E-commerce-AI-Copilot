@@ -26,41 +26,32 @@ import {
   RobotOutlined,
 } from '@ant-design/icons'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { getOperationsDashboard } from '../../api/orders'
 import { AgentPanel } from '../../components/agent-panel/agent-panel'
 import { useBusinessContext } from '../../contexts/business-context'
+import {
+  formatCurrency,
+  formatDate,
+  formatMonthDay,
+} from '../../i18n/formatters'
+import type { AppLanguage } from '../../i18n/i18n'
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
-
-const orderStatusLabels: Record<string, string> = {
-  PENDING: '待确认',
-  CONFIRMED: '已确认',
-  SHIPPED: '已发货',
-  DELIVERED: '已送达',
-  COMPLETED: '已完成',
-  CANCELLED: '已取消',
-  REFUNDING: '退款中',
-  REFUNDED: '已退款',
-}
-
-function formatMoney(value: string, currency: string): string {
-  return Number(value).toLocaleString('zh-CN', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  })
-}
 
 function Comparison({
   metric,
 }: {
   metric: DashboardComparisonMetric | DashboardMoneyComparisonMetric
 }) {
+  const { t } = useTranslation()
   if (metric.changeRate === null) {
-    return <span className="metric-comparison muted">上一周期无基数</span>
+    return (
+      <span className="metric-comparison muted">{t('dashboard.noBase')}</span>
+    )
   }
   const increased = metric.changeRate >= 0
   return (
@@ -70,12 +61,17 @@ function Comparison({
       }`}
     >
       {increased ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-      {Math.abs(metric.changeRate).toFixed(1)}% 较上一周期
+      {t('dashboard.versusPrevious', {
+        rate: Math.abs(metric.changeRate).toFixed(1),
+      })}
     </span>
   )
 }
 
 function TrendChart({ data }: { data: OperationsDashboard['trend'] }) {
+  const { t, i18n } = useTranslation()
+  const language: AppLanguage =
+    i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'zh-CN'
   const maxOrders = Math.max(...data.orders, 1)
   const maxSales = Math.max(...data.sales.map(Number), 1)
   const width = Math.max(data.dates.length * 54, 620)
@@ -94,7 +90,7 @@ function TrendChart({ data }: { data: OperationsDashboard['trend'] }) {
         viewBox={`0 0 ${width} ${height}`}
         className="dashboard-trend-chart"
         role="img"
-        aria-label="订单和销售趋势"
+        aria-label={t('dashboard.trendAria')}
       >
         {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
           const lineY =
@@ -138,7 +134,7 @@ function TrendChart({ data }: { data: OperationsDashboard['trend'] }) {
             fill="#607a76"
             fontSize="11"
           >
-            {date.slice(5)}
+            {formatMonthDay(date, language)}
           </text>
         ))}
         <rect
@@ -150,7 +146,7 @@ function TrendChart({ data }: { data: OperationsDashboard['trend'] }) {
           fill="#0f766e"
         />
         <text x={width - 158} y={14} fill="#607a76" fontSize="11">
-          订单数
+          {t('dashboard.orders')}
         </text>
         <rect
           x={width - 98}
@@ -161,7 +157,7 @@ function TrendChart({ data }: { data: OperationsDashboard['trend'] }) {
           fill="#0891b2"
         />
         <text x={width - 80} y={14} fill="#607a76" fontSize="11">
-          销售额
+          {t('dashboard.sales')}
         </text>
       </svg>
     </div>
@@ -169,6 +165,9 @@ function TrendChart({ data }: { data: OperationsDashboard['trend'] }) {
 }
 
 export function DashboardPage() {
+  const { t, i18n } = useTranslation()
+  const language: AppLanguage =
+    i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'zh-CN'
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const user = useAppSelector((state) => state.auth.user)
   const { merchantId, storeId, currentStore } = useBusinessContext()
@@ -193,7 +192,9 @@ export function DashboardPage() {
       .catch((loadError: unknown) => {
         if (!active) return
         setError(
-          loadError instanceof Error ? loadError.message : '运营工作台加载失败',
+          loadError instanceof Error
+            ? loadError.message
+            : t('dashboard.loadFailed'),
         )
       })
       .finally(() => {
@@ -202,45 +203,53 @@ export function DashboardPage() {
     return () => {
       active = false
     }
-  }, [days, merchantId, storeId, token])
+  }, [days, merchantId, storeId, t, token])
 
   const suggestions = useMemo(() => {
     if (!dashboard) return []
     return [
       dashboard.todos.actionableOrders > 0
         ? {
-            title: '优先处理未完成订单',
-            evidence: `当前店铺有 ${dashboard.todos.actionableOrders} 笔待确认、已确认或退款中的订单。`,
-            action: '查看订单',
+            title: t('dashboard.suggestionOrders'),
+            evidence: t('dashboard.suggestionOrdersEvidence', {
+              count: dashboard.todos.actionableOrders,
+            }),
+            action: t('dashboard.viewOrders'),
             path: '/orders',
           }
         : null,
       dashboard.todos.lowStockItems > 0
         ? {
-            title: '检查低库存商品',
-            evidence: `${dashboard.todos.lowStockItems} 个在售 SKU 库存不高于 5。`,
-            action: '查看商品',
+            title: t('dashboard.suggestionLowStock'),
+            evidence: t('dashboard.suggestionLowStockEvidence', {
+              count: dashboard.todos.lowStockItems,
+            }),
+            action: t('dashboard.viewProducts'),
             path: '/products',
           }
         : null,
       dashboard.todos.pendingDrafts > 0
         ? {
-            title: '审核 AI 商品草稿',
-            evidence: `成果中心有 ${dashboard.todos.pendingDrafts} 份草稿等待人工确认。`,
-            action: '审核草稿',
+            title: t('dashboard.suggestionDrafts'),
+            evidence: t('dashboard.suggestionDraftsEvidence', {
+              count: dashboard.todos.pendingDrafts,
+            }),
+            action: t('dashboard.reviewDrafts'),
             path: '/ai-results',
           }
         : null,
       dashboard.todos.failedTasks > 0
         ? {
-            title: '处理失败批量任务',
-            evidence: `${dashboard.todos.failedTasks} 个批量任务存在失败明细。`,
-            action: '查看任务',
+            title: t('dashboard.suggestionTasks'),
+            evidence: t('dashboard.suggestionTasksEvidence', {
+              count: dashboard.todos.failedTasks,
+            }),
+            action: t('dashboard.viewTasks'),
             path: '/batch-tasks',
           }
         : null,
     ].filter((item): item is NonNullable<typeof item> => item !== null)
-  }, [dashboard])
+  }, [dashboard, t])
 
   const canWrite =
     user?.roles.some((role) => ['admin', 'operator'].includes(role)) ?? false
@@ -249,22 +258,22 @@ export function DashboardPage() {
     <main className="workspace-page dashboard-workspace">
       <header className="workspace-header">
         <div>
-          <span className="page-kicker">Agent 运营工作台</span>
-          <h1>{user?.name}，欢迎回来</h1>
+          <span className="page-kicker">{t('dashboard.kicker')}</span>
+          <h1>{t('dashboard.welcome', { name: user?.name })}</h1>
           <p>
             {currentStore
               ? `${currentStore.name} · ${currentStore.platform} · ${currentStore.market}`
-              : '当前商家全部店铺'}
+              : t('dashboard.allStores')}
           </p>
         </div>
         <Space direction="vertical" align="end">
-          <span className="secure-badge">指标来自真实业务数据</span>
+          <span className="secure-badge">{t('dashboard.verified')}</span>
           <Segmented
             value={days}
             options={[
-              { label: '近 7 天', value: 7 },
-              { label: '近 14 天', value: 14 },
-              { label: '近 30 天', value: 30 },
+              { label: t('dashboard.range7'), value: 7 },
+              { label: t('dashboard.range14'), value: 14 },
+              { label: t('dashboard.range30'), value: 30 },
             ]}
             onChange={(value) => setDays(Number(value))}
           />
@@ -279,18 +288,21 @@ export function DashboardPage() {
       ) : dashboard ? (
         <>
           <Typography.Text type="secondary" className="dashboard-period">
-            当前周期 {dashboard.period.startDate.slice(0, 10)} 至{' '}
-            {dashboard.period.endDate.slice(0, 10)}，对比之前等长周期
+            {t('dashboard.period', {
+              start: formatDate(dashboard.period.startDate, language),
+              end: formatDate(dashboard.period.endDate, language),
+            })}
           </Typography.Text>
 
           <Row gutter={[16, 16]} className="dashboard-metrics">
             <Col xs={24} sm={12} xl={6}>
               <Card>
                 <Statistic
-                  title="销售额"
-                  value={formatMoney(
+                  title={t('dashboard.sales')}
+                  value={formatCurrency(
                     dashboard.metrics.sales.value,
                     dashboard.currency,
+                    language,
                   )}
                 />
                 <Comparison metric={dashboard.metrics.sales} />
@@ -299,9 +311,9 @@ export function DashboardPage() {
             <Col xs={24} sm={12} xl={6}>
               <Card>
                 <Statistic
-                  title="订单数"
+                  title={t('dashboard.orders')}
                   value={dashboard.metrics.orders.value}
-                  suffix="单"
+                  suffix={t('dashboard.orderUnit')}
                 />
                 <Comparison metric={dashboard.metrics.orders} />
               </Card>
@@ -309,10 +321,11 @@ export function DashboardPage() {
             <Col xs={24} sm={12} xl={6}>
               <Card>
                 <Statistic
-                  title="平均客单价"
-                  value={formatMoney(
+                  title={t('dashboard.averageOrder')}
+                  value={formatCurrency(
                     dashboard.metrics.averageOrderValue.value,
                     dashboard.currency,
+                    language,
                   )}
                 />
                 <Comparison metric={dashboard.metrics.averageOrderValue} />
@@ -321,9 +334,9 @@ export function DashboardPage() {
             <Col xs={24} sm={12} xl={6}>
               <Card>
                 <Statistic
-                  title="退款单量"
+                  title={t('dashboard.refunds')}
                   value={dashboard.metrics.refunds.value}
-                  suffix="单"
+                  suffix={t('dashboard.orderUnit')}
                 />
                 <Comparison metric={dashboard.metrics.refunds} />
               </Card>
@@ -336,21 +349,26 @@ export function DashboardPage() {
           >
             <Col xs={24} xl={16}>
               <Card
-                title={`${days} 天销售与订单趋势`}
+                title={t('dashboard.trendTitle', { days })}
                 className="dashboard-full-card"
               >
                 <TrendChart data={dashboard.trend} />
               </Card>
             </Col>
             <Col xs={24} xl={8}>
-              <Card title="订单状态分布" className="dashboard-full-card">
+              <Card
+                title={t('dashboard.statusDistribution')}
+                className="dashboard-full-card"
+              >
                 {dashboard.orderStatuses.length ? (
                   <Space direction="vertical" className="dashboard-status-list">
                     {dashboard.orderStatuses.map((item) => (
                       <div key={item.status}>
                         <Space className="dashboard-status-heading">
                           <span>
-                            {orderStatusLabels[item.status] ?? item.status}
+                            {t(`dashboard.status.${item.status}`, {
+                              defaultValue: item.status,
+                            })}
                           </span>
                           <strong>{item.count}</strong>
                         </Space>
@@ -378,21 +396,32 @@ export function DashboardPage() {
             className="dashboard-section dashboard-equal-row"
           >
             <Col xs={24} xl={12}>
-              <Card title="热销商品" className="dashboard-full-card">
+              <Card
+                title={t('dashboard.topProducts')}
+                className="dashboard-full-card"
+              >
                 <Table
                   size="small"
                   rowKey="productName"
                   pagination={false}
                   dataSource={dashboard.topProducts}
                   columns={[
-                    { title: '商品', dataIndex: 'productName', ellipsis: true },
-                    { title: '销量', dataIndex: 'quantity', width: 80 },
                     {
-                      title: '销售额',
+                      title: t('dashboard.product'),
+                      dataIndex: 'productName',
+                      ellipsis: true,
+                    },
+                    {
+                      title: t('dashboard.quantity'),
+                      dataIndex: 'quantity',
+                      width: 80,
+                    },
+                    {
+                      title: t('dashboard.sales'),
                       dataIndex: 'sales',
                       width: 120,
                       render: (value: string) =>
-                        formatMoney(value, dashboard.currency),
+                        formatCurrency(value, dashboard.currency, language),
                     },
                   ]}
                 />
@@ -400,14 +429,14 @@ export function DashboardPage() {
             </Col>
             <Col xs={24} xl={12}>
               <Card
-                title="低库存明细"
+                title={t('dashboard.lowStock')}
                 className="dashboard-full-card"
                 extra={
                   <Button
                     type="link"
                     onClick={() => void navigate('/products')}
                   >
-                    商品管理
+                    {t('dashboard.productManagement')}
                   </Button>
                 }
               >
@@ -418,7 +447,7 @@ export function DashboardPage() {
                   dataSource={dashboard.lowStock}
                   columns={[
                     {
-                      title: '商品 / SKU',
+                      title: t('dashboard.productSku'),
                       render: (_, item) => (
                         <Space direction="vertical" size={0}>
                           <span>{item.productTitle}</span>
@@ -429,7 +458,7 @@ export function DashboardPage() {
                       ),
                     },
                     {
-                      title: '库存',
+                      title: t('dashboard.stock'),
                       dataIndex: 'stock',
                       width: 70,
                       render: (value: number) => (
@@ -444,17 +473,29 @@ export function DashboardPage() {
             </Col>
           </Row>
 
-          <Card title="运营待办与可解释建议" className="dashboard-section">
+          <Card title={t('dashboard.todoTitle')} className="dashboard-section">
             <Row gutter={[16, 16]}>
               {[
                 [
-                  '待处理订单',
+                  t('dashboard.actionableOrders'),
                   dashboard.todos.actionableOrders,
                   '/orders?statuses=PENDING,CONFIRMED,REFUNDING',
                 ],
-                ['待确认草稿', dashboard.todos.pendingDrafts, '/ai-results'],
-                ['失败任务', dashboard.todos.failedTasks, '/batch-tasks'],
-                ['低库存 SKU', dashboard.todos.lowStockItems, '/products'],
+                [
+                  t('dashboard.pendingDrafts'),
+                  dashboard.todos.pendingDrafts,
+                  '/ai-results',
+                ],
+                [
+                  t('dashboard.failedTasks'),
+                  dashboard.todos.failedTasks,
+                  '/batch-tasks',
+                ],
+                [
+                  t('dashboard.lowStockSku'),
+                  dashboard.todos.lowStockItems,
+                  '/products',
+                ],
               ].map(([title, value, path]) => (
                 <Col xs={12} lg={6} key={String(title)}>
                   <button
@@ -470,7 +511,7 @@ export function DashboardPage() {
             </Row>
             <List
               className="dashboard-suggestions"
-              locale={{ emptyText: '当前没有需要优先处理的异常' }}
+              locale={{ emptyText: t('dashboard.noPriorityIssue') }}
               dataSource={suggestions}
               renderItem={(item) => (
                 <List.Item
@@ -487,7 +528,9 @@ export function DashboardPage() {
                   <List.Item.Meta
                     avatar={<RobotOutlined className="suggestion-icon" />}
                     title={item.title}
-                    description={`业务依据：${item.evidence}`}
+                    description={t('dashboard.evidence', {
+                      evidence: item.evidence,
+                    })}
                   />
                 </List.Item>
               )}
@@ -500,28 +543,32 @@ export function DashboardPage() {
           >
             <Col xs={24} xl={12}>
               <Card
-                title="运行中任务"
+                title={t('dashboard.runningTasks')}
                 className="dashboard-full-card"
                 extra={
                   <Button
                     type="link"
                     onClick={() => void navigate('/batch-tasks')}
                   >
-                    任务中心
+                    {t('dashboard.taskCenter')}
                   </Button>
                 }
               >
                 <Space wrap className="dashboard-running-summary">
                   <Tag color="processing">
-                    Agent 运行中 {dashboard.runningAgentCount}
+                    {t('dashboard.runningAgents', {
+                      count: dashboard.runningAgentCount,
+                    })}
                   </Tag>
                   <Tag color="cyan">
-                    批量任务 {dashboard.activeTasks.length}
+                    {t('dashboard.batchCount', {
+                      count: dashboard.activeTasks.length,
+                    })}
                   </Tag>
                 </Space>
                 <List
                   size="small"
-                  locale={{ emptyText: '暂无运行中的批量任务' }}
+                  locale={{ emptyText: t('dashboard.noRunningTasks') }}
                   dataSource={dashboard.activeTasks}
                   renderItem={(task) => (
                     <List.Item>
@@ -530,8 +577,16 @@ export function DashboardPage() {
                         className="dashboard-list-row"
                       >
                         <Space>
-                          <Tag color="processing">{task.status}</Tag>
-                          <span>批量优化为 {task.targetLanguage}</span>
+                          <Tag color="processing">
+                            {t(`dashboard.taskStatus.${task.status}`, {
+                              defaultValue: task.status,
+                            })}
+                          </Tag>
+                          <span>
+                            {t('dashboard.batchForLanguage', {
+                              language: task.targetLanguage,
+                            })}
+                          </span>
                         </Space>
                         <Progress percent={task.progress} size="small" />
                       </Space>
@@ -542,20 +597,20 @@ export function DashboardPage() {
             </Col>
             <Col xs={24} xl={12}>
               <Card
-                title="近期 AI 成果"
+                title={t('dashboard.recentResults')}
                 className="dashboard-full-card"
                 extra={
                   <Button
                     type="link"
                     onClick={() => void navigate('/ai-results')}
                   >
-                    成果中心
+                    {t('dashboard.resultCenter')}
                   </Button>
                 }
               >
                 <List
                   size="small"
-                  locale={{ emptyText: '暂无 AI 成果' }}
+                  locale={{ emptyText: t('dashboard.noResults') }}
                   dataSource={dashboard.recentResults}
                   renderItem={(item) => (
                     <List.Item
@@ -566,7 +621,9 @@ export function DashboardPage() {
                         title={
                           <Space>
                             <Tag>
-                              {item.type === 'AGENT_RUN' ? 'Agent' : '商品草稿'}
+                              {item.type === 'AGENT_RUN'
+                                ? t('dashboard.agentResult')
+                                : t('dashboard.productDraft')}
                             </Tag>
                             <Typography.Text ellipsis>
                               {item.title}
@@ -575,7 +632,11 @@ export function DashboardPage() {
                         }
                         description={item.description}
                       />
-                      <Tag>{item.status}</Tag>
+                      <Tag>
+                        {t(`dashboard.resultStatus.${item.status}`, {
+                          defaultValue: item.status,
+                        })}
+                      </Tag>
                     </List.Item>
                   )}
                 />
@@ -584,20 +645,20 @@ export function DashboardPage() {
           </Row>
 
           <Card
-            title="当前上下文 Agent"
+            title={t('dashboard.contextAgent')}
             className="dashboard-section dashboard-agent-card"
             extra={
               <Tag color="cyan">
-                {currentStore?.name ?? '全部店铺'} · 近 {days} 天
+                {t('dashboard.contextTag', {
+                  store: currentStore?.name ?? t('common.allStores'),
+                  days,
+                })}
               </Tag>
             }
           >
             <Typography.Paragraph type="secondary">
-              Agent
-              会继承当前商家、店铺和时间范围；所有结论均可在工具轨迹中核对。
-              {canWrite
-                ? '创建商品草稿后仍需人工确认。'
-                : '当前 viewer 身份仅可使用只读业务工具。'}
+              {t('dashboard.agentDescription')}{' '}
+              {canWrite ? t('dashboard.writeHint') : t('dashboard.viewerHint')}
             </Typography.Paragraph>
             <AgentPanel
               token={token}
@@ -611,7 +672,7 @@ export function DashboardPage() {
           </Card>
         </>
       ) : (
-        <Empty description="暂无可展示的经营数据" />
+        <Empty description={t('dashboard.noData')} />
       )}
     </main>
   )

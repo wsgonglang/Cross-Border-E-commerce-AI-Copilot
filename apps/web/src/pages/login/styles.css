@@ -65,11 +65,18 @@
 }
 
 .login-panel {
+  position: relative;
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 48px;
   background: #f5f6f8;
+}
+
+.login-language {
+  position: absolute;
+  top: 24px;
+  right: 28px;
 }
 
 .login-card {

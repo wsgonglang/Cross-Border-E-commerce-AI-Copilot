@@ -15,8 +15,10 @@ import {
 import type { RoleCode } from '@cross-border/shared'
 import { Avatar, Button, Select, Space, Typography } from 'antd'
 import type { ElementType } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
+import { LanguageSwitch } from '../../components/language-switch/language-switch'
 import { useBusinessContext } from '../../contexts/business-context'
 import { logout } from '../../store/auth.slice'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
@@ -25,7 +27,7 @@ import './styles.css'
 
 interface NavigationItem {
   to: string
-  label: string
+  labelKey: string
   icon: ElementType
   end?: boolean
   roles?: RoleCode[]
@@ -33,18 +35,18 @@ interface NavigationItem {
 
 interface NavigationGroup {
   id: string
-  label: string
+  labelKey: string
   items: NavigationItem[]
 }
 
 const navigationGroups: NavigationGroup[] = [
   {
     id: 'overview',
-    label: '总览',
+    labelKey: 'nav.overview',
     items: [
       {
         to: '/',
-        label: '运营工作台',
+        labelKey: 'nav.dashboard',
         icon: AppstoreOutlined,
         end: true,
       },
@@ -52,19 +54,19 @@ const navigationGroups: NavigationGroup[] = [
   },
   {
     id: 'commerce',
-    label: '业务运营',
+    labelKey: 'nav.commerce',
     items: [
-      { to: '/orders', label: '订单运营', icon: ShoppingCartOutlined },
-      { to: '/products', label: '商品与 SKU', icon: TagsOutlined },
+      { to: '/orders', labelKey: 'nav.orders', icon: ShoppingCartOutlined },
+      { to: '/products', labelKey: 'nav.products', icon: TagsOutlined },
       {
         to: '/stores',
-        label: '店铺与刊登',
+        labelKey: 'nav.stores',
         icon: GlobalOutlined,
         roles: ['admin', 'operator'],
       },
       {
         to: '/imports',
-        label: '结构化导入',
+        labelKey: 'nav.imports',
         icon: UploadOutlined,
         roles: ['admin', 'operator'],
       },
@@ -72,29 +74,29 @@ const navigationGroups: NavigationGroup[] = [
   },
   {
     id: 'ai',
-    label: 'AI 工作空间',
+    labelKey: 'nav.aiWorkspace',
     items: [
       {
         to: '/ai-chat',
-        label: 'AI 运营助手',
+        labelKey: 'nav.aiAssistant',
         icon: RobotOutlined,
         roles: ['admin', 'operator'],
       },
       {
         to: '/batch-tasks',
-        label: '批量 AI 任务',
+        labelKey: 'nav.batchTasks',
         icon: ClusterOutlined,
         roles: ['admin', 'operator'],
       },
       {
         to: '/ai-results',
-        label: 'AI 成果中心',
+        labelKey: 'nav.aiResults',
         icon: FileDoneOutlined,
         roles: ['admin', 'operator'],
       },
       {
         to: '/rule-documents',
-        label: '规则知识库',
+        labelKey: 'nav.rules',
         icon: BookOutlined,
         roles: ['admin'],
       },
@@ -102,17 +104,17 @@ const navigationGroups: NavigationGroup[] = [
   },
   {
     id: 'administration',
-    label: '系统管理',
+    labelKey: 'nav.administration',
     items: [
       {
         to: '/merchants',
-        label: '商家管理',
+        labelKey: 'nav.merchants',
         icon: ShopOutlined,
         roles: ['admin'],
       },
       {
         to: '/users',
-        label: '用户与权限',
+        labelKey: 'nav.users',
         icon: TeamOutlined,
         roles: ['admin'],
       },
@@ -121,6 +123,7 @@ const navigationGroups: NavigationGroup[] = [
 ]
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const user = useAppSelector((state) => state.auth.user)
@@ -156,10 +159,10 @@ export function AppLayout() {
           <div className="brand-mark">CB</div>
           <div>
             <strong>AI Copilot</strong>
-            <span>跨境电商运营台</span>
+            <span>{t('nav.brandSubtitle')}</span>
           </div>
         </div>
-        <nav aria-label="主导航">
+        <nav aria-label={t('nav.label')}>
           {visibleNavigationGroups.map((group) => (
             <section
               className="sidebar-nav-group"
@@ -170,7 +173,7 @@ export function AppLayout() {
                 className="sidebar-nav-heading"
                 id={`sidebar-group-${group.id}`}
               >
-                {group.label}
+                {t(group.labelKey)}
               </div>
               <div className="sidebar-nav-links">
                 {group.items.map((item) => {
@@ -178,7 +181,7 @@ export function AppLayout() {
                   return (
                     <NavLink to={item.to} end={item.end} key={item.to}>
                       <Icon />
-                      <span>{item.label}</span>
+                      <span>{t(item.labelKey)}</span>
                     </NavLink>
                   )
                 })}
@@ -193,7 +196,7 @@ export function AppLayout() {
             <span>{user?.roles.join(' · ')}</span>
           </div>
           <Button
-            aria-label="退出登录"
+            aria-label={t('nav.logout')}
             type="text"
             icon={<LogoutOutlined />}
             onClick={() => void handleLogout()}
@@ -207,10 +210,10 @@ export function AppLayout() {
               className="business-context-label"
               type="secondary"
             >
-              业务上下文
+              {t('nav.context')}
             </Typography.Text>
             <Select
-              aria-label="当前商家"
+              aria-label={t('nav.currentMerchant')}
               className="business-context-merchant"
               value={merchantId || undefined}
               onChange={setMerchantId}
@@ -220,10 +223,10 @@ export function AppLayout() {
               }))}
             />
             <Select
-              aria-label="当前店铺"
+              aria-label={t('nav.currentStore')}
               className="business-context-store"
               value={storeId || undefined}
-              placeholder="选择店铺"
+              placeholder={t('nav.selectStore')}
               onChange={setStoreId}
               options={stores
                 .filter((store) => store.status === 'ACTIVE')
@@ -236,8 +239,9 @@ export function AppLayout() {
           <Typography.Text className="business-context-meta" type="secondary">
             {currentStore
               ? `${currentStore.platform} / ${currentStore.currency} / ${currentStore.locale}`
-              : '当前商家尚无可用店铺'}
+              : t('nav.noStore')}
           </Typography.Text>
+          <LanguageSwitch compact />
         </div>
         <Outlet />
       </section>

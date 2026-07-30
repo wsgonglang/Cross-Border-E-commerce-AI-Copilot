@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthenticatedRoute } from './components/authenticated-route/authenticated-route'
@@ -89,6 +90,7 @@ function routeElement(element: ReactNode) {
 }
 
 export function App() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const status = useAppSelector((state) => state.auth.status)
 
@@ -101,7 +103,7 @@ export function App() {
       <main className="session-loading">
         <div className="brand-mark">CB</div>
         <span className="route-loading-spinner" aria-hidden="true" />
-        <span>正在恢复安全会话…</span>
+        <span>{t('app.restoring')}</span>
       </main>
     )
   }

@@ -21,6 +21,7 @@ import {
   message,
 } from 'antd'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   applyProductOptimization,
@@ -32,11 +33,6 @@ import {
 
 import './styles.css'
 
-const languageLabels: Record<OptimizationLanguage, string> = {
-  'en-US': '英语（美国）',
-  'es-ES': '西班牙语',
-  'pt-BR': '葡萄牙语（巴西）',
-}
 const optimizationLanguages: OptimizationLanguage[] = [
   'en-US',
   'es-ES',
@@ -62,6 +58,7 @@ export function ProductOptimizationDrawer({
   onClose,
   onApplied,
 }: Props) {
+  const { t } = useTranslation()
   const [targetLanguage, setTargetLanguage] =
     useState<OptimizationLanguage>('en-US')
   const [optimization, setOptimization] =
@@ -91,7 +88,9 @@ export function ProductOptimizationDrawer({
       .catch((error: unknown) => {
         if (active) {
           void messageApi.error(
-            error instanceof Error ? error.message : '优化记录加载失败',
+            error instanceof Error
+              ? error.message
+              : t('optimization.loadFailed'),
           )
         }
       })
@@ -101,7 +100,7 @@ export function ProductOptimizationDrawer({
     return () => {
       active = false
     }
-  }, [initialOptimizationId, merchantId, messageApi, open, product, token])
+  }, [initialOptimizationId, merchantId, messageApi, open, product, t, token])
 
   const generate = async () => {
     if (!product) return
@@ -115,10 +114,12 @@ export function ProductOptimizationDrawer({
           targetLanguage,
         ),
       )
-      void messageApi.success('结构化优化草稿已生成，请人工确认')
+      void messageApi.success(t('optimization.generated'))
     } catch (error: unknown) {
       void messageApi.error(
-        error instanceof Error ? error.message : 'AI 优化失败',
+        error instanceof Error
+          ? error.message
+          : t('optimization.generateFailed'),
       )
     } finally {
       setGenerating(false)
@@ -138,10 +139,10 @@ export function ProductOptimizationDrawer({
         ),
       )
       await onApplied()
-      void messageApi.success('草稿已写回商品，版本和审计记录已保存')
+      void messageApi.success(t('optimization.applied'))
     } catch (error: unknown) {
       void messageApi.error(
-        error instanceof Error ? error.message : '草稿应用失败',
+        error instanceof Error ? error.message : t('optimization.applyFailed'),
       )
     } finally {
       setLoading(false)
@@ -160,10 +161,10 @@ export function ProductOptimizationDrawer({
           optimization.id,
         ),
       )
-      void messageApi.success('草稿已拒绝，正式商品未发生变化')
+      void messageApi.success(t('optimization.rejected'))
     } catch (error: unknown) {
       void messageApi.error(
-        error instanceof Error ? error.message : '草稿拒绝失败',
+        error instanceof Error ? error.message : t('optimization.rejectFailed'),
       )
     } finally {
       setLoading(false)
@@ -174,7 +175,7 @@ export function ProductOptimizationDrawer({
 
   return (
     <Drawer
-      title={`AI 商品优化 · ${product?.code ?? ''}`}
+      title={t('optimization.title', { code: product?.code ?? '' })}
       width={820}
       open={open}
       onClose={onClose}
@@ -185,7 +186,12 @@ export function ProductOptimizationDrawer({
             onChange={setTargetLanguage}
             options={optimizationLanguages.map((value) => ({
               value,
-              label: languageLabels[value],
+              label:
+                value === 'en-US'
+                  ? t('optimization.enUS')
+                  : value === 'es-ES'
+                    ? t('optimization.esES')
+                    : t('optimization.ptBR'),
             }))}
           />
           <Button
@@ -193,7 +199,9 @@ export function ProductOptimizationDrawer({
             loading={generating}
             onClick={() => void generate()}
           >
-            {optimization ? '重新生成' : '生成草稿'}
+            {optimization
+              ? t('optimization.regenerate')
+              : t('optimization.generate')}
           </Button>
         </Space>
       }
@@ -209,21 +217,21 @@ export function ProductOptimizationDrawer({
         {generating ? (
           <Timeline
             items={[
-              { color: 'green', children: '读取商品和 SKU 上下文' },
-              { color: 'blue', children: '生成目标市场文案' },
-              { color: 'gray', children: '校验结构与合规风险' },
+              { color: 'green', children: t('optimization.readContext') },
+              { color: 'blue', children: t('optimization.generateCopy') },
+              { color: 'gray', children: t('optimization.validate') },
             ]}
           />
         ) : null}
 
         {!optimization && !generating ? (
-          <Empty description="选择目标语言并生成第一份 AI 草稿" />
+          <Empty description={t('optimization.empty')} />
         ) : null}
 
         {optimization ? (
           <>
             <Descriptions size="small" bordered column={3}>
-              <Descriptions.Item label="状态">
+              <Descriptions.Item label={t('common.status')}>
                 <Tag
                   color={
                     optimization.status === 'APPLIED'
@@ -233,10 +241,12 @@ export function ProductOptimizationDrawer({
                         : 'default'
                   }
                 >
-                  {optimization.status}
+                  {t(`optimization.status.${optimization.status}`, {
+                    defaultValue: optimization.status,
+                  })}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="模型">
+              <Descriptions.Item label={t('optimization.model')}>
                 {optimization.providerName} / {optimization.modelName}
               </Descriptions.Item>
               <Descriptions.Item label="Token">
@@ -255,10 +265,12 @@ export function ProductOptimizationDrawer({
 
             {draft ? (
               <>
-                <Divider>原内容与结构化草稿</Divider>
+                <Divider>{t('optimization.originalAndDraft')}</Divider>
                 <div className="optimization-comparison">
                   <section>
-                    <span className="comparison-label">当前商品</span>
+                    <span className="comparison-label">
+                      {t('optimization.currentProduct')}
+                    </span>
                     <Typography.Title level={5}>
                       {optimization.source.title}
                     </Typography.Title>
@@ -272,7 +284,9 @@ export function ProductOptimizationDrawer({
                     </Space>
                   </section>
                   <section className="draft-panel">
-                    <span className="comparison-label">AI 草稿</span>
+                    <span className="comparison-label">
+                      {t('optimization.aiDraft')}
+                    </span>
                     <Typography.Title level={5}>{draft.title}</Typography.Title>
                     <Typography.Paragraph>
                       {draft.description}
@@ -287,14 +301,14 @@ export function ProductOptimizationDrawer({
                   </section>
                 </div>
 
-                <Divider>风险与建议</Divider>
+                <Divider>{t('optimization.risksAndSuggestions')}</Divider>
                 <Alert
                   type={draft.complianceRisks.length ? 'warning' : 'success'}
                   showIcon
                   message={
                     draft.complianceRisks.length
-                      ? '存在需要人工核实的合规风险'
-                      : '未发现明确风险'
+                      ? t('optimization.hasRisks')
+                      : t('optimization.noRisks')
                   }
                   description={draft.complianceRisks.join('；')}
                 />
@@ -304,7 +318,7 @@ export function ProductOptimizationDrawer({
                   ))}
                 </ul>
                 <div className="confidence-row">
-                  <span>AI 置信度</span>
+                  <span>{t('optimization.confidence')}</span>
                   <Progress
                     percent={Math.round(draft.confidence * 100)}
                     size="small"
@@ -313,15 +327,17 @@ export function ProductOptimizationDrawer({
 
                 {optimization.status === 'DRAFT' ? (
                   <div className="optimization-actions">
-                    <Button onClick={() => void reject()}>拒绝草稿</Button>
+                    <Button onClick={() => void reject()}>
+                      {t('optimization.reject')}
+                    </Button>
                     <Popconfirm
-                      title="确认写回正式商品？"
-                      description="系统会保存前后版本和审计记录；若商品已被其他人修改，本次写回将被拒绝。"
-                      okText="确认写回"
-                      cancelText="继续检查"
+                      title={t('optimization.confirmTitle')}
+                      description={t('optimization.confirmDescription')}
+                      okText={t('optimization.confirm')}
+                      cancelText={t('optimization.continueReview')}
                       onConfirm={() => void apply()}
                     >
-                      <Button type="primary">人工确认并写回</Button>
+                      <Button type="primary">{t('optimization.apply')}</Button>
                     </Popconfirm>
                   </div>
                 ) : null}

@@ -1,4 +1,4 @@
-import type { AgentRunResponse, AgentToolName } from '@cross-border/shared'
+import type { AgentRunResponse } from '@cross-border/shared'
 import {
   Alert,
   Button,
@@ -11,29 +11,12 @@ import {
 } from 'antd'
 import { RobotOutlined, SendOutlined } from '@ant-design/icons'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { runAgent } from '../../api/agent'
 
 import './styles.css'
-
-const toolLabels: Record<AgentToolName | 'unknown', string> = {
-  search_products: '查询商品',
-  get_inventory: '查询库存',
-  get_order_status: '查询订单',
-  get_business_overview: '经营概览',
-  search_platform_rules: '检索规则',
-  create_product_optimization_draft: '创建优化草稿',
-  unknown: '未授权工具',
-}
-
-const defaultQuickPrompts = [
-  '查询 P-DEMO-001 的库存',
-  '查询订单 ORD-20260701-001 的状态',
-  '查看今日经营看板',
-  '检查充电器标题和认证相关规则',
-  '为 P-DEMO-001 创建西班牙语优化草稿',
-]
 
 interface Props {
   token: string
@@ -54,13 +37,22 @@ export function AgentPanel({
   days = 7,
   sourcePage,
   canWrite = true,
-  quickPrompts = defaultQuickPrompts,
+  quickPrompts,
 }: Props) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<AgentRunResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const defaultQuickPrompts = [
+    t('agent.quick.inventory'),
+    t('agent.quick.order'),
+    t('agent.quick.dashboard'),
+    t('agent.quick.compliance'),
+    t('agent.quick.draft'),
+  ]
+  const visiblePrompts = quickPrompts ?? defaultQuickPrompts
 
   const submit = async (preset?: string) => {
     const content = (preset ?? message).trim()
@@ -77,7 +69,7 @@ export function AgentPanel({
         }),
       )
     } catch (runError: unknown) {
-      setError(runError instanceof Error ? runError.message : 'Agent 执行失败')
+      setError(runError instanceof Error ? runError.message : t('agent.failed'))
     } finally {
       setRunning(false)
     }
@@ -88,15 +80,13 @@ export function AgentPanel({
       <Alert
         type="info"
         showIcon
-        title="受控业务 Agent"
-        description="Agent 只能调用白名单业务工具。唯一写工具仅创建优化草稿，正式商品仍需在商品管理中人工确认。"
+        title={t('agent.title')}
+        description={t('agent.description')}
       />
 
       <Space wrap className="agent-quick-prompts">
-        {quickPrompts
-          .filter(
-            (prompt) => canWrite || !prompt.includes('创建西班牙语优化草稿'),
-          )
+        {visiblePrompts
+          .filter((prompt) => canWrite || prompt !== defaultQuickPrompts.at(-1))
           .map((prompt) => (
             <Button
               key={prompt}
@@ -119,7 +109,7 @@ export function AgentPanel({
           autoSize={{ minRows: 3, maxRows: 6 }}
           maxLength={1000}
           showCount
-          placeholder="例如：查询 P-DEMO-001 的库存，并检查充电器合规规则"
+          placeholder={t('agent.placeholder')}
         />
         <Button
           className="agent-run-button"
@@ -129,7 +119,7 @@ export function AgentPanel({
           disabled={!message.trim()}
           onClick={() => void submit()}
         >
-          执行业务 Agent
+          {t('agent.run')}
         </Button>
       </Card>
 
@@ -142,7 +132,7 @@ export function AgentPanel({
             title={
               <Space>
                 <RobotOutlined />
-                Agent 结论
+                {t('agent.conclusion')}
               </Space>
             }
             extra={<Tag>Token {result.usage.totalTokens}</Tag>}
@@ -154,13 +144,13 @@ export function AgentPanel({
               <Alert
                 type="warning"
                 showIcon
-                title="已创建待确认草稿"
-                description="请前往商品管理打开 AI 优化抽屉，核对原文、风险和建议后再人工写回。"
+                title={t('agent.draftCreated')}
+                description={t('agent.draftHint')}
               />
             ) : null}
             <Space wrap className="agent-result-actions">
               <Button onClick={() => void navigate('/ai-results')}>
-                前往 AI 成果中心
+                {t('agent.results')}
               </Button>
               {result.toolCalls.flatMap((call) => {
                 if (
@@ -194,14 +184,14 @@ export function AgentPanel({
                       void navigate(`/products?${params.toString()}`)
                     }
                   >
-                    立即审核草稿
+                    {t('agent.reviewNow')}
                   </Button>,
                 ]
               })}
             </Space>
           </Card>
 
-          <Card size="small" title="工具执行轨迹">
+          <Card size="small" title={t('agent.trace')}>
             <Timeline
               items={result.toolCalls.map((call) => ({
                 color: call.status === 'success' ? 'green' : 'red',
@@ -209,7 +199,9 @@ export function AgentPanel({
                   <div>
                     <Space>
                       <Typography.Text strong>
-                        {toolLabels[call.name]}
+                        {t(`agent.tools.${call.name}`, {
+                          defaultValue: call.name,
+                        })}
                       </Typography.Text>
                       <Tag color={call.status === 'success' ? 'green' : 'red'}>
                         {call.status}

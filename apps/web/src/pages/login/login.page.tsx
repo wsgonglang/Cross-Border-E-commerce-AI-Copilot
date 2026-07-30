@@ -1,5 +1,6 @@
 import { LockOutlined, MailOutlined } from '@ant-design/icons'
 import { Alert, Button, Form, Input } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { login } from '../../store/auth.slice'
@@ -22,6 +23,7 @@ function getReturnPath(state: unknown): string {
 }
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const location = useLocation()
@@ -48,22 +50,22 @@ export function LoginPage() {
           <span>Cross-Border E-commerce AI Copilot</span>
         </div>
         <div>
-          <span className="stage-label">安全运营工作台</span>
-          <h1>让每一次 AI 操作，都有身份、权限与记录。</h1>
-          <p>
-            从登录开始建立可信边界。AI
-            可以生成建议，但正式业务变更始终受服务端权限与人工确认控制。
-          </p>
+          <span className="stage-label">{t('login.stage')}</span>
+          <h1>{t('login.storyTitle')}</h1>
+          <p>{t('login.storyDescription')}</p>
         </div>
         <small>Stage 2 · Authentication &amp; RBAC</small>
       </section>
 
       <section className="login-panel">
+        <div className="login-language">
+          <LanguageSwitch />
+        </div>
         <div className="login-card">
           <div className="login-heading">
-            <span>欢迎回来</span>
-            <h2>登录运营助手</h2>
-            <p>使用项目演示账号进入对应角色工作台。</p>
+            <span>{t('login.welcome')}</span>
+            <h2>{t('login.title')}</h2>
+            <p>{t('login.description')}</p>
           </div>
 
           {error ? <Alert type="error" showIcon message={error} /> : null}
@@ -78,11 +80,11 @@ export function LoginPage() {
             onFinish={(values) => void submit(values)}
           >
             <Form.Item
-              label="邮箱"
+              label={t('login.email')}
               name="email"
               rules={[
-                { required: true, message: '请输入邮箱' },
-                { type: 'email', message: '邮箱格式不正确' },
+                { required: true, message: t('login.emailRequired') },
+                { type: 'email', message: t('login.emailInvalid') },
               ]}
             >
               <Input
@@ -93,32 +95,33 @@ export function LoginPage() {
               />
             </Form.Item>
             <Form.Item
-              label="密码"
+              label={t('login.password')}
               name="password"
               rules={[
-                { required: true, message: '请输入密码' },
-                { min: 8, message: '密码至少 8 位' },
+                { required: true, message: t('login.passwordRequired') },
+                { min: 8, message: t('login.passwordMin') },
               ]}
             >
               <Input.Password
                 size="large"
                 prefix={<LockOutlined />}
                 autoComplete="current-password"
-                placeholder="输入密码"
+                placeholder={t('login.passwordPlaceholder')}
               />
             </Form.Item>
             <Button block size="large" type="primary" htmlType="submit">
-              安全登录
+              {t('login.submit')}
             </Button>
           </Form>
 
           <div className="demo-account">
-            <span>演示账号</span>
+            <span>{t('login.demo')}</span>
             <code>admin / operator / viewer @copilot.local</code>
-            <code>统一密码：Demo123!</code>
+            <code>{t('login.demoPassword')}</code>
           </div>
         </div>
       </section>
     </main>
   )
 }
+import { LanguageSwitch } from '../../components/language-switch/language-switch'

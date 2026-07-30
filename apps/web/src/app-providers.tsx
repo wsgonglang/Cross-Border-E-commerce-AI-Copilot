@@ -1,0 +1,72 @@
+import { ConfigProvider } from 'antd'
+import enUS from 'antd/locale/en_US'
+import zhCN from 'antd/locale/zh_CN'
+import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Provider } from 'react-redux'
+import { BrowserRouter } from 'react-router-dom'
+
+import { ServerStateProvider } from './queries/server-state-provider'
+import { store } from './store'
+
+export function AppProviders({ children }: { children: ReactNode }) {
+  const { i18n } = useTranslation()
+  const antLocale = i18n.resolvedLanguage === 'en-US' ? enUS : zhCN
+
+  return (
+    <ConfigProvider
+      locale={antLocale}
+      theme={{
+        token: {
+          colorPrimary: '#0f766e',
+          colorInfo: '#0f766e',
+          colorLink: '#0f766e',
+          colorBgLayout: '#f5f6f8',
+          colorBgContainer: '#ffffff',
+          colorText: '#1f2937',
+          colorTextSecondary: '#667085',
+          colorBorder: '#d0d5dd',
+          colorBorderSecondary: '#eaecf0',
+          borderRadius: 8,
+          fontSize: 14,
+          controlHeight: 36,
+          boxShadowSecondary: '0 12px 32px rgb(16 24 40 / 10%)',
+        },
+        components: {
+          Button: {
+            borderRadius: 8,
+            primaryShadow: 'none',
+            fontWeight: 600,
+          },
+          Card: {
+            borderRadiusLG: 10,
+            headerHeight: 48,
+            headerFontSize: 15,
+            bodyPadding: 20,
+          },
+          Table: {
+            headerBg: '#f8fafc',
+            headerColor: '#475467',
+            rowHoverBg: '#f9fafb',
+            borderColor: '#eaecf0',
+            cellPaddingBlock: 12,
+            cellPaddingInline: 16,
+          },
+          Input: {
+            activeShadow: '0 0 0 3px rgb(15 118 110 / 10%)',
+          },
+          Select: {
+            activeBorderColor: '#0f766e',
+            activeOutlineColor: 'rgb(15 118 110 / 10%)',
+          },
+        },
+      }}
+    >
+      <Provider store={store}>
+        <ServerStateProvider>
+          <BrowserRouter>{children}</BrowserRouter>
+        </ServerStateProvider>
+      </Provider>
+    </ConfigProvider>
+  )
+}
