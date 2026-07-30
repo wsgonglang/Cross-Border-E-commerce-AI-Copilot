@@ -1,0 +1,139 @@
+.ai-quality-page {
+  min-width: 0;
+}
+
+.ai-quality-header {
+  align-items: center;
+}
+
+.ai-quality-scope-note {
+  margin-bottom: 18px;
+}
+
+.ai-quality-loading {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+}
+
+.ai-quality-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ai-quality-metric {
+  border-top: 3px solid #98a2b3;
+}
+
+.ai-quality-metric.success {
+  border-top-color: #0f766e;
+}
+
+.ai-quality-metric.danger {
+  border-top-color: #d92d20;
+}
+
+.ai-quality-metric-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ai-quality-metric-heading svg {
+  color: #0f766e;
+  font-size: 17px;
+}
+
+.ai-quality-metric.danger .ai-quality-metric-heading svg {
+  color: #d92d20;
+}
+
+.ai-quality-metric > .ant-card-body > strong {
+  display: block;
+  margin: 10px 0 7px;
+  color: #101828;
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.ai-quality-metric-detail {
+  min-height: 34px;
+  color: #98a2b3;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ai-quality-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.ai-quality-grid .ant-card {
+  min-width: 0;
+}
+
+.ai-quality-traces {
+  margin-bottom: 16px;
+}
+
+.ai-quality-methodology ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #667085;
+  line-height: 1.8;
+}
+
+.ai-quality-trace-heading {
+  margin-top: 24px !important;
+}
+
+.ai-quality-tool-trace {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.ai-quality-tool-trace pre {
+  max-height: 220px;
+  margin: 10px 0 0;
+  overflow: auto;
+  color: #475467;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 1180px) {
+  .ai-quality-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ai-quality-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .ai-quality-header {
+    align-items: flex-start;
+  }
+
+  .ai-quality-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-quality-page .ant-table-wrapper {
+    overflow-x: auto;
+  }
+}

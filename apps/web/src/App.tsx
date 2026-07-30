@@ -24,6 +24,11 @@ const AiResultsPage = lazy(() =>
     default: module.AiResultsPage,
   })),
 )
+const AiQualityPage = lazy(() =>
+  import('./pages/ai-quality/ai-quality.page').then((module) => ({
+    default: module.AiQualityPage,
+  })),
+)
 const AiSharePage = lazy(() =>
   import('./pages/ai-share/ai-share.page').then((module) => ({
     default: module.AiSharePage,
@@ -132,6 +137,10 @@ export function App() {
             <Route
               path="ai-results"
               element={routeElement(<AiResultsPage />)}
+            />
+            <Route
+              path="ai-quality"
+              element={routeElement(<AiQualityPage />)}
             />
             <Route
               path="batch-tasks"

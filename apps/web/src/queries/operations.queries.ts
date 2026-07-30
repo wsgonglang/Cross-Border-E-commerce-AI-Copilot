@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { getAgentRun, getAiResults } from '../api/ai-results'
+import { getAiQualityReport } from '../api/ai-quality'
 import { getBatchTask, getBatchTasks } from '../api/batch-tasks'
 import { getImportJob, listImportJobs } from '../api/imports'
 import { getOrders } from '../api/orders'
@@ -9,6 +10,7 @@ import {
   type AiResultsQueryInput,
   type OrderQueryInput,
 } from './query-keys'
+import type { AiQualityWindowDays } from '@cross-border/shared'
 
 export function useOrdersQuery(
   token: string,
@@ -114,5 +116,18 @@ export function useAgentRunQuery(
     queryKey: queryKeys.agentRun(merchantId, runId ?? ''),
     queryFn: () => getAgentRun(token, merchantId, runId!),
     enabled: Boolean(token && merchantId && runId),
+  })
+}
+
+export function useAiQualityQuery(
+  token: string,
+  merchantId: string,
+  days: AiQualityWindowDays,
+) {
+  return useQuery({
+    queryKey: queryKeys.aiQuality(merchantId, days),
+    queryFn: () => getAiQualityReport(token, merchantId, days),
+    enabled: Boolean(token && merchantId),
+    placeholderData: keepPreviousData,
   })
 }

@@ -4,6 +4,7 @@ import {
   ClusterOutlined,
   FileDoneOutlined,
   GlobalOutlined,
+  LineChartOutlined,
   LogoutOutlined,
   RobotOutlined,
   ShoppingCartOutlined,
@@ -92,6 +93,12 @@ const navigationGroups: NavigationGroup[] = [
         to: '/ai-results',
         labelKey: 'nav.aiResults',
         icon: FileDoneOutlined,
+        roles: ['admin', 'operator'],
+      },
+      {
+        to: '/ai-quality',
+        labelKey: 'nav.aiQuality',
+        icon: LineChartOutlined,
         roles: ['admin', 'operator'],
       },
       {

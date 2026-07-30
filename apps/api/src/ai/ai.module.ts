@@ -7,6 +7,8 @@ import { AgentController } from './agent.controller'
 import { AgentService } from './agent.service'
 import { AgentRunsService } from './agent-runs.service'
 import { AgentToolsService } from './agent-tools.service'
+import { AiQualityController } from './ai-quality.controller'
+import { AiQualityService } from './ai-quality.service'
 import { AiChatController } from './ai-chat.controller'
 import { AiSessionsController } from './ai-sessions.controller'
 import { AiSessionsService } from './ai-sessions.service'
@@ -32,6 +34,7 @@ import { AiResultsService } from './ai-results.service'
     AiSessionSharesController,
     AiChatController,
     AgentController,
+    AiQualityController,
     AiResultsController,
     ProductOptimizationsController,
     RuleDocumentsController,
@@ -44,6 +47,7 @@ import { AiResultsService } from './ai-results.service'
     AgentRunsService,
     AiResultsService,
     AgentToolsService,
+    AiQualityService,
     PlatformRulesService,
     ProductOptimizationsService,
     {

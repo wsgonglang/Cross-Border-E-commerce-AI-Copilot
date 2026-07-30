@@ -62,4 +62,13 @@ describe('server state query policy', () => {
     expect(client.getQueryState(merchantA)?.isInvalidated).toBe(true)
     expect(client.getQueryState(merchantB)?.isInvalidated).toBe(false)
   })
+
+  it('isolates AI quality reports by merchant and reporting window', () => {
+    expect(queryKeys.aiQuality('merchant-a', 30)).not.toEqual(
+      queryKeys.aiQuality('merchant-b', 30),
+    )
+    expect(queryKeys.aiQuality('merchant-a', 7)).not.toEqual(
+      queryKeys.aiQuality('merchant-a', 90),
+    )
+  })
 })

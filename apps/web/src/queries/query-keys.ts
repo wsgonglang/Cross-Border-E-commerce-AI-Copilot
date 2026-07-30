@@ -1,4 +1,5 @@
 import type {
+  AiQualityWindowDays,
   AiResultType,
   OrderFilters,
   OrderSortField,
@@ -53,4 +54,6 @@ export const queryKeys = {
     [...queryKeys.aiResultsRoot(merchantId), input] as const,
   agentRun: (merchantId: string, runId: string) =>
     ['agent-run', merchantId, runId] as const,
+  aiQuality: (merchantId: string, days: AiQualityWindowDays) =>
+    ['ai-quality', merchantId, { days }] as const,
 }
