@@ -6,6 +6,7 @@ import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 
 import { App } from './App'
+import { ServerStateProvider } from './queries/server-state-provider'
 import { store } from './store'
 import './styles.css'
 
@@ -66,9 +67,11 @@ createRoot(root).render(
       }}
     >
       <Provider store={store}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <ServerStateProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </ServerStateProvider>
       </Provider>
     </ConfigProvider>
   </StrictMode>,

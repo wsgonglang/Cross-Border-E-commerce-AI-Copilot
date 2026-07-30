@@ -1,11 +1,9 @@
 import type {
-  BatchTaskDetail,
   BatchTaskStatus,
   BatchTaskSummary,
-  MerchantSummary,
   OptimizationLanguage,
-  ProductSummary,
 } from '@cross-border/shared'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
   Button,
@@ -20,16 +18,19 @@ import {
   Typography,
   message,
 } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { cancelBatchTask, createBatchTask } from '../../api/batch-tasks'
 import {
-  cancelBatchTask,
-  createBatchTask,
-  getBatchTask,
-  getBatchTasks,
-} from '../../api/batch-tasks'
-import { getMerchants, getProducts } from '../../api/commerce'
+  useMerchantsQuery,
+  useProductsQuery,
+} from '../../queries/commerce.queries'
+import {
+  useBatchTaskQuery,
+  useBatchTasksQuery,
+} from '../../queries/operations.queries'
+import { queryKeys } from '../../queries/query-keys'
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
@@ -71,103 +72,48 @@ function createIdempotencyKey(): string {
 
 export function BatchTasksPage() {
   const [searchParams] = useSearchParams()
-  const openedDeepLinkRef = useRef(false)
   const token = useAppSelector((state) => state.auth.accessToken)
+  const queryClient = useQueryClient()
   const [form] = Form.useForm<CreateTaskForm>()
-  const [merchants, setMerchants] = useState<MerchantSummary[]>([])
-  const [merchantId, setMerchantId] = useState<string>()
-  const [products, setProducts] = useState<ProductSummary[]>([])
-  const [tasks, setTasks] = useState<BatchTaskSummary[]>([])
-  const [total, setTotal] = useState(0)
+  const [selectedMerchantId, setSelectedMerchantId] = useState(
+    searchParams.get('merchantId') ?? '',
+  )
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState('')
-  const [detail, setDetail] = useState<BatchTaskDetail | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [messageApi, messageContext] = message.useMessage()
-
-  useEffect(() => {
-    if (!token) return
-    void getMerchants(token)
-      .then((result) => {
-        setMerchants(result)
-        const requestedMerchant = searchParams.get('merchantId')
-        setMerchantId(
-          (current) =>
-            current ??
-            result.find((merchant) => merchant.id === requestedMerchant)?.id ??
-            result[0]?.id,
-        )
-      })
-      .catch((loadError: unknown) => {
-        setError(
-          loadError instanceof Error ? loadError.message : '商家加载失败',
-        )
-      })
-  }, [searchParams, token])
-
-  const loadProducts = useCallback(async () => {
-    if (!token || !merchantId) return
-    const result = await getProducts(token, merchantId, {
-      page: 1,
-      pageSize: 100,
-    })
-    setProducts(result.items.filter((product) => product.status !== 'ARCHIVED'))
-  }, [merchantId, token])
-
-  const loadTasks = useCallback(async () => {
-    if (!token || !merchantId) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    try {
-      const result = await getBatchTasks(token, merchantId, page, 20)
-      setTasks(result.items)
-      setTotal(result.total)
-      setError(null)
-    } catch (loadError: unknown) {
-      setError(
-        loadError instanceof Error ? loadError.message : '批量任务加载失败',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [merchantId, page, token])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void Promise.all([loadProducts(), loadTasks()])
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [loadProducts, loadTasks])
-
-  const hasActiveTasks = useMemo(
-    () =>
-      tasks.some(
-        (task) => task.status === 'PENDING' || task.status === 'RUNNING',
-      ),
-    [tasks],
+  const [detailTaskId, setDetailTaskId] = useState<string | undefined>(
+    searchParams.get('taskId') ?? undefined,
   )
-
-  useEffect(() => {
-    if (!hasActiveTasks) return
-    const timer = window.setInterval(() => {
-      void loadTasks()
-      if (
-        detail &&
-        ['PENDING', 'RUNNING'].includes(detail.status) &&
-        token &&
-        merchantId
-      ) {
-        void getBatchTask(token, merchantId, detail.id).then(setDetail)
-      }
-    }, 2000)
-    return () => window.clearInterval(timer)
-  }, [detail, hasActiveTasks, loadTasks, merchantId, token])
+  const [detailOpen, setDetailOpen] = useState(
+    Boolean(searchParams.get('taskId')),
+  )
+  const [messageApi, messageContext] = message.useMessage()
+  const merchantsQuery = useMerchantsQuery(token ?? '')
+  const merchants = merchantsQuery.data ?? []
+  const merchantId =
+    merchants.find((merchant) => merchant.id === selectedMerchantId)?.id ??
+    merchants[0]?.id ??
+    ''
+  const productsQuery = useProductsQuery(token ?? '', merchantId, {
+    page: 1,
+    pageSize: 100,
+  })
+  const tasksQuery = useBatchTasksQuery(token ?? '', merchantId, page)
+  const detailQuery = useBatchTaskQuery(token ?? '', merchantId, detailTaskId)
+  const products = (productsQuery.data?.items ?? []).filter(
+    (product) => product.status !== 'ARCHIVED',
+  )
+  const tasks = tasksQuery.data?.items ?? []
+  const total = tasksQuery.data?.total ?? 0
+  const detail = detailQuery.data ?? null
+  const loading = tasksQuery.isFetching
+  const queryError =
+    merchantsQuery.error ??
+    productsQuery.error ??
+    tasksQuery.error ??
+    detailQuery.error
+  const error = queryError instanceof Error ? queryError.message : null
 
   const openCreate = () => {
     form.setFieldsValue({ productIds: [], targetLanguage: 'en-US' })
@@ -185,9 +131,15 @@ export function BatchTasksPage() {
         idempotencyKey,
       })
       setCreateOpen(false)
-      setDetail(created)
+      queryClient.setQueryData(
+        queryKeys.batchTask(merchantId, created.id),
+        created,
+      )
+      setDetailTaskId(created.id)
       setDetailOpen(true)
-      await loadTasks()
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.batchTasksRoot(merchantId),
+      })
       void messageApi.success('批量任务已入队')
     } catch (saveError: unknown) {
       void messageApi.error(
@@ -198,40 +150,22 @@ export function BatchTasksPage() {
     }
   }
 
-  const showDetail = async (taskId: string) => {
-    if (!token || !merchantId) return
-    try {
-      setDetail(await getBatchTask(token, merchantId, taskId))
-      setDetailOpen(true)
-    } catch (loadError: unknown) {
-      void messageApi.error(
-        loadError instanceof Error ? loadError.message : '任务详情加载失败',
-      )
-    }
+  const showDetail = (taskId: string) => {
+    setDetailTaskId(taskId)
+    setDetailOpen(true)
   }
-
-  useEffect(() => {
-    const taskId = searchParams.get('taskId')
-    if (!taskId || !token || !merchantId || openedDeepLinkRef.current) return
-    openedDeepLinkRef.current = true
-    void getBatchTask(token, merchantId, taskId)
-      .then((task) => {
-        setDetail(task)
-        setDetailOpen(true)
-      })
-      .catch((loadError: unknown) => {
-        setError(
-          loadError instanceof Error ? loadError.message : '任务详情加载失败',
-        )
-      })
-  }, [merchantId, searchParams, token])
 
   const cancelTask = async (taskId: string) => {
     if (!token || !merchantId) return
     try {
       const cancelled = await cancelBatchTask(token, merchantId, taskId)
-      setDetail(cancelled)
-      await loadTasks()
+      queryClient.setQueryData(
+        queryKeys.batchTask(merchantId, taskId),
+        cancelled,
+      )
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.batchTasksRoot(merchantId),
+      })
       void messageApi.success('未执行项目已取消')
     } catch (cancelError: unknown) {
       void messageApi.error(
@@ -261,9 +195,9 @@ export function BatchTasksPage() {
           value={merchantId}
           placeholder="选择商家"
           onChange={(value) => {
-            setMerchantId(value)
+            setSelectedMerchantId(value)
             setPage(1)
-            setDetail(null)
+            setDetailTaskId(undefined)
           }}
           options={merchants.map((merchant) => ({
             value: merchant.id,
@@ -332,7 +266,7 @@ export function BatchTasksPage() {
               width: 170,
               render: (_, task) => (
                 <Space>
-                  <Button type="link" onClick={() => void showDetail(task.id)}>
+                  <Button type="link" onClick={() => showDetail(task.id)}>
                     详情
                   </Button>
                   {['PENDING', 'RUNNING'].includes(task.status) ? (

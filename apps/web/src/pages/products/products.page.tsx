@@ -4,6 +4,7 @@ import type {
   ProductSummary,
   SkuSummary,
 } from '@cross-border/shared'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
   Button,
@@ -29,7 +30,6 @@ import {
   createSku,
   disableSku,
   getAuditLogs,
-  getProducts,
   updateProduct,
   updateSku,
   type ProductInput,
@@ -37,6 +37,8 @@ import {
 } from '../../api/commerce'
 import { ProductOptimizationDrawer } from '../../components/product-optimization-drawer/product-optimization-drawer'
 import { useBusinessContext } from '../../contexts/business-context'
+import { useProductsQuery } from '../../queries/commerce.queries'
+import { queryKeys } from '../../queries/query-keys'
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
@@ -51,6 +53,7 @@ const productStatusLabels: Record<ProductStatus, string> = {
   ACTIVE: '在售',
   ARCHIVED: '已归档',
 }
+const emptyProducts: ProductSummary[] = []
 
 export function ProductsPage() {
   const [searchParams] = useSearchParams()
@@ -63,17 +66,14 @@ export function ProductsPage() {
   const [productForm] = Form.useForm<ProductInput>()
   const [skuForm] = Form.useForm<SkuInput>()
   const [stockForm] = Form.useForm<StockForm>()
-  const [products, setProducts] = useState<ProductSummary[]>([])
-  const [total, setTotal] = useState(0)
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [keyword, setKeyword] = useState<string | undefined>(
     searchParams.get('keyword') ?? undefined,
   )
   const [status, setStatus] = useState<ProductStatus>()
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [editingProduct, setEditingProduct] = useState<ProductSummary | null>(
     null,
   )
@@ -88,6 +88,20 @@ export function ProductsPage() {
   const [optimizationProduct, setOptimizationProduct] =
     useState<ProductSummary | null>(null)
   const [messageApi, messageContext] = message.useMessage()
+  const productsQuery = useProductsQuery(token ?? '', merchantId, {
+    page,
+    pageSize,
+    keyword,
+    status,
+    storeId: searchParams.get('optimizationId')
+      ? undefined
+      : storeId || undefined,
+  })
+  const products = productsQuery.data?.items ?? emptyProducts
+  const total = productsQuery.data?.total ?? 0
+  const loading = productsQuery.isFetching
+  const error =
+    productsQuery.error instanceof Error ? productsQuery.error.message : null
 
   useEffect(() => {
     const requestedMerchant = searchParams.get('merchantId')
@@ -96,45 +110,12 @@ export function ProductsPage() {
     }
   }, [merchantId, searchParams, setMerchantId])
 
-  const loadProducts = useCallback(async () => {
-    if (!token || !merchantId) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    try {
-      const result = await getProducts(token, merchantId, {
-        page,
-        pageSize,
-        keyword,
-        status,
-        storeId: searchParams.get('optimizationId')
-          ? undefined
-          : storeId || undefined,
-      })
-      setProducts(result.items)
-      setTotal(result.total)
-      setError(null)
-    } catch (loadError: unknown) {
-      setError(loadError instanceof Error ? loadError.message : '商品加载失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [
-    keyword,
-    merchantId,
-    page,
-    pageSize,
-    searchParams,
-    status,
-    storeId,
-    token,
-  ])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void loadProducts(), 0)
-    return () => window.clearTimeout(timer)
-  }, [loadProducts])
+  const refreshProducts = useCallback(async () => {
+    if (!merchantId) return
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.productsRoot(merchantId),
+    })
+  }, [merchantId, queryClient])
 
   useEffect(() => {
     const requestedProductId = searchParams.get('productId')
@@ -181,7 +162,7 @@ export function ProductsPage() {
         })
       }
       setProductModalOpen(false)
-      await loadProducts()
+      await refreshProducts()
       void messageApi.success(editingProduct ? '商品已更新' : '商品已创建')
     } catch (saveError: unknown) {
       void messageApi.error(
@@ -235,7 +216,7 @@ export function ProductsPage() {
         })
       }
       setSkuModalOpen(false)
-      await loadProducts()
+      await refreshProducts()
       void messageApi.success(editingSku ? 'SKU 已更新' : 'SKU 已创建')
     } catch (saveError: unknown) {
       void messageApi.error(
@@ -250,7 +231,7 @@ export function ProductsPage() {
     if (!token || !merchantId) return
     try {
       await disableSku(token, merchantId, sku.id)
-      await loadProducts()
+      await refreshProducts()
       void messageApi.success('SKU 已停用')
     } catch (updateError: unknown) {
       void messageApi.error(
@@ -272,7 +253,7 @@ export function ProductsPage() {
     try {
       await adjustStock(token, merchantId, stockSku.id, values)
       setStockModalOpen(false)
-      await loadProducts()
+      await refreshProducts()
       void messageApi.success('库存已调整')
     } catch (saveError: unknown) {
       void messageApi.error(
@@ -628,7 +609,7 @@ export function ProductsPage() {
               : undefined
           }
           onClose={() => setOptimizationProduct(null)}
-          onApplied={loadProducts}
+          onApplied={refreshProducts}
         />
       ) : null}
     </main>

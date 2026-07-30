@@ -1,12 +1,12 @@
 import type {
   ImportFieldKey,
   ImportFileAnalysis,
-  ImportJobDetail,
   ImportJobSummary,
   ImportMapping,
   ImportMode,
   ImportPreview,
 } from '@cross-border/shared'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
   Button,
@@ -32,7 +32,7 @@ import {
   InboxOutlined,
   UploadOutlined,
 } from '@ant-design/icons'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useBusinessContext } from '../../contexts/business-context'
@@ -41,10 +41,13 @@ import {
   cancelImportJob,
   createImportJob,
   downloadImportFailures,
-  getImportJob,
-  listImportJobs,
   previewImport,
 } from '../../api/imports'
+import {
+  useImportJobQuery,
+  useImportJobsQuery,
+} from '../../queries/operations.queries'
+import { queryKeys } from '../../queries/query-keys'
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
@@ -110,6 +113,7 @@ function inferMapping(headers: string[]): Partial<ImportMapping> {
 export function ImportsPage() {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const { merchantId } = useBusinessContext()
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [messageApi, contextHolder] = message.useMessage()
@@ -121,10 +125,18 @@ export function ImportsPage() {
   const [preview, setPreview] = useState<ImportPreview>()
   const [mode, setMode] = useState<ImportMode>('DRAFT_ONLY')
   const [targetLanguage, setTargetLanguage] = useState('en-US')
-  const [jobs, setJobs] = useState<ImportJobSummary[]>([])
-  const [detail, setDetail] = useState<ImportJobDetail>()
+  const [detailJobId, setDetailJobId] = useState<string | undefined>(
+    searchParams.get('jobId') ?? undefined,
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
+  const jobsQuery = useImportJobsQuery(token, merchantId)
+  const detailQuery = useImportJobQuery(token, merchantId, detailJobId)
+  const jobs = jobsQuery.data?.items ?? []
+  const detail = detailQuery.data
+  const queryError = jobsQuery.error ?? detailQuery.error
+  const displayedError =
+    error ?? (queryError instanceof Error ? queryError.message : undefined)
 
   const currentSheet = analysis?.worksheets.find(
     (sheet) => sheet.name === worksheet,
@@ -135,34 +147,6 @@ export function ImportsPage() {
       (mapping as ImportMapping),
     [mapping],
   )
-
-  const loadJobs = useCallback(async () => {
-    if (!token || !merchantId) return
-    const result = await listImportJobs(token, merchantId)
-    setJobs(result.items)
-    const requested = searchParams.get('jobId')
-    if (requested && !detail) {
-      setDetail(await getImportJob(token, merchantId, requested))
-    }
-  }, [detail, merchantId, searchParams, token])
-
-  useEffect(() => {
-    const initial = window.setTimeout(
-      () =>
-        void loadJobs().catch((loadError: Error) =>
-          setError(loadError.message),
-        ),
-      0,
-    )
-    const timer = window.setInterval(
-      () => void loadJobs().catch(() => undefined),
-      2_000,
-    )
-    return () => {
-      window.clearTimeout(initial)
-      window.clearInterval(timer)
-    }
-  }, [loadJobs])
 
   const run = async (action: () => Promise<void>) => {
     setLoading(true)
@@ -212,15 +196,15 @@ export function ImportsPage() {
         targetLanguage: mode === 'DRAFT_AND_AI' ? targetLanguage : undefined,
         idempotencyKey: crypto.randomUUID(),
       })
-      setDetail(job)
-      await loadJobs()
+      queryClient.setQueryData(queryKeys.importJob(merchantId, job.id), job)
+      setDetailJobId(job.id)
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.importJobsRoot(merchantId),
+      })
       messageApi.success('结构化导入任务已创建')
     })
 
-  const openJob = async (jobId: string) => {
-    if (!merchantId) return
-    setDetail(await getImportJob(token, merchantId, jobId))
-  }
+  const openJob = (jobId: string) => setDetailJobId(jobId)
 
   return (
     <main className="workspace-page">
@@ -232,7 +216,9 @@ export function ImportsPage() {
           <p>CSV/XLSX 先映射和预览，确认后再由 Worker 导入商品草稿与 SKU。</p>
         </div>
       </header>
-      {error ? <Alert type="error" showIcon message={error} /> : null}
+      {displayedError ? (
+        <Alert type="error" showIcon message={displayedError} />
+      ) : null}
 
       <Card title="1. 文件与表头" className="import-card">
         <Space wrap>
@@ -447,7 +433,7 @@ export function ImportsPage() {
               title: '操作',
               width: 120,
               render: (_, job) => (
-                <Button type="link" onClick={() => void openJob(job.id)}>
+                <Button type="link" onClick={() => openJob(job.id)}>
                   详情
                 </Button>
               ),
@@ -460,7 +446,7 @@ export function ImportsPage() {
         title="导入任务详情"
         width={820}
         open={Boolean(detail)}
-        onClose={() => setDetail(undefined)}
+        onClose={() => setDetailJobId(undefined)}
         extra={
           detail ? (
             <Space>
@@ -479,7 +465,15 @@ export function ImportsPage() {
                   onClick={() =>
                     merchantId &&
                     void cancelImportJob(token, merchantId, detail.id).then(
-                      setDetail,
+                      async (cancelled) => {
+                        queryClient.setQueryData(
+                          queryKeys.importJob(merchantId, detail.id),
+                          cancelled,
+                        )
+                        await queryClient.invalidateQueries({
+                          queryKey: queryKeys.importJobsRoot(merchantId),
+                        })
+                      },
                     )
                   }
                 >

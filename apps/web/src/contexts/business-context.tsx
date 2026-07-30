@@ -1,16 +1,16 @@
 import type { MerchantSummary, StoreSummary } from '@cross-border/shared'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   createContext,
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from 'react'
 
-import { getMerchants } from '../api/commerce'
-import { getStores } from '../api/stores'
+import { useMerchantsQuery, useStoresQuery } from '../queries/commerce.queries'
+import { queryKeys } from '../queries/query-keys'
 import { useAppSelector } from '../store/hooks'
 
 interface BusinessContextValue {
@@ -28,63 +28,50 @@ interface BusinessContextValue {
 const BusinessContext = createContext<BusinessContextValue | null>(null)
 const merchantStorageKey = 'copilot.currentMerchantId'
 const storeStorageKey = 'copilot.currentStoreId'
+const emptyMerchants: MerchantSummary[] = []
+const emptyStores: StoreSummary[] = []
 
 export function BusinessContextProvider({ children }: { children: ReactNode }) {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
-  const [merchants, setMerchants] = useState<MerchantSummary[]>([])
-  const [stores, setStores] = useState<StoreSummary[]>([])
-  const [merchantId, setMerchantIdState] = useState('')
-  const [storeId, setStoreIdState] = useState('')
-
-  useEffect(() => {
-    if (!token) return
-    void getMerchants(token).then((records) => {
-      setMerchants(records)
-      const saved = window.localStorage.getItem(merchantStorageKey)
-      setMerchantIdState(
-        records.find((record) => record.id === saved)?.id ??
-          records[0]?.id ??
-          '',
-      )
-    })
-  }, [token])
+  const queryClient = useQueryClient()
+  const [selectedMerchantId, setSelectedMerchantId] = useState(
+    () => window.localStorage.getItem(merchantStorageKey) ?? '',
+  )
+  const [selectedStoreId, setSelectedStoreId] = useState(
+    () => window.localStorage.getItem(storeStorageKey) ?? '',
+  )
+  const merchantsQuery = useMerchantsQuery(token)
+  const merchants = merchantsQuery.data ?? emptyMerchants
+  const merchantId =
+    merchants.find((record) => record.id === selectedMerchantId)?.id ??
+    merchants[0]?.id ??
+    ''
+  const storesQuery = useStoresQuery(token, merchantId)
+  const stores = storesQuery.data ?? emptyStores
+  const storeId =
+    stores.find(
+      (record) => record.id === selectedStoreId && record.status === 'ACTIVE',
+    )?.id ??
+    stores.find((record) => record.status === 'ACTIVE')?.id ??
+    ''
 
   const refreshStores = useCallback(async () => {
-    if (!token || !merchantId) {
-      setStores([])
-      setStoreIdState('')
-      return
-    }
-    const records = await getStores(token, merchantId)
-    setStores(records)
-    const saved = window.localStorage.getItem(storeStorageKey)
-    setStoreIdState((current) => {
-      const candidate = current || saved
-      return (
-        records.find(
-          (record) => record.id === candidate && record.status === 'ACTIVE',
-        )?.id ??
-        records.find((record) => record.status === 'ACTIVE')?.id ??
-        ''
-      )
+    if (!merchantId) return
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.stores(merchantId),
     })
-  }, [merchantId, token])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void refreshStores(), 0)
-    return () => window.clearTimeout(timer)
-  }, [refreshStores])
+  }, [merchantId, queryClient])
 
   const setMerchantId = useCallback((nextMerchantId: string) => {
     window.localStorage.setItem(merchantStorageKey, nextMerchantId)
     window.localStorage.removeItem(storeStorageKey)
-    setStoreIdState('')
-    setMerchantIdState(nextMerchantId)
+    setSelectedStoreId('')
+    setSelectedMerchantId(nextMerchantId)
   }, [])
 
   const setStoreId = useCallback((nextStoreId: string) => {
     window.localStorage.setItem(storeStorageKey, nextStoreId)
-    setStoreIdState(nextStoreId)
+    setSelectedStoreId(nextStoreId)
   }, [])
 
   const value = useMemo<BusinessContextValue>(

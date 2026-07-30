@@ -3,12 +3,11 @@ import type {
   OrderSortField,
   OrderSortOrder,
   OrderSummary,
-  PaginatedOrders,
 } from '@cross-border/shared'
 import type { TableProps } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 
-import { getOrders } from '../../../api/orders'
+import { useOrdersQuery } from '../../../queries/operations.queries'
 
 interface UseOrderListInput {
   initialFilters: OrderFilters
@@ -25,9 +24,7 @@ export function useOrderList({
   storeId,
   token,
 }: UseOrderListInput) {
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<PaginatedOrders | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [dismissedErrorAt, setDismissedErrorAt] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [filters, setFilters] = useState<OrderFilters>(initialFilters)
@@ -35,32 +32,27 @@ export function useOrderList({
   const [sortBy, setSortBy] = useState<OrderSortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<OrderSortOrder>('desc')
 
+  const ordersQuery = useOrdersQuery(token, merchantId, {
+    page,
+    pageSize,
+    ...filters,
+    storeId: storeId || undefined,
+    sortBy,
+    sortOrder,
+  })
   const loadOrders = useCallback(async () => {
-    if (!token || !merchantId) return
-    setLoading(true)
-    setError(null)
-    try {
-      setData(
-        await getOrders(token, merchantId, {
-          page,
-          pageSize,
-          ...filters,
-          storeId: storeId || undefined,
-          sortBy,
-          sortOrder,
-        }),
-      )
-    } catch (loadError: unknown) {
-      setError(loadError instanceof Error ? loadError.message : '加载订单失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [filters, merchantId, page, pageSize, sortBy, sortOrder, storeId, token])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void loadOrders(), 0)
-    return () => window.clearTimeout(timer)
-  }, [loadOrders])
+    await ordersQuery.refetch()
+  }, [ordersQuery])
+  const queryError =
+    ordersQuery.error instanceof Error ? ordersQuery.error.message : null
+  const error =
+    ordersQuery.errorUpdatedAt === dismissedErrorAt ? null : queryError
+  const setError = useCallback(
+    (next: string | null) => {
+      if (next === null) setDismissedErrorAt(ordersQuery.errorUpdatedAt)
+    },
+    [ordersQuery.errorUpdatedAt],
+  )
 
   const patchFilters = useCallback(
     (patch: Partial<OrderFilters>) => {
@@ -104,13 +96,13 @@ export function useOrderList({
   )
 
   return {
-    data,
+    data: ordersQuery.data ?? null,
     error,
     filters,
     handleTableChange,
     keywordDraft,
     loadOrders,
-    loading,
+    loading: ordersQuery.isFetching,
     page,
     pageSize,
     patchFilters,

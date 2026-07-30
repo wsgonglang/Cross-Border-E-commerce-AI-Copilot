@@ -1,9 +1,4 @@
-import type {
-  AgentRunSummary,
-  AiResultItem,
-  AiResultType,
-  MerchantSummary,
-} from '@cross-border/shared'
+import type { AiResultItem, AiResultType } from '@cross-border/shared'
 import {
   Alert,
   Button,
@@ -16,11 +11,14 @@ import {
   Timeline,
   Typography,
 } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { getAgentRun, getAiResults } from '../../api/ai-results'
-import { getMerchants } from '../../api/commerce'
+import { useMerchantsQuery } from '../../queries/commerce.queries'
+import {
+  useAgentRunQuery,
+  useAiResultsQuery,
+} from '../../queries/operations.queries'
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
@@ -46,66 +44,31 @@ const statusColors: Record<string, string> = {
 export function AiResultsPage() {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const navigate = useNavigate()
-  const [merchants, setMerchants] = useState<MerchantSummary[]>([])
-  const [merchantId, setMerchantId] = useState<string>()
+  const [selectedMerchantId, setSelectedMerchantId] = useState('')
   const [type, setType] = useState<AiResultType>()
   const [status, setStatus] = useState<string>()
-  const [items, setItems] = useState<AiResultItem[]>([])
   const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>()
-  const [agentRun, setAgentRun] = useState<AgentRunSummary>()
-
-  useEffect(() => {
-    if (!token) return
-    void getMerchants(token)
-      .then((result) => {
-        setMerchants(result)
-        setMerchantId((current) => current ?? result[0]?.id)
-      })
-      .catch((loadError: unknown) =>
-        setError(
-          loadError instanceof Error ? loadError.message : '商家加载失败',
-        ),
-      )
-  }, [token])
-
-  const load = useCallback(async () => {
-    if (!token || !merchantId) return
-    setLoading(true)
-    try {
-      const result = await getAiResults(token, merchantId, {
-        page,
-        pageSize: 20,
-        type,
-        status,
-      })
-      setItems(result.items)
-      setTotal(result.total)
-      setError(undefined)
-    } catch (loadError: unknown) {
-      setError(loadError instanceof Error ? loadError.message : '成果加载失败')
-    } finally {
-      setLoading(false)
-    }
-  }, [merchantId, page, status, token, type])
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0)
-    return () => window.clearTimeout(timer)
-  }, [load])
-
-  const openAgentRun = async (runId: string) => {
-    if (!merchantId) return
-    try {
-      setAgentRun(await getAgentRun(token, merchantId, runId))
-    } catch (loadError: unknown) {
-      setError(
-        loadError instanceof Error ? loadError.message : '运行记录加载失败',
-      )
-    }
-  }
+  const [agentRunId, setAgentRunId] = useState<string>()
+  const merchantsQuery = useMerchantsQuery(token)
+  const merchants = merchantsQuery.data ?? []
+  const merchantId =
+    merchants.find((merchant) => merchant.id === selectedMerchantId)?.id ??
+    merchants[0]?.id ??
+    ''
+  const resultsQuery = useAiResultsQuery(token, merchantId, {
+    page,
+    pageSize: 20,
+    type,
+    status,
+  })
+  const agentRunQuery = useAgentRunQuery(token, merchantId, agentRunId)
+  const items = resultsQuery.data?.items ?? []
+  const total = resultsQuery.data?.total ?? 0
+  const loading = resultsQuery.isFetching
+  const agentRun = agentRunQuery.data
+  const queryError =
+    merchantsQuery.error ?? resultsQuery.error ?? agentRunQuery.error
+  const error = queryError instanceof Error ? queryError.message : undefined
 
   const openOptimization = (item: AiResultItem) => {
     if (!merchantId || !item.product || !item.optimizationId) return
@@ -140,8 +103,9 @@ export function AiResultsPage() {
             label: `${merchant.name} · ${merchant.code}`,
           }))}
           onChange={(value) => {
-            setMerchantId(value)
+            setSelectedMerchantId(value)
             setPage(1)
+            setAgentRunId(undefined)
           }}
         />
         <Select
@@ -255,7 +219,7 @@ export function AiResultsPage() {
                   {item.agentRunId ? (
                     <Button
                       type="link"
-                      onClick={() => void openAgentRun(item.agentRunId!)}
+                      onClick={() => setAgentRunId(item.agentRunId)}
                     >
                       查看轨迹
                     </Button>
@@ -298,7 +262,7 @@ export function AiResultsPage() {
         title="Agent 运行详情"
         width={760}
         open={Boolean(agentRun)}
-        onClose={() => setAgentRun(undefined)}
+        onClose={() => setAgentRunId(undefined)}
       >
         {agentRun ? (
           <>
