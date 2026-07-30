@@ -1,0 +1,71 @@
+.order-view-select {
+  min-width: 220px;
+}
+
+.order-keyword-search {
+  width: 240px;
+}
+
+.order-lifecycle-select {
+  min-width: 210px;
+}
+
+.order-dimension-select {
+  min-width: 190px;
+}
+
+.order-date-input {
+  width: 168px;
+}
+
+.order-amount-input {
+  width: 120px;
+}
+
+.order-bulk-select {
+  width: 180px;
+}
+
+.order-view-form {
+  width: 100%;
+}
+
+.order-bulk-result-alert {
+  margin-bottom: 16px;
+}
+
+.order-view-bar,
+.order-filter-card,
+.order-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 3%);
+}
+
+.order-filter-card {
+  align-items: flex-start;
+}
+
+.order-bulk-bar {
+  border-color: #b7ded8;
+  background: #f0f8f6;
+}
+
+.order-detail-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.order-timeline-card {
+  padding: 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #f9fafb;
+}

@@ -26,6 +26,8 @@ React Web ──HTTP/SSE──► NestJS API ──Prisma──► MySQL
 ```text
 pages/<module>/<module>.page.tsx
 pages/<module>/styles.css
+pages/<module>/components/<component>.tsx
+pages/<module>/hooks/use-<capability>.ts
 layouts/<layout>/<layout>.tsx
 layouts/<layout>/styles.css
 components/<component>/<component>.tsx
@@ -36,6 +38,7 @@ components/<component>/styles.css
 - 页面和组件不使用静态内联 `style={{ ... }}`；固定视觉规则放入同目录 CSS，动态业务状态通过语义 class 切换。
 - 设计令牌由 Ant Design `ConfigProvider` 统一管理。视觉基线参考 Ant Design Pro 的企业信息层级，以及 Saleor、Medusa 开源电商后台的紧凑表格和克制数据表面，但不复制其代码或品牌。
 - 侧边栏按总览、业务运营、AI 工作空间和系统管理分组；前端角色过滤只改善体验，最终权限仍由 API 校验。
+- 复杂业务页保持薄组合层。订单模块将查询/分页、保存视图、详情刷新和批量操作副作用分别放入 hooks，筛选、表格、结果 Modal、详情 Drawer 与时间线放入同模块组件；组件不直接绕过现有 API 和权限边界。
 
 ## 核心链路
 

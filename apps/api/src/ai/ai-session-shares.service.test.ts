@@ -27,7 +27,7 @@ const viewer: AuthenticatedUser = {
 }
 
 const now = new Date('2026-07-29T10:00:00.000Z')
-const future = new Date('2026-07-30T10:00:00.000Z')
+const future = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
 function createService(prisma: object) {
   return new AiSessionSharesService(
