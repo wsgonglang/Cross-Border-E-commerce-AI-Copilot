@@ -1,8 +1,15 @@
-import { LockOutlined, MailOutlined } from '@ant-design/icons'
-import { Alert, Button, Form, Input } from 'antd'
+import {
+  CheckCircleFilled,
+  LockOutlined,
+  MailOutlined,
+  RobotOutlined,
+  SafetyCertificateOutlined,
+} from '@ant-design/icons'
+import { Alert, Button, Form, Input, Tag } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
+import { LanguageSwitch } from '../../components/language-switch/language-switch'
 import { login } from '../../store/auth.slice'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 
@@ -12,6 +19,8 @@ interface LoginValues {
   email: string
   password: string
 }
+
+type DemoRole = 'admin' | 'operator' | 'viewer'
 
 function getReturnPath(state: unknown): string {
   if (typeof state !== 'object' || state === null) {
@@ -24,6 +33,7 @@ function getReturnPath(state: unknown): string {
 
 export function LoginPage() {
   const { t } = useTranslation()
+  const [form] = Form.useForm<LoginValues>()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const location = useLocation()
@@ -42,26 +52,82 @@ export function LoginPage() {
     }
   }
 
+  const selectDemoRole = (role: DemoRole) => {
+    form.setFieldsValue({
+      email: `${role}@copilot.local`,
+      password: 'Demo123!',
+    })
+  }
+
+  const capabilities = [
+    t('login.capabilityContext'),
+    t('login.capabilityApproval'),
+    t('login.capabilityAudit'),
+  ]
+
   return (
     <main className="login-page">
       <section className="login-story">
         <div className="login-brand">
           <div className="brand-mark">CB</div>
-          <span>Cross-Border E-commerce AI Copilot</span>
+          <div>
+            <strong>AI Copilot</strong>
+            <span>{t('nav.brandSubtitle')}</span>
+          </div>
         </div>
-        <div>
+
+        <div className="login-story-content">
           <span className="stage-label">{t('login.stage')}</span>
           <h1>{t('login.storyTitle')}</h1>
           <p>{t('login.storyDescription')}</p>
+
+          <div className="login-capabilities">
+            {capabilities.map((capability) => (
+              <span key={capability}>
+                <CheckCircleFilled />
+                {capability}
+              </span>
+            ))}
+          </div>
         </div>
-        <small>Stage 2 · Authentication &amp; RBAC</small>
+
+        <div className="login-workspace-preview">
+          <div className="login-preview-heading">
+            <div>
+              <span>{t('login.previewKicker')}</span>
+              <strong>{t('login.previewTitle')}</strong>
+            </div>
+            <Tag color="success">{t('login.previewLive')}</Tag>
+          </div>
+          <div className="login-preview-grid">
+            <div>
+              <span>{t('login.previewDrafts')}</span>
+              <strong>15</strong>
+              <small>{t('login.previewDraftsHint')}</small>
+            </div>
+            <div>
+              <span>{t('login.previewAgent')}</span>
+              <strong>6</strong>
+              <small>{t('login.previewAgentHint')}</small>
+            </div>
+            <div>
+              <span>{t('login.previewRisk')}</span>
+              <strong>1</strong>
+              <small>{t('login.previewRiskHint')}</small>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="login-panel">
-        <div className="login-language">
+        <div className="login-toolbar">
+          <span>{t('login.interfaceLanguage')}</span>
           <LanguageSwitch />
         </div>
         <div className="login-card">
+          <div className="login-card-icon">
+            <RobotOutlined />
+          </div>
           <div className="login-heading">
             <span>{t('login.welcome')}</span>
             <h2>{t('login.title')}</h2>
@@ -71,6 +137,7 @@ export function LoginPage() {
           {error ? <Alert type="error" showIcon message={error} /> : null}
 
           <Form<LoginValues>
+            form={form}
             layout="vertical"
             requiredMark={false}
             initialValues={{
@@ -115,13 +182,29 @@ export function LoginPage() {
           </Form>
 
           <div className="demo-account">
-            <span>{t('login.demo')}</span>
-            <code>admin / operator / viewer @copilot.local</code>
-            <code>{t('login.demoPassword')}</code>
+            <div className="demo-account-heading">
+              <span>{t('login.demo')}</span>
+              <code>{t('login.demoPassword')}</code>
+            </div>
+            <div className="demo-role-list">
+              {(['operator', 'admin', 'viewer'] as const).map((role) => (
+                <Button
+                  key={role}
+                  size="small"
+                  onClick={() => selectDemoRole(role)}
+                >
+                  {t(`login.roles.${role}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="login-security-note">
+            <SafetyCertificateOutlined />
+            <span>{t('login.securityNote')}</span>
           </div>
         </div>
       </section>
     </main>
   )
 }
-import { LanguageSwitch } from '../../components/language-switch/language-switch'
