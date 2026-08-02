@@ -103,8 +103,8 @@ npm run dev:web   # http://localhost:5173
 
 > 图片位于 `docs/screenshots/`，推送到 GitHub 后会自动渲染。
 
-| 页面                                         | 预览                                             |
-| -------------------------------------------- | ------------------------------------------------ |
+| 页面                                                          | 预览                                             |
+| ------------------------------------------------------------- | ------------------------------------------------ |
 | 🌐 **登录页** ![alt text](docs/screenshots/image.png)         | 中英文切换 · 一键填充 admin/operator/viewer      |
 | 📊 **运营工作台** ![alt text](docs/screenshots/image-1.png)   | 经营指标 · 待办聚合 · 快捷 Agent · 后台任务      |
 | 💬 **AI 运营助手** ![alt text](docs/screenshots/image-2.png)  | 普通对话 / 业务 Agent 模式 · 流式回复 · 工具轨迹 |
