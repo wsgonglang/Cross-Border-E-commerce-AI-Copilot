@@ -13,6 +13,23 @@ export interface PlannedAgentToolCall {
   arguments: unknown
 }
 
+/** 受控 Agent 循环中的中立会话消息，由各 Provider 自行映射到具体协议。 */
+export type AgentConversationMessage =
+  | { role: 'user'; content: string }
+  | {
+      role: 'assistant'
+      content: string | null
+      toolCalls?: PlannedAgentToolCall[]
+    }
+  | { role: 'tool'; toolCallId: string; name: string; content: string }
+
+/** 单步模型输出：要么继续请求工具，要么给出最终回答。 */
+export interface AgentStepResult {
+  toolCalls: PlannedAgentToolCall[]
+  answer: string | null
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number }
+}
+
 const productCodeSchema = z
   .string()
   .trim()
@@ -50,75 +67,31 @@ export const agentToolInputSchemas = {
     .strict(),
 } satisfies Record<AgentToolName, z.ZodType>
 
-export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
-  {
-    name: 'search_products',
-    description: '按商品编码、标题或 SKU 编码查询当前商家的商品。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: { keyword: { type: 'string' } },
-    },
-  },
-  {
-    name: 'get_inventory',
-    description: '按商品编码查询当前商家的 SKU 和库存。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['productCode'],
-      properties: { productCode: { type: 'string' } },
-    },
-  },
-  {
-    name: 'get_order_status',
-    description:
-      '按订单号查询当前商家的生命周期、支付、履约、物流状态和商品明细；不会返回客户邮箱、电话或完整地址。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['orderNo'],
-      properties: { orderNo: { type: 'string' } },
-    },
-  },
-  {
-    name: 'get_business_overview',
-    description: '查询今日订单、销售额、商品数和低库存数量。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {},
-    },
-  },
-  {
-    name: 'search_platform_rules',
-    description:
-      '检索当前商家可访问的全局和商家规则文档，返回可追溯引用；信息不足时必须明确说明。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['query'],
-      properties: { query: { type: 'string' } },
-    },
-  },
-  {
-    name: 'create_product_optimization_draft',
-    description:
-      '为商品创建待人工确认的优化草稿。只创建草稿，绝不写回正式商品。',
-    parameters: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['productCode', 'targetLanguage'],
-      properties: {
-        productCode: { type: 'string' },
-        targetLanguage: {
-          type: 'string',
-          enum: ['en-US', 'es-ES', 'pt-BR'],
-        },
-      },
-    },
-  },
-]
+const AGENT_TOOL_DESCRIPTIONS: Record<AgentToolName, string> = {
+  search_products: '按商品编码、标题或 SKU 编码查询当前商家的商品。',
+  get_inventory: '按商品编码查询当前商家的 SKU 和库存。',
+  get_order_status:
+    '按订单号查询当前商家的生命周期、支付、履约、物流状态和商品明细；不会返回客户邮箱、电话或完整地址。',
+  get_business_overview: '查询今日订单、销售额、商品数和低库存数量。',
+  search_platform_rules:
+    '检索当前商家可访问的全局和商家规则文档，返回可追溯引用；信息不足时必须明确说明。',
+  create_product_optimization_draft:
+    '为商品创建待人工确认的优化草稿。只创建草稿，绝不写回正式商品。',
+}
+
+function toToolParameters(schema: z.ZodType): Record<string, unknown> {
+  const jsonSchema = z.toJSONSchema(schema) as Record<string, unknown>
+  delete jsonSchema.$schema
+  return jsonSchema
+}
+
+// JSON Schema 直接由 Zod 校验器生成，保证模型看到的参数定义与服务端校验单一事实来源。
+export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] =
+  AGENT_TOOL_NAMES.map((name) => ({
+    name,
+    description: AGENT_TOOL_DESCRIPTIONS[name],
+    parameters: toToolParameters(agentToolInputSchemas[name]),
+  }))
 
 export function isAgentToolName(value: string): value is AgentToolName {
   return (AGENT_TOOL_NAMES as readonly string[]).includes(value)

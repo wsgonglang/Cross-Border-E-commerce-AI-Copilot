@@ -33,6 +33,11 @@ export interface AgentRunResponse {
 
 export type AgentRunStatus = 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
 
+export interface AgentRunStartResponse {
+  runId: string
+  status: AgentRunStatus
+}
+
 export interface AgentRunSummary extends AgentRunResponse {
   id: string
   merchantId: string

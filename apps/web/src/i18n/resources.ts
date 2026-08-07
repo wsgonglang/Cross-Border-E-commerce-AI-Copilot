@@ -272,6 +272,7 @@ export const resources = {
           'Agent 只能调用白名单业务工具。唯一写工具仅创建优化草稿，正式商品仍需在商品管理中人工确认。',
         placeholder: '例如：查询 P-DEMO-001 的库存，并检查充电器合规规则',
         run: '执行业务 Agent',
+        running: 'Agent 正在执行，工具轨迹实时更新中…',
         failed: 'Agent 执行失败',
         conclusion: 'Agent 结论',
         draftCreated: '已创建待确认草稿',
@@ -658,6 +659,7 @@ export const resources = {
         placeholder:
           'Example: check inventory for P-DEMO-001 and review charger compliance rules',
         run: 'Run business Agent',
+        running: 'Agent is running; the tool trace updates in real time…',
         failed: 'Agent execution failed',
         conclusion: 'Agent conclusion',
         draftCreated: 'Draft created for review',

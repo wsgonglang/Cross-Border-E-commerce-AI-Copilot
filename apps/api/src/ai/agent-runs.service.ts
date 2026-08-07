@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from '@nestjs/common'
 import type {
   AgentRunSummary,
   AgentToolCallSummary,
@@ -40,11 +45,46 @@ interface AgentRunRecord {
 }
 
 @Injectable()
-export class AgentRunsService {
+export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
+  /** 超过该时长仍未终态的运行视为孤儿（进程崩溃/重启遗留），自动标记失败。 */
+  private static readonly STALE_RUN_MINUTES = 10
+  private static readonly SWEEP_INTERVAL_MS = 5 * 60 * 1000
+  private sweepTimer?: NodeJS.Timeout
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly merchantAccess: MerchantAccessService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.recoverStaleRuns().catch(() => undefined)
+    this.sweepTimer = setInterval(() => {
+      void this.recoverStaleRuns().catch(() => undefined)
+    }, AgentRunsService.SWEEP_INTERVAL_MS)
+    this.sweepTimer.unref?.()
+  }
+
+  onModuleDestroy(): void {
+    if (this.sweepTimer) clearInterval(this.sweepTimer)
+  }
+
+  async recoverStaleRuns(
+    maxAgeMinutes: number = AgentRunsService.STALE_RUN_MINUTES,
+  ): Promise<number> {
+    const threshold = new Date(Date.now() - maxAgeMinutes * 60 * 1000)
+    const result = await this.prisma.agentRun.updateMany({
+      where: {
+        status: { in: ['PLANNING', 'RUNNING'] },
+        updatedAt: { lt: threshold },
+      },
+      data: {
+        status: 'FAILED',
+        error: 'Agent 运行超时未完成，已自动标记失败',
+        completedAt: new Date(),
+      },
+    })
+    return result.count
+  }
 
   async start(
     actor: AuthenticatedUser,
@@ -74,43 +114,57 @@ export class AgentRunsService {
     })
   }
 
+  /** 工具每执行完一次立即落库，支撑轮询实时轨迹；唯一键兼做幂等防重。 */
+  async appendToolCall(
+    runId: string,
+    call: AgentToolCallSummary,
+    sequence: number,
+  ): Promise<void> {
+    const data = {
+      runId,
+      externalCallId: call.id,
+      name: call.name,
+      status: call.status,
+      sequence,
+      input: asJson(call.input),
+      ...(call.output !== undefined ? { output: asJson(call.output) } : {}),
+      error: call.error ?? null,
+    }
+    await this.prisma.$transaction([
+      this.prisma.agentToolCall.upsert({
+        where: { runId_externalCallId: { runId, externalCallId: call.id } },
+        create: data,
+        update: {},
+      }),
+      // 同步刷新运行行的 updatedAt，避免长运行被孤儿回收误杀。
+      this.prisma.agentRun.update({
+        where: { id: runId },
+        data: { status: 'RUNNING' },
+      }),
+    ])
+  }
+
   async complete(input: {
     runId: string
     answer: string
     usage: AiUsage
     providerName: string
     modelName: string
-    toolCalls: AgentToolCallSummary[]
     createdOptimizationIds: string[]
   }): Promise<void> {
-    await this.prisma.$transaction(async (transaction) => {
-      await transaction.agentToolCall.createMany({
-        data: input.toolCalls.map((call, sequence) => ({
-          runId: input.runId,
-          externalCallId: call.id,
-          name: call.name,
-          status: call.status,
-          sequence,
-          input: asJson(call.input),
-          ...(call.output !== undefined ? { output: asJson(call.output) } : {}),
-          error: call.error,
-        })),
-        skipDuplicates: true,
-      })
-      await transaction.agentRun.update({
-        where: { id: input.runId },
-        data: {
-          status: 'COMPLETED',
-          answer: input.answer,
-          providerName: input.providerName,
-          modelName: input.modelName,
-          promptTokens: input.usage.promptTokens,
-          completionTokens: input.usage.completionTokens,
-          totalTokens: input.usage.totalTokens,
-          createdOptimizationIds: asJson(input.createdOptimizationIds),
-          completedAt: new Date(),
-        },
-      })
+    await this.prisma.agentRun.update({
+      where: { id: input.runId },
+      data: {
+        status: 'COMPLETED',
+        answer: input.answer,
+        providerName: input.providerName,
+        modelName: input.modelName,
+        promptTokens: input.usage.promptTokens,
+        completionTokens: input.usage.completionTokens,
+        totalTokens: input.usage.totalTokens,
+        createdOptimizationIds: asJson(input.createdOptimizationIds),
+        completedAt: new Date(),
+      },
     })
   }
 

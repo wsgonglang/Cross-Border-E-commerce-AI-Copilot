@@ -111,11 +111,19 @@ export function useAgentRunQuery(
   token: string,
   merchantId: string,
   runId?: string,
+  options?: { poll?: boolean },
 ) {
   return useQuery({
     queryKey: queryKeys.agentRun(merchantId, runId ?? ''),
     queryFn: () => getAgentRun(token, merchantId, runId!),
     enabled: Boolean(token && merchantId && runId),
+    // 轮询模式：运行未终态时持续刷新，实时展示工具轨迹；终态后停止。
+    refetchInterval: options?.poll
+      ? (query) => {
+          const status = query.state.data?.status
+          return status === 'COMPLETED' || status === 'FAILED' ? false : 1200
+        }
+      : false,
   })
 }
 

@@ -86,6 +86,7 @@ export {
 export {
   AGENT_TOOL_NAMES,
   type AgentRunResponse,
+  type AgentRunStartResponse,
   type AgentRunStatus,
   type AgentRunSummary,
   type AiResultItem,

@@ -14,53 +14,17 @@ const operator: AuthenticatedUser = {
   merchantIds: ['merchant-1'],
 }
 
-function record() {
-  const createdAt = new Date('2026-07-29T08:00:00.000Z')
-  return {
-    id: 'run-1',
-    merchantId: 'merchant-1',
-    userId: operator.id,
-    message: '查询库存并生成优化草稿',
-    answer: '已完成',
-    status: 'COMPLETED' as const,
-    providerName: 'mock',
-    modelName: 'mock-agent',
-    promptTokens: 10,
-    completionTokens: 5,
-    totalTokens: 15,
-    createdOptimizationIds: ['optimization-1'],
-    error: null,
-    createdAt,
-    updatedAt: createdAt,
-    completedAt: createdAt,
-    toolCalls: [
-      {
-        externalCallId: 'call-1',
-        name: 'get_inventory',
-        status: 'success',
-        input: { productCode: 'P-001' },
-        output: { available: 20 },
-        error: null,
-      },
-    ],
-  }
-}
-
 describe('AgentRunsService', () => {
-  it('persists the run and its tool trace before returning a completed result', async () => {
-    const transaction = {
-      agentToolCall: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
-      agentRun: { update: vi.fn().mockResolvedValue(record()) },
-    }
+  it('persists tool calls incrementally and completes the run', async () => {
+    const upsert = vi.fn().mockResolvedValue(undefined)
+    const update = vi.fn().mockResolvedValue(undefined)
     const prisma = {
       agentRun: {
         create: vi.fn().mockResolvedValue({ id: 'run-1' }),
-        update: vi.fn().mockResolvedValue(undefined),
+        update,
       },
-      $transaction: vi.fn(
-        (callback: (client: typeof transaction) => Promise<unknown>) =>
-          callback(transaction),
-      ),
+      agentToolCall: { upsert },
+      $transaction: vi.fn((operations: unknown[]) => Promise.all(operations)),
     }
     const service = new AgentRunsService(
       prisma as unknown as PrismaService,
@@ -71,21 +35,23 @@ describe('AgentRunsService', () => {
 
     const runId = await service.start(operator, 'merchant-1', '查询库存')
     await service.markRunning(runId)
+    await service.appendToolCall(
+      runId,
+      {
+        id: 'call-1',
+        name: 'get_inventory',
+        status: 'success',
+        input: { productCode: 'P-001' },
+        output: { available: 20 },
+      },
+      0,
+    )
     await service.complete({
       runId,
       answer: '已完成',
       providerName: 'mock',
       modelName: 'mock-agent',
       usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
-      toolCalls: [
-        {
-          id: 'call-1',
-          name: 'get_inventory',
-          status: 'success',
-          input: { productCode: 'P-001' },
-          output: { available: 20 },
-        },
-      ],
       createdOptimizationIds: ['optimization-1'],
     })
 
@@ -99,8 +65,40 @@ describe('AgentRunsService', () => {
       },
       select: { id: true },
     })
-    expect(transaction.agentToolCall.createMany).toHaveBeenCalledOnce()
-    expect(transaction.agentRun.update).toHaveBeenCalledOnce()
+    // 逐次落库以 runId+externalCallId 唯一键 upsert，重复回放不会重写。
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          runId_externalCallId: { runId: 'run-1', externalCallId: 'call-1' },
+        },
+        update: {},
+      }),
+    )
+    const completeArgs = update.mock.calls.at(-1)?.[0] as {
+      where: { id: string }
+      data: { status: string }
+    }
+    expect(completeArgs.where).toEqual({ id: 'run-1' })
+    expect(completeArgs.data.status).toBe('COMPLETED')
+  })
+
+  it('recovers orphaned non-terminal runs past the staleness threshold', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 2 })
+    const service = new AgentRunsService(
+      { agentRun: { updateMany } } as unknown as PrismaService,
+      {} as MerchantAccessService,
+    )
+
+    const recovered = await service.recoverStaleRuns(10)
+
+    expect(recovered).toBe(2)
+    const sweepArgs = updateMany.mock.calls[0]?.[0] as {
+      where: { status: { in: string[] }; updatedAt: { lt: Date } }
+      data: { status: string }
+    }
+    expect(sweepArgs.where.status).toEqual({ in: ['PLANNING', 'RUNNING'] })
+    expect(sweepArgs.where.updatedAt.lt).toBeInstanceOf(Date)
+    expect(sweepArgs.data.status).toBe('FAILED')
   })
 
   it('uses merchant-scoped lookup and rejects a missing or cross-merchant run', async () => {

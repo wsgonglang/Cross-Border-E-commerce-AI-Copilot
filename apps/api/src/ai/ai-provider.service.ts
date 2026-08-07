@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import {
   productOptimizationDraftSchema,
-  type AgentToolCallSummary,
   type AiUsage,
   type OptimizationLanguage,
   type ProductOptimizationDraft,
@@ -10,6 +9,8 @@ import {
 import OpenAI from 'openai'
 
 import type {
+  AgentConversationMessage,
+  AgentStepResult,
   AgentToolDefinition,
   PlannedAgentToolCall,
 } from './agent-tools.contract'
@@ -32,14 +33,15 @@ export interface AiProvider {
     draft: ProductOptimizationDraft
     usage: AiUsage
   }>
-  planAgentTools(input: {
-    message: string
+  /**
+   * 受控 ReAct 循环的单步推进：模型基于已回填的工具结果决定继续调用工具
+   * 还是直接给出最终回答；forceFinish 时不再提供工具，强制输出结论。
+   */
+  runAgentStep(input: {
+    messages: AgentConversationMessage[]
     tools: AgentToolDefinition[]
-  }): Promise<{ toolCalls: PlannedAgentToolCall[]; usage: AiUsage }>
-  summarizeAgent(input: {
-    message: string
-    toolCalls: AgentToolCallSummary[]
-  }): Promise<{ answer: string; usage: AiUsage }>
+    forceFinish?: boolean
+  }): Promise<AgentStepResult>
 }
 
 const MOCK_DELAY = 5
@@ -139,86 +141,144 @@ export class MockAiProvider implements AiProvider {
     })
   }
 
-  planAgentTools(input: {
-    message: string
+  runAgentStep(input: {
+    messages: AgentConversationMessage[]
     tools: AgentToolDefinition[]
-  }): Promise<{ toolCalls: PlannedAgentToolCall[]; usage: AiUsage }> {
-    const message = input.message
+    forceFinish?: boolean
+  }): Promise<AgentStepResult> {
+    const zeroUsage: AiUsage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    }
+    const message =
+      input.messages.find(
+        (item): item is { role: 'user'; content: string } =>
+          item.role === 'user',
+      )?.content ?? ''
+    const round = input.messages.filter(
+      (item) => item.role === 'assistant',
+    ).length
+    if (input.forceFinish) {
+      return Promise.resolve({
+        toolCalls: [],
+        answer: this.buildAgentAnswer(input.messages),
+        usage: zeroUsage,
+      })
+    }
+
     const upper = message.toUpperCase()
     const productCode = upper.match(/\bP-[A-Z0-9_-]+\b/)?.[0]
     const orderNo = upper.match(/\bORD-[A-Z0-9_-]+\b/)?.[0]
+    const draftIntent = Boolean(
+      /草稿|优化|翻译|DRAFT|OPTIMIZE|TRANSLATE/i.test(message) && productCode,
+    )
+    const inventoryIntent = Boolean(
+      /库存|STOCK|INVENTORY/i.test(message) && productCode,
+    )
     const calls: PlannedAgentToolCall[] = []
     const add = (name: string, arguments_: unknown) => {
       if (input.tools.some((tool) => tool.name === name)) {
         calls.push({
-          id: `mock-tool-${calls.length + 1}`,
+          id: `mock-tool-${round + 1}-${calls.length + 1}`,
           name,
           arguments: arguments_,
         })
       }
     }
+    const targetLanguage = /西班牙|SPANISH|ES-ES/i.test(message)
+      ? 'es-ES'
+      : /葡萄牙|PORTUGUESE|PT-BR/i.test(message)
+        ? 'pt-BR'
+        : 'en-US'
 
-    if (/库存|STOCK|INVENTORY/i.test(message) && productCode) {
-      add('get_inventory', { productCode })
+    if (draftIntent && inventoryIntent) {
+      // 依赖链场景：先查库存，看到结果后下一轮再决定创建草稿。
+      if (round === 0) {
+        add('get_inventory', { productCode })
+      } else if (round === 1) {
+        add('create_product_optimization_draft', {
+          productCode,
+          targetLanguage,
+        })
+      }
+    } else if (round === 0) {
+      if (inventoryIntent) add('get_inventory', { productCode })
+      if (/订单|ORDER/i.test(message) && orderNo) {
+        add('get_order_status', { orderNo })
+      }
+      if (/经营|看板|销售|OVERVIEW|SALES/i.test(message)) {
+        add('get_business_overview', {})
+      }
+      if (/规则|违规|合规|RULE|COMPLIANCE/i.test(message)) {
+        add('search_platform_rules', { query: message })
+      }
+      if (draftIntent) {
+        add('create_product_optimization_draft', {
+          productCode,
+          targetLanguage,
+        })
+      }
+      if (calls.length === 0 && productCode) {
+        add('search_products', { keyword: productCode })
+      }
     }
-    if (/订单|ORDER/i.test(message) && orderNo) {
-      add('get_order_status', { orderNo })
-    }
-    if (/经营|看板|销售|OVERVIEW|SALES/i.test(message)) {
-      add('get_business_overview', {})
-    }
-    if (/规则|违规|合规|RULE|COMPLIANCE/i.test(message)) {
-      add('search_platform_rules', { query: message })
-    }
-    if (
-      /草稿|优化|翻译|DRAFT|OPTIMIZE|TRANSLATE/i.test(message) &&
-      productCode
-    ) {
-      const targetLanguage = /西班牙|SPANISH|ES-ES/i.test(message)
-        ? 'es-ES'
-        : /葡萄牙|PORTUGUESE|PT-BR/i.test(message)
-          ? 'pt-BR'
-          : 'en-US'
-      add('create_product_optimization_draft', {
-        productCode,
-        targetLanguage,
-      })
-    }
+
     if (calls.length === 0) {
-      add('search_products', {
-        ...(productCode ? { keyword: productCode } : {}),
+      // 无可执行工具（闲聊或已完成全部工具轮次）时直接给出回答，不强制调工具。
+      return Promise.resolve({
+        toolCalls: [],
+        answer: this.buildAgentAnswer(input.messages),
+        usage: zeroUsage,
       })
     }
-
-    return Promise.resolve({
-      toolCalls: calls,
-      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-    })
+    return Promise.resolve({ toolCalls: calls, answer: null, usage: zeroUsage })
   }
 
-  summarizeAgent(input: {
-    message: string
-    toolCalls: AgentToolCallSummary[]
-  }): Promise<{ answer: string; usage: AiUsage }> {
-    const succeeded = input.toolCalls.filter(
-      (call) => call.status === 'success',
+  private buildAgentAnswer(messages: AgentConversationMessage[]): string {
+    const toolMessages = messages.filter(
+      (
+        item,
+      ): item is {
+        role: 'tool'
+        toolCallId: string
+        name: string
+        content: string
+      } => item.role === 'tool',
     )
-    const failed = input.toolCalls.filter((call) => call.status === 'error')
-    const created = succeeded.find(
-      (call) => call.name === 'create_product_optimization_draft',
-    )
+    if (toolMessages.length === 0) {
+      return '这是受控业务 Agent，本次未调用业务工具。请提供商品编码、订单号，或说明需要查询的经营数据与平台规则。'
+    }
+    let succeeded = 0
+    let failed = 0
+    let draftCreated = false
+    for (const item of toolMessages) {
+      try {
+        const parsed = JSON.parse(item.content) as Record<string, unknown>
+        if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+          failed += 1
+        } else {
+          succeeded += 1
+          if (
+            item.name === 'create_product_optimization_draft' &&
+            typeof parsed.optimizationId === 'string'
+          ) {
+            draftCreated = true
+          }
+        }
+      } catch {
+        failed += 1
+      }
+    }
     const parts = [
-      `已根据“${input.message}”执行 ${input.toolCalls.length} 个受控业务工具。`,
-      succeeded.length ? `${succeeded.length} 个成功。` : '',
-      failed.length ? `${failed.length} 个失败，请查看工具轨迹。` : '',
-      created
+      `已执行 ${toolMessages.length} 个受控业务工具。`,
+      succeeded ? `${succeeded} 个成功。` : '',
+      failed ? `${failed} 个失败，请查看工具轨迹。` : '',
+      draftCreated
         ? '优化草稿已创建，但尚未写回正式商品，请到商品管理中人工确认。'
         : '',
     ].filter(Boolean)
-    return Promise.resolve({
-      answer: parts.join(' '),
-      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-    })
+    return parts.join(' ')
   }
 }
 
@@ -321,32 +381,39 @@ export class OpenAiProvider implements AiProvider {
     }
   }
 
-  async planAgentTools(input: {
-    message: string
+  async runAgentStep(input: {
+    messages: AgentConversationMessage[]
     tools: AgentToolDefinition[]
-  }): Promise<{ toolCalls: PlannedAgentToolCall[]; usage: AiUsage }> {
+    forceFinish?: boolean
+  }): Promise<AgentStepResult> {
+    const provideTools = !input.forceFinish && input.tools.length > 0
     const completion = await this.client.chat.completions.create({
       model: this.model,
       messages: [
         {
           role: 'system',
           content:
-            'You are a constrained e-commerce operations agent. Use only the supplied tools. Read tools may be called as needed. Call create_product_optimization_draft only when the user explicitly asks to create, optimize, or translate a product. Never claim that a draft has changed the formal product.',
+            'You are a constrained e-commerce operations agent. Use only the supplied tools and decide the next step from returned tool results. Call create_product_optimization_draft only when the user explicitly asks to create, optimize, or translate a product. When no further tool is needed, reply with a final conclusion for the operator: do not invent missing data, keep source citations for rule results, and clearly state that optimization drafts require human confirmation and have not changed the formal product.',
         },
-        { role: 'user', content: input.message },
+        ...this.toOpenAiMessages(input.messages),
       ],
-      tools: input.tools.map((tool) => ({
-        type: 'function' as const,
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters,
-        },
-      })),
-      tool_choice: 'required',
+      ...(provideTools
+        ? {
+            tools: input.tools.map((tool) => ({
+              type: 'function' as const,
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters,
+              },
+            })),
+            tool_choice: 'auto' as const,
+          }
+        : {}),
     })
+    const choice = completion.choices[0]
     const toolCalls =
-      completion.choices[0]?.message.tool_calls?.flatMap((call) => {
+      choice?.message.tool_calls?.flatMap((call) => {
         if (call.type !== 'function') return []
         let arguments_: unknown
         try {
@@ -364,6 +431,8 @@ export class OpenAiProvider implements AiProvider {
       }) ?? []
     return {
       toolCalls,
+      answer:
+        toolCalls.length === 0 ? (choice?.message.content?.trim() ?? '') : null,
       usage: {
         promptTokens: completion.usage?.prompt_tokens ?? 0,
         completionTokens: completion.usage?.completion_tokens ?? 0,
@@ -372,36 +441,36 @@ export class OpenAiProvider implements AiProvider {
     }
   }
 
-  async summarizeAgent(input: {
-    message: string
-    toolCalls: AgentToolCallSummary[]
-  }): Promise<{ answer: string; usage: AiUsage }> {
-    const completion = await this.client.chat.completions.create({
-      model: this.model,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Summarize the verified tool results for an e-commerce operator. Do not invent missing data. Clearly state that optimization drafts require human confirmation and have not changed the formal product. Keep source information for rule results.',
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            request: input.message,
-            toolResults: input.toolCalls,
-          }),
-        },
-      ],
+  private toOpenAiMessages(
+    messages: AgentConversationMessage[],
+  ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+    return messages.map((message) => {
+      if (message.role === 'assistant') {
+        return {
+          role: 'assistant' as const,
+          content: message.content,
+          ...(message.toolCalls?.length
+            ? {
+                tool_calls: message.toolCalls.map((call) => ({
+                  id: call.id,
+                  type: 'function' as const,
+                  function: {
+                    name: call.name,
+                    arguments: JSON.stringify(call.arguments ?? {}),
+                  },
+                })),
+              }
+            : {}),
+        }
+      }
+      if (message.role === 'tool') {
+        return {
+          role: 'tool' as const,
+          tool_call_id: message.toolCallId,
+          content: message.content,
+        }
+      }
+      return { role: 'user' as const, content: message.content }
     })
-    return {
-      answer:
-        completion.choices[0]?.message.content?.trim() ||
-        '工具已执行，请查看工具轨迹。',
-      usage: {
-        promptTokens: completion.usage?.prompt_tokens ?? 0,
-        completionTokens: completion.usage?.completion_tokens ?? 0,
-        totalTokens: completion.usage?.total_tokens ?? 0,
-      },
-    }
   }
 }

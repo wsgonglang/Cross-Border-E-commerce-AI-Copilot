@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
-import type { AgentRunResponse, AuthenticatedUser } from '@cross-border/shared'
+import type {
+  AgentRunStartResponse,
+  AuthenticatedUser,
+} from '@cross-border/shared'
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { AgentService } from './agent.service'
@@ -21,7 +24,7 @@ export class AgentController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,
     @Body() dto: AgentRunDto,
-  ): Promise<AgentRunResponse> {
+  ): Promise<AgentRunStartResponse> {
     return this.agentService.run(
       user,
       merchantId,
