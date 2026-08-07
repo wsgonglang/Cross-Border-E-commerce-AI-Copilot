@@ -142,4 +142,110 @@ describe('AiService', () => {
       data: { status: 'DONE' },
     })
   })
+
+  it('builds context from the active branch lineage, excluding abandoned branches', async () => {
+    const chat = vi.fn().mockResolvedValue(undefined)
+    const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
+      chat,
+      generateTitle: () => Promise.resolve('标题优化'),
+      optimizeProduct: vi.fn(),
+      runAgentStep: vi.fn(),
+    }
+    const { prisma, service, transaction } = createHarness(provider)
+    transaction.aiMessage.findFirst.mockResolvedValue({ childrenIds: [] })
+    // 消息树：u1 → a1 下挂两个分支：u2-old（被放弃）与本次新消息 user-message。
+    prisma.aiMessage.findMany.mockResolvedValue([
+      {
+        id: 'u1',
+        role: 'user',
+        content: '第一轮问题',
+        parentId: null,
+        childrenIds: ['a1'],
+      },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: '第一轮回答',
+        parentId: 'u1',
+        childrenIds: ['u2-old', 'user-message'],
+      },
+      {
+        id: 'u2-old',
+        role: 'user',
+        content: '被编辑前的旧分支消息',
+        parentId: 'a1',
+        childrenIds: [],
+      },
+      {
+        id: 'user-message',
+        role: 'user',
+        content: '编辑后的新消息',
+        parentId: 'a1',
+        childrenIds: [],
+      },
+    ])
+
+    await service.chat(
+      operator,
+      'merchant-1',
+      'session-1',
+      '编辑后的新消息',
+      'a1',
+      undefined,
+      vi.fn(),
+    )
+
+    const history = chat.mock.calls[0]?.[0] as Array<{
+      role: string
+      content: string
+    }>
+    expect(history.map((message) => message.content)).toEqual([
+      '第一轮问题',
+      '第一轮回答',
+      '编辑后的新消息',
+    ])
+    expect(history.some((message) => message.content.includes('旧分支'))).toBe(
+      false,
+    )
+  })
+
+  it('truncates long lineages to the recent history window', async () => {
+    const chat = vi.fn().mockResolvedValue(undefined)
+    const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
+      chat,
+      generateTitle: () => Promise.resolve('标题优化'),
+      optimizeProduct: vi.fn(),
+      runAgentStep: vi.fn(),
+    }
+    const { prisma, service, transaction } = createHarness(provider)
+    transaction.aiMessage.findFirst.mockResolvedValue({ childrenIds: [] })
+    // 构造 40 条单链消息，末尾为本次新消息，窗口应只保留最近 30 条。
+    const chain = Array.from({ length: 40 }, (_, index) => ({
+      id: index === 39 ? 'user-message' : `m-${index}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: `消息-${index}`,
+      parentId: index === 0 ? null : `m-${index - 1}`,
+      childrenIds: [],
+    }))
+    prisma.aiMessage.findMany.mockResolvedValue(chain)
+
+    await service.chat(
+      operator,
+      'merchant-1',
+      'session-1',
+      '消息-39',
+      'm-38',
+      undefined,
+      vi.fn(),
+    )
+
+    const history = chat.mock.calls[0]?.[0] as Array<{ content: string }>
+    expect(history).toHaveLength(30)
+    expect(history[0]?.content).toBe('消息-10')
+    expect(history.at(-1)?.content).toBe('消息-39')
+  })
 })

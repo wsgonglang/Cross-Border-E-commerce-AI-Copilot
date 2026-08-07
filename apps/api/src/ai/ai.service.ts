@@ -5,6 +5,10 @@ import { PrismaService } from '../database/prisma.service'
 import { AI_PROVIDER, type AiProvider } from './ai-provider.service'
 import { AiSessionsService } from './ai-sessions.service'
 
+// 模型上下文只保留活动分支血缘上最近的若干条消息，避免长会话 token 线性膨胀；
+// 更早历史的摘要压缩属于后续优化，不在当前范围。
+const HISTORY_WINDOW_SIZE = 30
+
 @Injectable()
 export class AiService {
   constructor(
@@ -72,13 +76,15 @@ export class AiService {
       return message
     })
 
-    // 3. Build message history from session
+    // 3. Build model context from the active branch lineage of the new message
     const sessionMessages = await this.prisma.aiMessage.findMany({
       where: { sessionId: currentSessionId },
       orderBy: { createdAt: 'asc' },
     })
 
-    const history = this.buildHistory(sessionMessages)
+    const lineage = this.buildHistory(sessionMessages, userMessage.id)
+    // 防御性回退：血缘回溯异常时至少携带当前用户消息，不发送空上下文。
+    const history = lineage.length > 0 ? lineage : [{ role: 'user', content }]
 
     // 4. Auto-generate title if this is the first message
     const nonSystemMessages = sessionMessages.filter((m) => m.role !== 'system')
@@ -161,17 +167,32 @@ export class AiService {
     })
   }
 
+  /**
+   * 从当前用户消息沿 parentId 回溯活动分支血缘，被放弃的编辑/重新生成分支
+   * 不进入模型上下文；再截断为最近窗口控制 token 规模。
+   */
   private buildHistory(
     messages: Array<{
+      id: string
       role: string
       content: string
       parentId: string | null
       childrenIds: unknown
     }>,
+    leafMessageId: string,
+    windowSize: number = HISTORY_WINDOW_SIZE,
   ): { role: string; content: string }[] {
-    return messages
-      .filter((m) => m.role !== 'system' || m.content)
-      .map((m) => ({ role: m.role, content: m.content }))
+    const byId = new Map(messages.map((message) => [message.id, message]))
+    const lineage: { role: string; content: string }[] = []
+    let current = byId.get(leafMessageId)
+    while (current) {
+      if (current.role !== 'system' || current.content) {
+        lineage.push({ role: current.role, content: current.content })
+      }
+      current = current.parentId ? byId.get(current.parentId) : undefined
+    }
+    lineage.reverse()
+    return lineage.slice(-windowSize)
   }
 
   private toStringArray(value: unknown): string[] {
