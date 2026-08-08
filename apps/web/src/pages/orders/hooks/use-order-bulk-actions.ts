@@ -4,6 +4,7 @@ import type {
 } from '@cross-border/shared'
 import type { Key } from 'react'
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { executeOrderBulkAction } from '../../../api/orders'
 
@@ -20,6 +21,7 @@ export function useOrderBulkActions({
   onUpdated,
   token,
 }: UseOrderBulkActionsInput) {
+  const { t } = useTranslation()
   const [selectedIds, setSelectedIds] = useState<Key[]>([])
   const [action, setAction] = useState<OrderBulkAction>()
   const [running, setRunning] = useState(false)
@@ -38,11 +40,11 @@ export function useOrderBulkActions({
       setSelectedIds([])
       await onUpdated()
     } catch (error: unknown) {
-      onError(error instanceof Error ? error.message : '批量操作失败')
+      onError(error instanceof Error ? error.message : t('orders.bulkFailed'))
     } finally {
       setRunning(false)
     }
-  }, [action, merchantId, onError, onUpdated, selectedIds, token])
+  }, [action, merchantId, onError, onUpdated, selectedIds, t, token])
 
   return {
     action,

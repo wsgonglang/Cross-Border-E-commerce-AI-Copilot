@@ -1,5 +1,6 @@
 import type { OrderStatus, OrderSummary } from '@cross-border/shared'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { getOrder, updateOrderStatus } from '../../../api/orders'
 
@@ -20,6 +21,7 @@ export function useOrderDetail({
   storeId,
   token,
 }: UseOrderDetailInput) {
+  const { t } = useTranslation()
   const [orderId, setOrderId] = useState<string | null>(initialOrderId)
   const [data, setData] = useState<OrderSummary | null>(null)
   const [loading, setLoading] = useState(false)
@@ -55,10 +57,14 @@ export function useOrderDetail({
         if (orderId === targetOrderId) setData(updated)
         await onUpdated()
       } catch (actionError: unknown) {
-        onError(actionError instanceof Error ? actionError.message : '操作失败')
+        onError(
+          actionError instanceof Error
+            ? actionError.message
+            : t('orders.actionFailed'),
+        )
       }
     },
-    [merchantId, onError, onUpdated, orderId, token],
+    [merchantId, onError, onUpdated, orderId, t, token],
   )
 
   return {

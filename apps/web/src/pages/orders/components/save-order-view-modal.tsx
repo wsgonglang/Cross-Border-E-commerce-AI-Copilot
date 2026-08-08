@@ -1,4 +1,5 @@
 import { Checkbox, Input, Modal, Space, Typography } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 interface SaveOrderViewModalProps {
   isDefault: boolean
@@ -19,9 +20,10 @@ export function SaveOrderViewModal({
   onSave,
   open,
 }: SaveOrderViewModalProps) {
+  const { t } = useTranslation()
   return (
     <Modal
-      title="保存订单视图"
+      title={t('orders.saveViewTitle')}
       open={open}
       onCancel={onCancel}
       onOk={onSave}
@@ -30,7 +32,7 @@ export function SaveOrderViewModal({
       <Space direction="vertical" className="order-view-form">
         <Input
           maxLength={80}
-          placeholder="例如：待发货高金额订单"
+          placeholder={t('orders.viewNameExample')}
           value={name}
           onChange={(event) => onNameChange(event.target.value)}
         />
@@ -38,10 +40,10 @@ export function SaveOrderViewModal({
           checked={isDefault}
           onChange={(event) => onDefaultChange(event.target.checked)}
         >
-          设为默认视图
+          {t('orders.setDefault')}
         </Checkbox>
         <Typography.Text type="secondary">
-          将保存当前店铺、筛选条件、排序和列设置。
+          {t('orders.viewHint')}
         </Typography.Text>
       </Space>
     </Modal>

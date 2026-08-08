@@ -1,6 +1,7 @@
 import type { OrderViewColumn } from '@cross-border/shared'
 import { Alert, Spin, message } from 'antd'
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
 import { useBusinessContext } from '../../contexts/business-context'
@@ -29,6 +30,7 @@ import './components/styles.css'
 import './styles.css'
 
 export function OrdersPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const user = useAppSelector((state) => state.auth.user)
@@ -117,18 +119,18 @@ export function OrdersPage() {
     setSaveOpen(false)
     setViewName('')
     setViewDefault(false)
-    message.success('订单视图已保存')
+    message.success(t('orders.viewSaved'))
   }
 
   const overwriteView = async () => {
     if (await savedViews.overwriteView(currentSnapshot())) {
-      message.success('当前视图已更新')
+      message.success(t('orders.viewUpdated'))
     }
   }
 
   const removeView = async () => {
     if (await savedViews.removeView()) {
-      message.success('订单视图已删除')
+      message.success(t('orders.viewDeleted'))
     }
   }
 
@@ -147,11 +149,11 @@ export function OrdersPage() {
       <header className="workspace-header">
         <div>
           <span className="page-kicker">Order operations</span>
-          <h1>订单运营工作台</h1>
+          <h1>{t('orders.title')}</h1>
           <p>
             {currentStore
-              ? `${currentStore.name} · 生命周期、支付、履约和退款统一处理`
-              : '组合筛选、保存视图、批量操作和订单时间线'}
+              ? t('orders.storeDescription', { store: currentStore.name })
+              : t('orders.description')}
           </p>
         </div>
       </header>

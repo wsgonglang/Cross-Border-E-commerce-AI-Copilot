@@ -5,8 +5,16 @@ import type {
   PaymentStatus,
 } from '@cross-border/shared'
 import { Button, Input, Select } from 'antd'
+import { useTranslation } from 'react-i18next'
 
-import { fulfillmentMeta, paymentMeta, statusMeta } from '../order.constants'
+import {
+  fulfillmentLabel,
+  fulfillmentMeta,
+  paymentLabel,
+  paymentMeta,
+  statusLabel,
+  statusMeta,
+} from '../order.constants'
 
 interface OrderFilterCardProps {
   filters: OrderFilters
@@ -23,12 +31,13 @@ export function OrderFilterCard({
   onPatch,
   onReset,
 }: OrderFilterCardProps) {
+  const { t } = useTranslation()
   return (
-    <section className="order-filter-card" aria-label="订单筛选">
+    <section className="order-filter-card" aria-label={t('orders.filter')}>
       <Input.Search
         className="order-keyword-search"
         allowClear
-        placeholder="订单号或客户名称"
+        placeholder={t('orders.search')}
         value={keywordDraft}
         onChange={(event) => onKeywordDraftChange(event.target.value)}
         onSearch={(value) => onPatch({ keyword: value.trim() || undefined })}
@@ -37,52 +46,52 @@ export function OrderFilterCard({
         mode="multiple"
         maxTagCount="responsive"
         className="order-lifecycle-select"
-        placeholder="生命周期"
+        placeholder={t('orders.lifecycle')}
         value={filters.statuses}
         onChange={(statuses) =>
           onPatch({ statuses: statuses.length ? statuses : undefined })
         }
-        options={Object.entries(statusMeta).map(([value, meta]) => ({
+        options={Object.keys(statusMeta).map((value) => ({
           value: value as OrderStatus,
-          label: meta.label,
+          label: statusLabel(t, value as OrderStatus),
         }))}
       />
       <Select<PaymentStatus[]>
         mode="multiple"
         maxTagCount="responsive"
         className="order-dimension-select"
-        placeholder="支付状态"
+        placeholder={t('orders.paymentStatus')}
         value={filters.paymentStatuses}
         onChange={(statuses) =>
           onPatch({
             paymentStatuses: statuses.length ? statuses : undefined,
           })
         }
-        options={Object.entries(paymentMeta).map(([value, meta]) => ({
+        options={Object.keys(paymentMeta).map((value) => ({
           value: value as PaymentStatus,
-          label: meta.label,
+          label: paymentLabel(t, value as PaymentStatus),
         }))}
       />
       <Select<FulfillmentStatus[]>
         mode="multiple"
         maxTagCount="responsive"
         className="order-dimension-select"
-        placeholder="履约状态"
+        placeholder={t('orders.fulfillmentStatus')}
         value={filters.fulfillmentStatuses}
         onChange={(statuses) =>
           onPatch({
             fulfillmentStatuses: statuses.length ? statuses : undefined,
           })
         }
-        options={Object.entries(fulfillmentMeta).map(([value, meta]) => ({
+        options={Object.keys(fulfillmentMeta).map((value) => ({
           value: value as FulfillmentStatus,
-          label: meta.label,
+          label: fulfillmentLabel(t, value as FulfillmentStatus),
         }))}
       />
       <Input
         type="date"
         className="order-date-input"
-        aria-label="开始日期"
+        aria-label={t('orders.startDate')}
         value={filters.startDate?.slice(0, 10) ?? ''}
         onChange={(event) =>
           onPatch({
@@ -95,7 +104,7 @@ export function OrderFilterCard({
       <Input
         type="date"
         className="order-date-input"
-        aria-label="结束日期"
+        aria-label={t('orders.endDate')}
         value={filters.endDate?.slice(0, 10) ?? ''}
         onChange={(event) =>
           onPatch({
@@ -107,7 +116,7 @@ export function OrderFilterCard({
       />
       <Input
         className="order-amount-input"
-        placeholder="最低金额"
+        placeholder={t('orders.minAmount')}
         value={filters.minAmount}
         onChange={(event) =>
           onPatch({ minAmount: event.target.value || undefined })
@@ -115,13 +124,13 @@ export function OrderFilterCard({
       />
       <Input
         className="order-amount-input"
-        placeholder="最高金额"
+        placeholder={t('orders.maxAmount')}
         value={filters.maxAmount}
         onChange={(event) =>
           onPatch({ maxAmount: event.target.value || undefined })
         }
       />
-      <Button onClick={onReset}>重置</Button>
+      <Button onClick={onReset}>{t('orders.reset')}</Button>
     </section>
   )
 }

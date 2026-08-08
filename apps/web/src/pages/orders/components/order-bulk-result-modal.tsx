@@ -1,5 +1,6 @@
 import type { OrderBulkOperationResult } from '@cross-border/shared'
 import { Alert, Button, Modal, Table, Tag } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 interface OrderBulkResultModalProps {
   onClose: () => void
@@ -10,14 +11,15 @@ export function OrderBulkResultModal({
   onClose,
   result,
 }: OrderBulkResultModalProps) {
+  const { t } = useTranslation()
   return (
     <Modal
-      title="批量操作结果"
+      title={t('orders.bulkResult')}
       open={result !== null}
       onCancel={onClose}
       footer={[
         <Button key="close" onClick={onClose}>
-          关闭
+          {t('orders.close')}
         </Button>,
       ]}
       width={760}
@@ -27,8 +29,11 @@ export function OrderBulkResultModal({
           <Alert
             type={result.failedItems ? 'warning' : 'success'}
             showIcon
-            title={`${result.succeededItems} 个成功，${result.failedItems} 个失败`}
-            description="每个订单都独立执行权限、状态机和幂等校验。"
+            title={t('orders.bulkSummary', {
+              succeeded: result.succeededItems,
+              failed: result.failedItems,
+            })}
+            description={t('orders.bulkDescription')}
             className="order-bulk-result-alert"
           />
           <Table
@@ -36,19 +41,27 @@ export function OrderBulkResultModal({
             pagination={false}
             dataSource={result.items}
             columns={[
-              { title: '订单', dataIndex: 'orderNo', key: 'orderNo' },
               {
-                title: '结果',
+                title: t('orders.orderNo'),
+                dataIndex: 'orderNo',
+                key: 'orderNo',
+              },
+              {
+                title: t('orders.result'),
                 dataIndex: 'status',
                 key: 'status',
                 render: (status: string) => (
                   <Tag color={status === 'SUCCEEDED' ? 'green' : 'red'}>
-                    {status}
+                    {t(
+                      status === 'SUCCEEDED'
+                        ? 'orders.succeeded'
+                        : 'orders.failed',
+                    )}
                   </Tag>
                 ),
               },
               {
-                title: '状态变化',
+                title: t('orders.statusChange'),
                 key: 'transition',
                 render: (
                   _: unknown,
@@ -59,7 +72,7 @@ export function OrderBulkResultModal({
                     : '-',
               },
               {
-                title: '失败原因',
+                title: t('orders.failureReason'),
                 dataIndex: 'error',
                 key: 'error',
               },

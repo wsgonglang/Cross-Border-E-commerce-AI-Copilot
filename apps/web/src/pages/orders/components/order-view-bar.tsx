@@ -5,8 +5,9 @@ import {
 } from '@ant-design/icons'
 import type { OrderSavedView, OrderViewColumn } from '@cross-border/shared'
 import { Button, Checkbox, Popconfirm, Popover, Select } from 'antd'
+import { useTranslation } from 'react-i18next'
 
-import { allColumns } from '../order.constants'
+import { columnDefinitions } from '../order.constants'
 
 interface OrderViewBarProps {
   activeViewId?: string
@@ -29,28 +30,29 @@ export function OrderViewBar({
   views,
   visibleColumns,
 }: OrderViewBarProps) {
+  const { t } = useTranslation()
   return (
-    <section className="order-view-bar" aria-label="订单保存视图">
+    <section className="order-view-bar" aria-label={t('orders.savedViews')}>
       <Select
         allowClear
         className="order-view-select"
-        placeholder="选择保存视图"
+        placeholder={t('orders.selectView')}
         value={activeViewId}
         onChange={onApply}
         options={views.map((view) => ({
           value: view.id,
-          label: `${view.name}${view.isDefault ? ' · 默认' : ''}`,
+          label: `${view.name}${view.isDefault ? ` · ${t('orders.default')}` : ''}`,
         }))}
       />
       <Button icon={<SaveOutlined />} onClick={onOpenSave}>
-        保存当前视图
+        {t('orders.saveView')}
       </Button>
       <Button disabled={!activeViewId} onClick={onOverwrite}>
-        覆盖视图
+        {t('orders.overwriteView')}
       </Button>
-      <Popconfirm title="删除当前保存视图？" onConfirm={onRemove}>
+      <Popconfirm title={t('orders.deleteViewTitle')} onConfirm={onRemove}>
         <Button danger icon={<DeleteOutlined />} disabled={!activeViewId}>
-          删除
+          {t('orders.delete')}
         </Button>
       </Popconfirm>
       <Popover
@@ -58,14 +60,17 @@ export function OrderViewBar({
         content={
           <Checkbox.Group
             value={visibleColumns}
-            options={allColumns}
+            options={columnDefinitions.map((item) => ({
+              value: item.value,
+              label: t(item.labelKey),
+            }))}
             onChange={(values) => {
               if (values.length) onColumnsChange(values)
             }}
           />
         }
       >
-        <Button icon={<SettingOutlined />}>列设置</Button>
+        <Button icon={<SettingOutlined />}>{t('orders.columns')}</Button>
       </Popover>
     </section>
   )

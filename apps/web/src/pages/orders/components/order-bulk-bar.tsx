@@ -1,7 +1,8 @@
 import type { OrderBulkAction } from '@cross-border/shared'
 import { Button, Select, Typography } from 'antd'
+import { useTranslation } from 'react-i18next'
 
-import { bulkOptions, type OrderRole } from '../order.constants'
+import { bulkDefinitions, type OrderRole } from '../order.constants'
 
 interface OrderBulkBarProps {
   action?: OrderBulkAction
@@ -20,17 +21,23 @@ export function OrderBulkBar({
   running,
   selectedCount,
 }: OrderBulkBarProps) {
+  const { t } = useTranslation()
   return (
-    <section className="order-bulk-bar" aria-label="订单批量操作">
-      <Typography.Text>已选择 {selectedCount} 个订单</Typography.Text>
+    <section className="order-bulk-bar" aria-label={t('orders.bulk')}>
+      <Typography.Text>
+        {t('orders.selected', { count: selectedCount })}
+      </Typography.Text>
       <Select
         className="order-bulk-select"
-        placeholder="选择批量操作"
+        placeholder={t('orders.selectBulk')}
         value={action}
         onChange={onActionChange}
-        options={bulkOptions.filter(
-          (option) => role === 'admin' || !option.adminOnly,
-        )}
+        options={bulkDefinitions
+          .filter((option) => role === 'admin' || !option.adminOnly)
+          .map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
       />
       <Button
         type="primary"
@@ -38,7 +45,7 @@ export function OrderBulkBar({
         disabled={!action || selectedCount === 0}
         onClick={onRun}
       >
-        执行并查看逐单结果
+        {t('orders.executeBulk')}
       </Button>
     </section>
   )

@@ -10,12 +10,16 @@ import {
   Tabs,
   Tag,
 } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import { AgentPanel } from '../../../components/agent-panel/agent-panel'
 import {
   formatDate,
+  fulfillmentLabel,
   fulfillmentMeta,
+  paymentLabel,
   paymentMeta,
+  statusLabel,
   statusMeta,
   type OrderRole,
 } from '../order.constants'
@@ -40,8 +44,15 @@ export function OrderDetailDrawer({
   role,
   token,
 }: OrderDetailDrawerProps) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? i18n.language
   return (
-    <Drawer title="订单详情" width={920} open={open} onClose={onClose}>
+    <Drawer
+      title={t('orders.detailTitle')}
+      width={920}
+      open={open}
+      onClose={onClose}
+    >
       {loading ? (
         <Spin />
       ) : data ? (
@@ -49,59 +60,59 @@ export function OrderDetailDrawer({
           items={[
             {
               key: 'detail',
-              label: '订单与时间线',
+              label: t('orders.orderAndTimeline'),
               children: (
                 <div className="order-detail-grid">
                   <Descriptions
                     bordered
                     column={2}
                     size="small"
-                    title="订单概览"
+                    title={t('orders.overview')}
                   >
-                    <Descriptions.Item label="订单号">
+                    <Descriptions.Item label={t('orders.orderNo')}>
                       {data.orderNo}
                     </Descriptions.Item>
-                    <Descriptions.Item label="店铺">
-                      {data.store?.name ?? '未关联'}
+                    <Descriptions.Item label={t('orders.store')}>
+                      {data.store?.name ?? t('orders.unlinked')}
                     </Descriptions.Item>
-                    <Descriptions.Item label="生命周期">
+                    <Descriptions.Item label={t('orders.lifecycle')}>
                       <Tag color={statusMeta[data.status].color}>
-                        {statusMeta[data.status].label}
+                        {statusLabel(t, data.status)}
                       </Tag>
                     </Descriptions.Item>
-                    <Descriptions.Item label="支付 / 履约">
+                    <Descriptions.Item label={t('orders.paymentFulfillment')}>
                       <Space>
                         <Tag color={paymentMeta[data.paymentStatus].color}>
-                          {paymentMeta[data.paymentStatus].label}
+                          {paymentLabel(t, data.paymentStatus)}
                         </Tag>
                         <Tag
                           color={fulfillmentMeta[data.fulfillmentStatus].color}
                         >
-                          {fulfillmentMeta[data.fulfillmentStatus].label}
+                          {fulfillmentLabel(t, data.fulfillmentStatus)}
                         </Tag>
                       </Space>
                     </Descriptions.Item>
-                    <Descriptions.Item label="金额">
+                    <Descriptions.Item label={t('orders.amount')}>
                       {data.currency} {data.totalAmount}
                     </Descriptions.Item>
-                    <Descriptions.Item label="退款">
+                    <Descriptions.Item label={t('orders.refund')}>
                       {data.currency} {data.refundAmount}
                     </Descriptions.Item>
-                    <Descriptions.Item label="客户">
+                    <Descriptions.Item label={t('orders.customer')}>
                       {data.customerName}
                     </Descriptions.Item>
-                    <Descriptions.Item label="邮箱">
-                      {data.customerEmail ?? '未提供'}
+                    <Descriptions.Item label={t('orders.email')}>
+                      {data.customerEmail ?? t('orders.notProvided')}
                     </Descriptions.Item>
-                    <Descriptions.Item label="物流">
+                    <Descriptions.Item label={t('orders.logistics')}>
                       {[data.carrier, data.trackingNumber]
                         .filter(Boolean)
-                        .join(' / ') || '暂无物流信息'}
+                        .join(' / ') || t('orders.noLogistics')}
                     </Descriptions.Item>
-                    <Descriptions.Item label="下单时间">
-                      {formatDate(data.createdAt)}
+                    <Descriptions.Item label={t('orders.createdAt')}>
+                      {formatDate(data.createdAt, locale)}
                     </Descriptions.Item>
-                    <Descriptions.Item label="收货地址" span={2}>
+                    <Descriptions.Item label={t('orders.address')} span={2}>
                       {data.shippingAddress
                         ? [
                             data.shippingAddress.recipient,
@@ -115,7 +126,7 @@ export function OrderDetailDrawer({
                           ]
                             .filter(Boolean)
                             .join(' · ')
-                        : '未提供'}
+                        : t('orders.notProvided')}
                     </Descriptions.Item>
                   </Descriptions>
 
@@ -125,24 +136,24 @@ export function OrderDetailDrawer({
                     dataSource={data.items}
                     columns={[
                       {
-                        title: '商品',
+                        title: t('orders.product'),
                         dataIndex: 'productName',
                         key: 'productName',
                       },
                       { title: 'SKU', dataIndex: 'skuName', key: 'skuName' },
                       {
-                        title: '单价',
+                        title: t('orders.unitPrice'),
                         dataIndex: 'unitPrice',
                         key: 'unitPrice',
                         render: (price: string) => `${data.currency} ${price}`,
                       },
                       {
-                        title: '数量',
+                        title: t('orders.quantity'),
                         dataIndex: 'quantity',
                         key: 'quantity',
                       },
                       {
-                        title: '小计',
+                        title: t('orders.subtotal'),
                         dataIndex: 'subtotal',
                         key: 'subtotal',
                         render: (subtotal: string) =>
@@ -160,7 +171,7 @@ export function OrderDetailDrawer({
               label: (
                 <Space>
                   <RobotOutlined />
-                  订单 Agent
+                  {t('orders.agent')}
                 </Space>
               ),
               children: (
@@ -172,9 +183,11 @@ export function OrderDetailDrawer({
                   sourcePage={`orders:${data.id}`}
                   canWrite={role !== 'viewer'}
                   quickPrompts={[
-                    `查询订单 ${data.orderNo} 的状态`,
-                    `分析订单 ${data.orderNo} 的支付和履约状态`,
-                    `订单 ${data.orderNo} 下一步需要什么运营动作`,
+                    t('orders.agentPrompts.status', { orderNo: data.orderNo }),
+                    t('orders.agentPrompts.analysis', {
+                      orderNo: data.orderNo,
+                    }),
+                    t('orders.agentPrompts.next', { orderNo: data.orderNo }),
                   ]}
                 />
               ),
@@ -182,7 +195,7 @@ export function OrderDetailDrawer({
           ]}
         />
       ) : (
-        <Alert type="info" message="无法加载订单详情" />
+        <Alert type="info" message={t('orders.loadDetailFailed')} />
       )}
     </Drawer>
   )

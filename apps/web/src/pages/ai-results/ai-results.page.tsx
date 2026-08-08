@@ -12,6 +12,7 @@ import {
   Typography,
 } from 'antd'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { useMerchantsQuery } from '../../queries/commerce.queries'
@@ -22,12 +23,6 @@ import {
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
-
-const typeLabels: Record<AiResultItem['type'], string> = {
-  AGENT_RUN: 'Agent 运行',
-  PRODUCT_OPTIMIZATION: '商品优化草稿',
-  IMPORT_JOB: '结构化导入',
-}
 
 const statusColors: Record<string, string> = {
   COMPLETED: 'green',
@@ -42,6 +37,8 @@ const statusColors: Record<string, string> = {
 }
 
 export function AiResultsPage() {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'zh-CN'
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const navigate = useNavigate()
   const [selectedMerchantId, setSelectedMerchantId] = useState('')
@@ -85,19 +82,16 @@ export function AiResultsPage() {
     <main className="workspace-page ai-results-page">
       <header className="workspace-header">
         <div>
-          <span className="page-kicker">AI result operations</span>
-          <h1>AI 成果中心</h1>
-          <p>
-            统一查看 Agent
-            运行、商品优化草稿和批量来源，并进入准确业务对象继续处理。
-          </p>
+          <span className="page-kicker">{t('aiResults.kicker')}</span>
+          <h1>{t('aiResults.title')}</h1>
+          <p>{t('aiResults.description')}</p>
         </div>
       </header>
 
       <div className="catalog-toolbar">
         <Select
           value={merchantId}
-          placeholder="选择商家"
+          placeholder={t('aiResults.selectMerchant')}
           options={merchants.map((merchant) => ({
             value: merchant.id,
             label: `${merchant.name} · ${merchant.code}`,
@@ -111,11 +105,14 @@ export function AiResultsPage() {
         <Select
           allowClear
           value={type}
-          placeholder="全部成果类型"
+          placeholder={t('aiResults.allTypes')}
           options={[
-            { value: 'AGENT_RUN', label: 'Agent 运行' },
-            { value: 'PRODUCT_OPTIMIZATION', label: '商品优化草稿' },
-            { value: 'IMPORT_JOB', label: '结构化导入' },
+            { value: 'AGENT_RUN', label: t('aiResults.types.AGENT_RUN') },
+            {
+              value: 'PRODUCT_OPTIMIZATION',
+              label: t('aiResults.types.PRODUCT_OPTIMIZATION'),
+            },
+            { value: 'IMPORT_JOB', label: t('aiResults.types.IMPORT_JOB') },
           ]}
           onChange={(value: AiResultType | undefined) => {
             setType(value)
@@ -126,7 +123,7 @@ export function AiResultsPage() {
         <Select
           allowClear
           value={status}
-          placeholder="全部状态"
+          placeholder={t('aiResults.allStatuses')}
           options={[
             'PLANNING',
             'RUNNING',
@@ -164,13 +161,14 @@ export function AiResultsPage() {
           }}
           columns={[
             {
-              title: '类型',
+              title: t('aiResults.type'),
               dataIndex: 'type',
               width: 145,
-              render: (value: AiResultItem['type']) => typeLabels[value],
+              render: (value: AiResultItem['type']) =>
+                t(`aiResults.types.${value}`),
             },
             {
-              title: '成果',
+              title: t('aiResults.result'),
               render: (_, item) => (
                 <div>
                   <Typography.Text strong>{item.title}</Typography.Text>
@@ -185,7 +183,7 @@ export function AiResultsPage() {
               ),
             },
             {
-              title: '状态',
+              title: t('common.status'),
               dataIndex: 'status',
               width: 120,
               render: (value: string) => (
@@ -193,26 +191,25 @@ export function AiResultsPage() {
               ),
             },
             {
-              title: '来源',
+              title: t('aiResults.source'),
               width: 150,
               render: (_, item) =>
                 item.batchTaskId
-                  ? '批量任务'
+                  ? t('aiResults.sources.batch')
                   : item.type === 'AGENT_RUN'
-                    ? '业务 Agent'
+                    ? t('aiResults.sources.agent')
                     : item.type === 'IMPORT_JOB'
-                      ? '导入中心'
-                      : '单商品',
+                      ? t('aiResults.sources.import')
+                      : t('aiResults.sources.product'),
             },
             {
-              title: '创建时间',
+              title: t('aiResults.createdAt'),
               dataIndex: 'createdAt',
               width: 180,
-              render: (value: string) =>
-                new Date(value).toLocaleString('zh-CN'),
+              render: (value: string) => new Date(value).toLocaleString(locale),
             },
             {
-              title: '操作',
+              title: t('common.actions'),
               width: 190,
               render: (_, item) => (
                 <Space>
@@ -221,12 +218,12 @@ export function AiResultsPage() {
                       type="link"
                       onClick={() => setAgentRunId(item.agentRunId)}
                     >
-                      查看轨迹
+                      {t('aiResults.trace')}
                     </Button>
                   ) : null}
                   {item.optimizationId ? (
                     <Button type="link" onClick={() => openOptimization(item)}>
-                      审核草稿
+                      {t('aiResults.review')}
                     </Button>
                   ) : null}
                   {item.batchTaskId ? (
@@ -238,7 +235,7 @@ export function AiResultsPage() {
                         )
                       }
                     >
-                      批次
+                      {t('aiResults.batch')}
                     </Button>
                   ) : null}
                   {item.importJobId ? (
@@ -248,7 +245,7 @@ export function AiResultsPage() {
                         void navigate(`/imports?jobId=${item.importJobId}`)
                       }
                     >
-                      导入详情
+                      {t('aiResults.importDetails')}
                     </Button>
                   ) : null}
                 </Space>
@@ -259,7 +256,7 @@ export function AiResultsPage() {
       </div>
 
       <Drawer
-        title="Agent 运行详情"
+        title={t('aiResults.runDetails')}
         width={760}
         open={Boolean(agentRun)}
         onClose={() => setAgentRunId(undefined)}
@@ -267,23 +264,23 @@ export function AiResultsPage() {
         {agentRun ? (
           <>
             <Descriptions bordered size="small" column={2}>
-              <Descriptions.Item label="状态">
+              <Descriptions.Item label={t('common.status')}>
                 <Tag color={statusColors[agentRun.status]}>
                   {agentRun.status}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Token">
+              <Descriptions.Item label={t('aiResults.token')}>
                 {agentRun.usage.totalTokens}
               </Descriptions.Item>
-              <Descriptions.Item label="输入" span={2}>
+              <Descriptions.Item label={t('aiResults.input')} span={2}>
                 {agentRun.message}
               </Descriptions.Item>
-              <Descriptions.Item label="回答" span={2}>
+              <Descriptions.Item label={t('aiResults.answer')} span={2}>
                 {agentRun.answer || agentRun.error}
               </Descriptions.Item>
             </Descriptions>
             <Typography.Title level={5} className="ai-result-trace-title">
-              工具执行轨迹
+              {t('aiResults.toolTrace')}
             </Typography.Title>
             <Timeline
               items={agentRun.toolCalls.map((call) => ({

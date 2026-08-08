@@ -10,13 +10,17 @@ import { Button, Space, Table, Tag } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import type { Key } from 'react'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   actionSteps,
   canAct,
   formatDate,
   fulfillmentMeta,
+  fulfillmentLabel,
+  paymentLabel,
   paymentMeta,
+  statusLabel,
   statusMeta,
   type OrderRole,
 } from '../order.constants'
@@ -48,77 +52,77 @@ export function OrderTable({
   selectedIds,
   visibleColumns,
 }: OrderTableProps) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage ?? i18n.language
   const baseColumns = useMemo<
     Record<OrderViewColumn, TableColumnsType<OrderSummary>[number]>
   >(
     () => ({
       store: {
-        title: '店铺',
+        title: t('orders.store'),
         key: 'store',
-        render: (_, record) => record.store?.name ?? '未关联',
+        render: (_, record) => record.store?.name ?? t('orders.unlinked'),
       },
       orderNo: {
-        title: '订单号',
+        title: t('orders.orderNo'),
         dataIndex: 'orderNo',
         key: 'orderNo',
         sorter: true,
       },
       customer: {
-        title: '客户',
+        title: t('orders.customer'),
         dataIndex: 'customerName',
         key: 'customer',
       },
       amount: {
-        title: '金额',
+        title: t('orders.amount'),
         dataIndex: 'totalAmount',
         key: 'totalAmount',
         sorter: true,
         render: (amount: string, record) => `${record.currency} ${amount}`,
       },
       status: {
-        title: '生命周期',
+        title: t('orders.lifecycle'),
         dataIndex: 'status',
         key: 'status',
         render: (status: OrderStatus) => (
-          <Tag color={statusMeta[status].color}>{statusMeta[status].label}</Tag>
+          <Tag color={statusMeta[status].color}>{statusLabel(t, status)}</Tag>
         ),
       },
       paymentStatus: {
-        title: '支付',
+        title: t('orders.payment'),
         dataIndex: 'paymentStatus',
         key: 'paymentStatus',
         render: (status: PaymentStatus) => (
-          <Tag color={paymentMeta[status].color}>
-            {paymentMeta[status].label}
-          </Tag>
+          <Tag color={paymentMeta[status].color}>{paymentLabel(t, status)}</Tag>
         ),
       },
       fulfillmentStatus: {
-        title: '履约',
+        title: t('orders.fulfillment'),
         dataIndex: 'fulfillmentStatus',
         key: 'fulfillmentStatus',
         render: (status: FulfillmentStatus) => (
           <Tag color={fulfillmentMeta[status].color}>
-            {fulfillmentMeta[status].label}
+            {fulfillmentLabel(t, status)}
           </Tag>
         ),
       },
       createdAt: {
-        title: '下单时间',
+        title: t('orders.createdAt'),
         dataIndex: 'createdAt',
         key: 'createdAt',
         sorter: true,
-        render: formatDate,
+        render: (value: string) => formatDate(value, locale),
       },
     }),
-    [],
+    [locale, t],
   )
 
   const columns = useMemo<TableColumnsType<OrderSummary>>(
     () => [
       ...visibleColumns.map((key) => baseColumns[key]),
       {
-        title: '操作',
+        title: t('common.actions'),
         key: 'actions',
         fixed: 'right',
         width: 190,
@@ -129,7 +133,7 @@ export function OrderTable({
               size="small"
               onClick={() => onOpenDetail(record.id)}
             >
-              详情
+              {t('orders.details')}
             </Button>
             {actionSteps
               .filter(
@@ -143,14 +147,14 @@ export function OrderTable({
                   size="small"
                   onClick={() => onStatusChange(record.id, action.to)}
                 >
-                  {action.label}
+                  {t(action.labelKey)}
                 </Button>
               ))}
           </Space>
         ),
       },
     ],
-    [baseColumns, onOpenDetail, onStatusChange, role, visibleColumns],
+    [baseColumns, onOpenDetail, onStatusChange, role, t, visibleColumns],
   )
 
   return (
@@ -175,7 +179,7 @@ export function OrderTable({
           pageSize,
           total: data?.total ?? 0,
           showSizeChanger: true,
-          showTotal: (total) => `共 ${total} 条`,
+          showTotal: (total) => t('orders.total', { count: total }),
         }}
         onChange={onChange}
       />

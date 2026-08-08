@@ -6,6 +6,7 @@ import type {
   OrderViewColumn,
 } from '@cross-border/shared'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   createOrderSavedView,
@@ -32,6 +33,7 @@ export function useOrderSavedViews({
   onError,
   token,
 }: UseOrderSavedViewsInput) {
+  const { t } = useTranslation()
   const [views, setViews] = useState<OrderSavedView[]>([])
   const [activeViewId, setActiveViewId] = useState<string>()
 
@@ -60,11 +62,13 @@ export function useOrderSavedViews({
         setActiveViewId(created.id)
         return true
       } catch (error: unknown) {
-        onError(error instanceof Error ? error.message : '保存视图失败')
+        onError(
+          error instanceof Error ? error.message : t('orders.saveViewFailed'),
+        )
         return false
       }
     },
-    [merchantId, onError, token],
+    [merchantId, onError, t, token],
   )
 
   const overwriteView = useCallback(
@@ -84,11 +88,13 @@ export function useOrderSavedViews({
         )
         return true
       } catch (error: unknown) {
-        onError(error instanceof Error ? error.message : '更新视图失败')
+        onError(
+          error instanceof Error ? error.message : t('orders.updateViewFailed'),
+        )
         return false
       }
     },
-    [activeViewId, merchantId, onError, token],
+    [activeViewId, merchantId, onError, t, token],
   )
 
   const removeView = useCallback(async () => {
@@ -101,10 +107,12 @@ export function useOrderSavedViews({
       setActiveViewId(undefined)
       return true
     } catch (error: unknown) {
-      onError(error instanceof Error ? error.message : '删除视图失败')
+      onError(
+        error instanceof Error ? error.message : t('orders.deleteViewFailed'),
+      )
       return false
     }
-  }, [activeViewId, merchantId, onError, token])
+  }, [activeViewId, merchantId, onError, t, token])
 
   return {
     activeViewId,
