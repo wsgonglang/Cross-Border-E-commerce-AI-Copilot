@@ -125,6 +125,7 @@ export function AiChatPage() {
       {messageContext}
       <ConversationSidebar
         sessions={conversations.sessions}
+        streamingSessionIds={chat.streamingSessionIds}
         currentSessionId={conversations.currentSessionId}
         keyword={conversations.keyword}
         sessionView={conversations.sessionView}

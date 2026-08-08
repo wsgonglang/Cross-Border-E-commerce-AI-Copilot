@@ -37,6 +37,10 @@
   color: #dc5a77;
 }
 
+.session-streaming {
+  color: #1677ff;
+}
+
 .session-title {
   max-width: 170px;
 }

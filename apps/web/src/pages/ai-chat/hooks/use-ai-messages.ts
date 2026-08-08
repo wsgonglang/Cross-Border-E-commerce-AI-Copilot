@@ -4,7 +4,7 @@ import type {
   AiSessionDetail,
   AiSessionSummary,
 } from '@cross-border/shared'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { favoriteAiMessage, getAiSession, linkAiMessage } from '../../../api/ai'
 
@@ -24,8 +24,11 @@ interface StreamInput {
   onError: (message: string) => void
   parentMessageId?: string
   sessionId: string
-  setMessages: React.Dispatch<React.SetStateAction<AiMessage[]>>
-  setStreaming: React.Dispatch<React.SetStateAction<boolean>>
+  updateMessages: (
+    sessionId: string,
+    update: (messages: AiMessage[]) => AiMessage[],
+  ) => void
+  updateStreaming: (sessionId: string, streaming: boolean) => void
   text: string
   token: string
 }
@@ -33,7 +36,7 @@ interface StreamInput {
 function streamMessage(input: StreamInput): AbortController {
   const userMessageId = `optimistic-user-${Date.now()}`
   const assistantId = `optimistic-assistant-${Date.now()}`
-  input.setMessages((previous) => [
+  input.updateMessages(input.sessionId, (previous) => [
     ...previous,
     {
       id: userMessageId,
@@ -54,7 +57,7 @@ function streamMessage(input: StreamInput): AbortController {
       createdAt: new Date().toISOString(),
     },
   ])
-  input.setStreaming(true)
+  input.updateStreaming(input.sessionId, true)
   const controller = new AbortController()
 
   void fetch(`/api/merchants/${input.merchantId}/ai/chat`, {
@@ -79,7 +82,7 @@ function streamMessage(input: StreamInput): AbortController {
         const { done, value } = await reader.read()
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
-        input.setMessages((previous) =>
+        input.updateMessages(input.sessionId, (previous) =>
           previous.map((item) =>
             item.id === assistantId
               ? { ...item, content: item.content + chunk }
@@ -92,7 +95,7 @@ function streamMessage(input: StreamInput): AbortController {
       if (error.name !== 'AbortError') input.onError(error.message)
     })
     .finally(() => {
-      input.setStreaming(false)
+      input.updateStreaming(input.sessionId, false)
       void input.onComplete()
     })
 
@@ -108,23 +111,56 @@ export function useAiMessages({
   refreshSessions,
   token,
 }: UseAiMessagesInput) {
-  const [messages, setMessages] = useState<AiMessage[]>([])
-  const [streaming, setStreaming] = useState(false)
+  const [messagesBySession, setMessagesBySession] = useState<
+    Record<string, AiMessage[]>
+  >({})
+  const [streamingSessionIds, setStreamingSessionIds] = useState<string[]>([])
   const [inputValue, setInputValue] = useState('')
-  const abortRef = useRef<AbortController | null>(null)
+  const abortControllersRef = useRef(new Map<string, AbortController>())
+  const streamingSessionIdsRef = useRef(new Set<string>())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  const messages = useMemo(
+    () => (currentSessionId ? (messagesBySession[currentSessionId] ?? []) : []),
+    [currentSessionId, messagesBySession],
+  )
+  const streaming = currentSessionId
+    ? streamingSessionIds.includes(currentSessionId)
+    : false
+
+  const updateMessages = useCallback(
+    (sessionId: string, update: (messages: AiMessage[]) => AiMessage[]) => {
+      setMessagesBySession((current) => ({
+        ...current,
+        [sessionId]: update(current[sessionId] ?? []),
+      }))
+    },
+    [],
+  )
+
+  const updateStreaming = useCallback(
+    (sessionId: string, isStreaming: boolean) => {
+      if (isStreaming) {
+        streamingSessionIdsRef.current.add(sessionId)
+      } else {
+        streamingSessionIdsRef.current.delete(sessionId)
+      }
+      setStreamingSessionIds(Array.from(streamingSessionIdsRef.current))
+    },
+    [],
+  )
+
   const loadCurrentSession = useCallback(
-    async (sessionId = currentSessionId) => {
+    async (sessionId = currentSessionId, force = false) => {
       if (!sessionId || !token || !merchantId) {
-        setMessages([])
         return
       }
+      if (!force && streamingSessionIdsRef.current.has(sessionId)) return
       const session = await getAiSession(token, merchantId, sessionId)
-      setMessages(session.messages)
+      updateMessages(sessionId, () => session.messages)
       onSessionLoaded(session)
     },
-    [currentSessionId, merchantId, onSessionLoaded, token],
+    [currentSessionId, merchantId, onSessionLoaded, token, updateMessages],
   )
 
   useEffect(() => {
@@ -138,6 +174,14 @@ export function useAiMessages({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    const controllers = abortControllersRef.current
+    return () => {
+      controllers.forEach((controller) => controller.abort())
+      controllers.clear()
+    }
+  }, [merchantId, token])
+
   const send = useCallback(async () => {
     const text = inputValue.trim()
     if (!text || !token || !merchantId || streaming) return
@@ -148,21 +192,24 @@ export function useAiMessages({
     const parentMessageId = [...messages]
       .reverse()
       .find((item) => !item.id.startsWith('optimistic-'))?.id
-    abortRef.current = streamMessage({
+    const controller = streamMessage({
       token,
       merchantId,
       sessionId,
       text,
       parentMessageId,
-      setMessages,
-      setStreaming,
+      updateMessages,
+      updateStreaming,
       onError,
       onComplete: async () => {
-        abortRef.current = null
-        await loadCurrentSession(sessionId)
+        if (abortControllersRef.current.get(sessionId) === controller) {
+          abortControllersRef.current.delete(sessionId)
+        }
+        await loadCurrentSession(sessionId, true)
         await refreshSessions()
       },
     })
+    abortControllersRef.current.set(sessionId, controller)
   }, [
     createSession,
     currentSessionId,
@@ -174,9 +221,15 @@ export function useAiMessages({
     refreshSessions,
     streaming,
     token,
+    updateMessages,
+    updateStreaming,
   ])
 
-  const stop = useCallback(() => abortRef.current?.abort(), [])
+  const stop = useCallback(() => {
+    if (currentSessionId) {
+      abortControllersRef.current.get(currentSessionId)?.abort()
+    }
+  }, [currentSessionId])
 
   const favorite = useCallback(
     async (item: AiMessage) => {
@@ -188,13 +241,13 @@ export function useAiMessages({
         item.id,
         !item.favorited,
       )
-      setMessages((current) =>
+      updateMessages(currentSessionId, (current) =>
         current.map((message) =>
           message.id === updated.id ? updated : message,
         ),
       )
     },
-    [currentSessionId, merchantId, token],
+    [currentSessionId, merchantId, token, updateMessages],
   )
 
   const link = useCallback(
@@ -213,7 +266,7 @@ export function useAiMessages({
         item.id,
         values,
       )
-      setMessages((current) =>
+      updateMessages(currentSessionId, (current) =>
         current.map((message) =>
           message.id === item.id
             ? {
@@ -229,7 +282,7 @@ export function useAiMessages({
         ),
       )
     },
-    [currentSessionId, merchantId, token],
+    [currentSessionId, merchantId, token, updateMessages],
   )
 
   return {
@@ -242,5 +295,6 @@ export function useAiMessages({
     setInputValue,
     stop,
     streaming,
+    streamingSessionIds,
   }
 }

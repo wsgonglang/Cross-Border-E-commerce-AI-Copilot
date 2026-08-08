@@ -4,6 +4,7 @@ import {
   EditOutlined,
   FolderOutlined,
   InboxOutlined,
+  LoadingOutlined,
   MoreOutlined,
   PlusOutlined,
   PushpinFilled,
@@ -49,6 +50,7 @@ interface ConversationSidebarProps {
   onViewChange: (view: AiSessionView) => void
   sessionView: AiSessionView
   sessions: AiSessionSummary[]
+  streamingSessionIds: string[]
 }
 
 export function ConversationSidebar({
@@ -69,6 +71,7 @@ export function ConversationSidebar({
   onViewChange,
   sessionView,
   sessions,
+  streamingSessionIds,
 }: ConversationSidebarProps) {
   const confirmDelete = (session: AiSessionSummary) => {
     Modal.confirm({
@@ -202,6 +205,13 @@ export function ConversationSidebar({
                   <Space size={4}>
                     {session.pinned ? (
                       <PushpinFilled className="session-pin" />
+                    ) : null}
+                    {streamingSessionIds.includes(session.id) ? (
+                      <LoadingOutlined
+                        spin
+                        className="session-streaming"
+                        aria-label={`${session.title} 正在生成`}
+                      />
                     ) : null}
                     <Typography.Text ellipsis className="session-title">
                       {session.title}
