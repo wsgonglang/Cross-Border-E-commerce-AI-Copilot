@@ -8,7 +8,16 @@ import {
   RightOutlined,
 } from '@ant-design/icons'
 import type { AiMessage, AiMessageLinkType } from '@cross-border/shared'
-import { Alert, Avatar, Button, Empty, Space, Tooltip } from 'antd'
+import {
+  Alert,
+  Avatar,
+  Button,
+  Collapse,
+  Empty,
+  Space,
+  Tag,
+  Tooltip,
+} from 'antd'
 import type { RefObject } from 'react'
 
 import type { AiSessionView } from '../ai-chat.types'
@@ -94,6 +103,41 @@ export function ChatMessageList({
                   <span className="ai-chat-thinking">思考中…</span>
                 )}
               </div>
+              {item.agentRun?.toolCalls.length ? (
+                <Collapse
+                  ghost
+                  size="small"
+                  className="ai-agent-trace"
+                  items={[
+                    {
+                      key: 'trace',
+                      label: `业务工具轨迹（${item.agentRun.toolCalls.length}）`,
+                      children: (
+                        <Space direction="vertical" size={6}>
+                          {item.agentRun.toolCalls.map((call) => (
+                            <Space key={call.id} wrap>
+                              <Tag
+                                color={
+                                  call.status === 'success' ? 'green' : 'red'
+                                }
+                              >
+                                {call.status === 'success' ? '成功' : '失败'}
+                              </Tag>
+                              <span>{call.name}</span>
+                            </Space>
+                          ))}
+                          <span>
+                            Token {item.agentRun.usage.totalTokens}
+                            {item.agentRun.modelName
+                              ? ` · ${item.agentRun.modelName}`
+                              : ''}
+                          </span>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              ) : null}
               {!item.id.startsWith('optimistic-') ? (
                 <Space size={4} className="ai-message-actions">
                   <Tooltip title={item.favorited ? '取消收藏' : '收藏消息'}>

@@ -27,6 +27,28 @@ export class AiService {
     @Inject(AI_PROVIDER) private readonly aiProvider: AiProvider,
   ) {}
 
+  /** Reuse the chat branch, token budget and summary checkpoints for Agent turns. */
+  async getModelContextForLeaf(
+    sessionId: string,
+    leafMessageId: string,
+  ): Promise<ContextMessage[]> {
+    const messages = await this.prisma.aiMessage.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' },
+    })
+    const lineage = this.buildLineage(messages, leafMessageId)
+    return this.buildModelContext(sessionId, lineage)
+  }
+
+  async generateTitleForConversation(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    history: ContextMessage[],
+  ): Promise<void> {
+    await this.generateAndSetTitle(user, merchantId, sessionId, history)
+  }
+
   async chat(
     user: AuthenticatedUser,
     merchantId: string,

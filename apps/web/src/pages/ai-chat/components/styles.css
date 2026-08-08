@@ -59,6 +59,24 @@
   background: #fff;
 }
 
+.ai-assistant-mode strong {
+  color: #172b4d;
+}
+
+.ai-assistant-mode strong + div {
+  margin-top: 2px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.ai-agent-trace {
+  max-width: 720px;
+  margin-top: 6px;
+  border: 1px solid #e8edf2;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 .ai-chat-input-area {
   padding: 16px 24px;
   border-top: 1px solid #eaecf0;

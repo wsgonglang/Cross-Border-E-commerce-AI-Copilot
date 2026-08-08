@@ -138,6 +138,7 @@ enum AgentRunStatus {
   RUNNING
   COMPLETED
   FAILED
+  CANCELLED
 }
 
 enum ImportJobStatus {
@@ -672,24 +673,24 @@ enum AiSessionStatus {
 }
 
 model AiSession {
-  id           String                  @id @default(cuid()) @db.VarChar(30)
-  merchantId   String                  @map("merchant_id") @db.VarChar(30)
-  userId       String                  @map("user_id") @db.VarChar(30)
-  title        String                  @db.VarChar(255)
-  status       AiSessionStatus         @default(IDLE)
-  error        String?                 @db.VarChar(500)
-  pinned       Boolean                 @default(false)
-  groupId      String?                 @map("group_id") @db.VarChar(30)
-  activeLeafMessageId String?          @map("active_leaf_message_id") @db.VarChar(30)
-  archivedAt   DateTime?               @map("archived_at")
-  merchant     Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  user         User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
-  messages     AiMessage[]
-  summaries    AiConversationSummary[]
-  shares       AiSessionShare[]
-  messageLinks AiMessageLink[]
-  createdAt    DateTime                @default(now()) @map("created_at")
-  updatedAt    DateTime                @updatedAt @map("updated_at")
+  id                  String                  @id @default(cuid()) @db.VarChar(30)
+  merchantId          String                  @map("merchant_id") @db.VarChar(30)
+  userId              String                  @map("user_id") @db.VarChar(30)
+  title               String                  @db.VarChar(255)
+  status              AiSessionStatus         @default(IDLE)
+  error               String?                 @db.VarChar(500)
+  pinned              Boolean                 @default(false)
+  groupId             String?                 @map("group_id") @db.VarChar(30)
+  activeLeafMessageId String?                 @map("active_leaf_message_id") @db.VarChar(30)
+  archivedAt          DateTime?               @map("archived_at")
+  merchant            Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  user                User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages            AiMessage[]
+  summaries           AiConversationSummary[]
+  shares              AiSessionShare[]
+  messageLinks        AiMessageLink[]
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
 
   @@index([merchantId, userId, archivedAt, updatedAt])
   @@index([userId])
@@ -792,6 +793,9 @@ model AgentRun {
   merchantId             String          @map("merchant_id") @db.VarChar(30)
   storeId                String?         @map("store_id") @db.VarChar(30)
   userId                 String          @map("user_id") @db.VarChar(30)
+  sessionId              String?         @map("session_id") @db.VarChar(30)
+  userMessageId          String?         @map("user_message_id") @db.VarChar(30)
+  assistantMessageId     String?         @unique @map("assistant_message_id") @db.VarChar(30)
   message                String          @db.VarChar(1000)
   answer                 String?         @db.MediumText
   status                 AgentRunStatus  @default(PLANNING)
@@ -815,6 +819,8 @@ model AgentRun {
   @@index([merchantId, status, createdAt])
   @@index([merchantId, storeId, createdAt])
   @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([userMessageId, createdAt])
   @@map("agent_runs")
 }
 

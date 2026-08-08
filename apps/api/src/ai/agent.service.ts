@@ -16,12 +16,21 @@ import {
 } from './agent-tools.contract'
 import { AgentToolsService } from './agent-tools.service'
 import { AgentRunsService } from './agent-runs.service'
+import { AiService } from './ai.service'
+import { AiSessionsService } from './ai-sessions.service'
 import { compactAgentToolResult } from './context-budget'
 
 const MAX_TOOL_CALLS = 6
 const MAX_AGENT_STEPS = 4
 const FALLBACK_ANSWER =
   '业务工具已经执行，请根据工具轨迹核对结果。若创建了优化草稿，仍需在商品管理中人工确认。'
+
+class AgentRunCancelledError extends Error {
+  constructor() {
+    super('Agent run cancelled')
+    this.name = 'AgentRunCancelledError'
+  }
+}
 
 function addUsage(first: AiUsage, second: AiUsage): AiUsage {
   return {
@@ -38,6 +47,8 @@ export class AgentService {
     private readonly agentTools: AgentToolsService,
     private readonly agentRuns: AgentRunsService,
     private readonly storesService: StoresService,
+    private readonly aiService: AiService,
+    private readonly aiSessions: AiSessionsService,
     @Inject(AI_PROVIDER) private readonly aiProvider: AiProvider,
   ) {}
 
@@ -52,10 +63,21 @@ export class AgentService {
     storeId?: string,
     days: number = 7,
     sourcePage?: string,
+    conversation?: {
+      sessionId: string
+      parentMessageId?: string
+      regenerateMessageId?: string
+    },
   ): Promise<AgentRunStartResponse> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const store = storeId
       ? await this.storesService.assertStore(actor, merchantId, storeId)
+      : undefined
+    const turn = conversation
+      ? await this.aiSessions.prepareAgentTurn(actor, merchantId, {
+          ...conversation,
+          content: message,
+        })
       : undefined
     const runId = await this.agentRuns.start(
       actor,
@@ -63,6 +85,7 @@ export class AgentService {
       message,
       storeId,
       sourcePage,
+      turn,
     )
     void this.executeRun({
       actor,
@@ -74,15 +97,45 @@ export class AgentService {
         : undefined,
       storeId,
       days,
+      sessionId: turn?.sessionId,
+      userMessageId: turn?.userMessageId,
     }).catch(async () => {
       // executeRun 内部已按阶段落库失败状态，这里只兜底防止后台任务抛出未处理异常。
       try {
+        if (await this.agentRuns.isCancelled(runId)) return
         await this.agentRuns.fail(runId, 'Agent execution failed')
+        if (turn) {
+          await this.aiSessions.failAgentTurn(
+            turn.sessionId,
+            'Agent execution failed',
+          )
+        }
       } catch {
         /* 状态已是终态时忽略 */
       }
     })
-    return { runId, status: 'PLANNING' }
+    return {
+      runId,
+      status: 'PLANNING',
+      ...(turn
+        ? { sessionId: turn.sessionId, userMessageId: turn.userMessageId }
+        : {}),
+    }
+  }
+
+  async cancel(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    runId: string,
+  ): Promise<{ cancelled: true }> {
+    const linked = await this.agentRuns.cancel(actor, merchantId, runId)
+    if (linked.sessionId && linked.userMessageId) {
+      await this.aiSessions.cancelAgentTurn(
+        linked.sessionId,
+        linked.userMessageId,
+      )
+    }
+    return { cancelled: true }
   }
 
   /** 受控 ReAct 循环：模型每步基于已回填的工具结果决定继续调用工具或收敛结论。 */
@@ -94,6 +147,8 @@ export class AgentService {
     storeName?: string
     storeId?: string
     days: number
+    sessionId?: string
+    userMessageId?: string
   }): Promise<AgentRunResponse> {
     const { actor, merchantId, runId, message, storeId, days } = input
     const periodContext = `近 ${days} 天（含上一周期对比）`
@@ -113,9 +168,43 @@ export class AgentService {
         (explicitDraftIntent && canWrite),
     )
 
-    const messages: AgentConversationMessage[] = [
-      { role: 'user', content: contextualMessage },
-    ]
+    const branchContext =
+      input.sessionId && input.userMessageId
+        ? await this.aiService.getModelContextForLeaf(
+            input.sessionId,
+            input.userMessageId,
+          )
+        : []
+    const messages: AgentConversationMessage[] = branchContext.flatMap(
+      (item): AgentConversationMessage[] => {
+        if (item.role === 'system') {
+          return [{ role: 'system', content: item.content }]
+        }
+        if (item.role === 'assistant') {
+          return [{ role: 'assistant', content: item.content }]
+        }
+        if (item.role === 'user') {
+          return [{ role: 'user', content: item.content }]
+        }
+        return []
+      },
+    )
+    if (messages.length > 0 && messages.at(-1)?.role === 'user') {
+      messages[messages.length - 1] = {
+        role: 'user',
+        content: contextualMessage,
+      }
+    } else {
+      messages.push({ role: 'user', content: contextualMessage })
+    }
+    if (input.sessionId && input.userMessageId && branchContext.length === 1) {
+      void this.aiService.generateTitleForConversation(
+        actor,
+        merchantId,
+        input.sessionId,
+        branchContext,
+      )
+    }
     const results: AgentToolCallSummary[] = []
     let usage: AiUsage = {
       promptTokens: 0,
@@ -126,6 +215,9 @@ export class AgentService {
     let answer: string | null = null
 
     for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
+      if (await this.agentRuns.isCancelled(runId)) {
+        throw new AgentRunCancelledError()
+      }
       const budgetLeft = MAX_TOOL_CALLS - results.length
       const forceFinish = step === MAX_AGENT_STEPS - 1 || budgetLeft <= 0
       let stepResult: Awaited<ReturnType<AiProvider['runAgentStep']>>
@@ -146,6 +238,9 @@ export class AgentService {
         break
       }
       usage = addUsage(usage, stepResult.usage)
+      if (await this.agentRuns.isCancelled(runId)) {
+        throw new AgentRunCancelledError()
+      }
 
       if (stepResult.toolCalls.length === 0) {
         answer = stepResult.answer?.trim() || FALLBACK_ANSWER
@@ -162,6 +257,9 @@ export class AgentService {
         toolCalls: calls,
       })
       for (const call of calls) {
+        if (await this.agentRuns.isCancelled(runId)) {
+          throw new AgentRunCancelledError()
+        }
         let summary: AgentToolCallSummary
         if (
           call.name === 'create_product_optimization_draft' &&
@@ -223,6 +321,19 @@ export class AgentService {
       const id = (result.output as Record<string, unknown>).optimizationId
       return typeof id === 'string' ? [id] : []
     })
+    const assistantMessageId =
+      !(await this.agentRuns.isCancelled(runId)) &&
+      input.sessionId &&
+      input.userMessageId
+        ? await this.aiSessions.finishAgentTurn(
+            input.sessionId,
+            input.userMessageId,
+            answer,
+          )
+        : undefined
+    if (await this.agentRuns.isCancelled(runId)) {
+      throw new AgentRunCancelledError()
+    }
     await this.agentRuns.complete({
       runId,
       answer,
@@ -230,6 +341,7 @@ export class AgentService {
       providerName: this.aiProvider.name,
       modelName: this.aiProvider.model,
       createdOptimizationIds,
+      assistantMessageId,
     })
 
     return {
@@ -238,6 +350,9 @@ export class AgentService {
       toolCalls: results,
       usage,
       createdOptimizationIds,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+      ...(assistantMessageId ? { assistantMessageId } : {}),
     }
   }
 }

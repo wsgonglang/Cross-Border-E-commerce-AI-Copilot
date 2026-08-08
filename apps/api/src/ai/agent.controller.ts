@@ -32,6 +32,13 @@ export class AgentController {
       dto.storeId,
       dto.days,
       dto.sourcePage,
+      dto.sessionId
+        ? {
+            sessionId: dto.sessionId,
+            parentMessageId: dto.parentMessageId,
+            regenerateMessageId: dto.regenerateMessageId,
+          }
+        : undefined,
     )
   }
 
@@ -42,5 +49,14 @@ export class AgentController {
     @Param('runId') runId: string,
   ) {
     return this.agentRunsService.get(user, merchantId, runId)
+  }
+
+  @Post('runs/:runId/cancel')
+  cancelRun(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('merchantId') merchantId: string,
+    @Param('runId') runId: string,
+  ) {
+    return this.agentService.cancel(user, merchantId, runId)
   }
 }

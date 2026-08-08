@@ -96,6 +96,48 @@ export class AiSessionsService {
     if (!session) {
       throw new NotFoundException('会话不存在')
     }
+    const linkedRuns = this.prisma.agentRun
+      ? await this.prisma.agentRun.findMany({
+          where: { sessionId, assistantMessageId: { not: null } },
+          include: { toolCalls: { orderBy: { sequence: 'asc' } } },
+        })
+      : []
+    const runByAssistantMessage = new Map(
+      linkedRuns.flatMap((run) =>
+        run.assistantMessageId
+          ? [
+              [
+                run.assistantMessageId,
+                {
+                  runId: run.id,
+                  status: run.status,
+                  toolCalls: run.toolCalls.map((call) => ({
+                    id: call.externalCallId,
+                    name: call.name as import('@cross-border/shared').AgentToolCallSummary['name'],
+                    status:
+                      call.status as import('@cross-border/shared').AgentToolCallSummary['status'],
+                    input:
+                      typeof call.input === 'object' && call.input !== null
+                        ? (call.input as Record<string, unknown>)
+                        : {},
+                    ...(call.output !== null ? { output: call.output } : {}),
+                    ...(call.error ? { error: call.error } : {}),
+                  })),
+                  usage: {
+                    promptTokens: run.promptTokens,
+                    completionTokens: run.completionTokens,
+                    totalTokens: run.totalTokens,
+                  },
+                  ...(run.providerName
+                    ? { providerName: run.providerName }
+                    : {}),
+                  ...(run.modelName ? { modelName: run.modelName } : {}),
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    )
     return {
       id: session.id,
       merchantId: session.merchantId,
@@ -112,8 +154,152 @@ export class AiSessionsService {
       activeLeafMessageId:
         session.activeLeafMessageId ??
         this.findLatestLeaf(session.messages, session.messages.at(-1)?.id),
-      messages: session.messages.map((message) => this.toMessage(message)),
+      messages: session.messages.map((message) =>
+        this.toMessage(message, runByAssistantMessage.get(message.id)),
+      ),
     }
+  }
+
+  async prepareAgentTurn(
+    user: AuthenticatedUser,
+    merchantId: string,
+    input: {
+      sessionId: string
+      content: string
+      parentMessageId?: string
+      regenerateMessageId?: string
+    },
+  ): Promise<{ sessionId: string; userMessageId: string }> {
+    await this.assertOwnedSession(user, merchantId, input.sessionId)
+    return this.prisma.$transaction(async (transaction) => {
+      if (input.regenerateMessageId) {
+        const assistant = await transaction.aiMessage.findFirst({
+          where: {
+            id: input.regenerateMessageId,
+            sessionId: input.sessionId,
+            role: 'assistant',
+          },
+          select: { parentId: true },
+        })
+        if (!assistant?.parentId) {
+          throw new NotFoundException('可重新生成的 AI 消息不存在')
+        }
+        await transaction.aiSession.update({
+          where: { id: input.sessionId },
+          data: {
+            status: 'STREAMING',
+            error: null,
+            activeLeafMessageId: assistant.parentId,
+          },
+        })
+        return {
+          sessionId: input.sessionId,
+          userMessageId: assistant.parentId,
+        }
+      }
+
+      let parentChildren: string[] = []
+      if (input.parentMessageId) {
+        const parent = await transaction.aiMessage.findFirst({
+          where: { id: input.parentMessageId, sessionId: input.sessionId },
+          select: { childrenIds: true },
+        })
+        if (!parent) throw new NotFoundException('父消息不在当前会话中')
+        parentChildren = this.toStringArray(parent.childrenIds)
+      }
+      const message = await transaction.aiMessage.create({
+        data: {
+          sessionId: input.sessionId,
+          role: 'user',
+          content: input.content,
+          parentId: input.parentMessageId ?? null,
+          childrenIds: [],
+          revisionJson: [
+            { id: '', content: input.content, createdAt: Date.now() },
+          ],
+          revisionIdx: 0,
+        },
+      })
+      if (input.parentMessageId) {
+        await transaction.aiMessage.update({
+          where: { id: input.parentMessageId },
+          data: { childrenIds: [...parentChildren, message.id] },
+        })
+      }
+      await transaction.aiSession.update({
+        where: { id: input.sessionId },
+        data: {
+          status: 'STREAMING',
+          error: null,
+          activeLeafMessageId: message.id,
+        },
+      })
+      return { sessionId: input.sessionId, userMessageId: message.id }
+    })
+  }
+
+  async finishAgentTurn(
+    sessionId: string,
+    userMessageId: string,
+    content: string,
+  ): Promise<string> {
+    return this.prisma.$transaction(async (transaction) => {
+      const parent = await transaction.aiMessage.findFirst({
+        where: { id: userMessageId, sessionId },
+        select: { childrenIds: true },
+      })
+      if (!parent) throw new NotFoundException('Agent 用户消息不存在')
+      const assistant = await transaction.aiMessage.create({
+        data: {
+          sessionId,
+          role: 'assistant',
+          content,
+          parentId: userMessageId,
+          childrenIds: [],
+          revisionJson: [{ id: '', content, createdAt: Date.now() }],
+          revisionIdx: 0,
+        },
+      })
+      await transaction.aiMessage.update({
+        where: { id: userMessageId },
+        data: {
+          childrenIds: [
+            ...this.toStringArray(parent.childrenIds),
+            assistant.id,
+          ],
+        },
+      })
+      await transaction.aiSession.update({
+        where: { id: sessionId },
+        data: {
+          status: 'DONE',
+          error: null,
+          activeLeafMessageId: assistant.id,
+        },
+      })
+      return assistant.id
+    })
+  }
+
+  async failAgentTurn(sessionId: string, error: string): Promise<void> {
+    await this.prisma.aiSession.update({
+      where: { id: sessionId },
+      data: { status: 'ERROR', error: error.slice(0, 1000) },
+    })
+  }
+
+  async cancelAgentTurn(
+    sessionId: string,
+    userMessageId: string,
+  ): Promise<void> {
+    await this.prisma.aiSession.update({
+      where: { id: sessionId },
+      data: {
+        status: 'DONE',
+        error: null,
+        activeLeafMessageId: userMessageId,
+      },
+    })
   }
 
   async selectBranch(
@@ -448,26 +634,29 @@ export class AiSessionsService {
     }
   }
 
-  private toMessage(message: {
-    id: string
-    sessionId: string
-    role: string
-    content: string
-    parentId: string | null
-    childrenIds: unknown
-    revisionJson: unknown
-    revisionIdx: number
-    favorited: boolean
-    createdAt: Date
-    links: Array<{
+  private toMessage(
+    message: {
       id: string
-      entityType: string
-      entityId: string
-      entityCode: string
-      entityLabel: string
+      sessionId: string
+      role: string
+      content: string
+      parentId: string | null
+      childrenIds: unknown
+      revisionJson: unknown
+      revisionIdx: number
+      favorited: boolean
       createdAt: Date
-    }>
-  }): AiMessage {
+      links: Array<{
+        id: string
+        entityType: string
+        entityId: string
+        entityCode: string
+        entityLabel: string
+        createdAt: Date
+      }>
+    },
+    agentRun?: AiMessage['agentRun'],
+  ): AiMessage {
     return {
       id: message.id,
       sessionId: message.sessionId,
@@ -480,6 +669,7 @@ export class AiSessionsService {
       favorited: message.favorited,
       links: message.links.map((link) => this.toLink(link)),
       createdAt: message.createdAt.toISOString(),
+      ...(agentRun ? { agentRun } : {}),
     }
   }
 

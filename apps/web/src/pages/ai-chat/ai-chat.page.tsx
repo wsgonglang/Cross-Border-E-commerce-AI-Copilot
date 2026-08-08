@@ -8,16 +8,13 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { downloadAiSession } from '../../api/ai'
-import { AgentPanel } from '../../components/agent-panel/agent-panel'
 import { useBusinessContext } from '../../contexts/business-context'
 import { useAppSelector } from '../../store/hooks'
 import type {
-  AiAssistantMode,
   LinkFormValues,
   SessionFormValues,
   ShareFormValues,
 } from './ai-chat.types'
-import { AssistantModeHeader } from './components/assistant-mode-header'
 import { ChatComposer } from './components/chat-composer'
 import { ChatMessageList } from './components/chat-message-list'
 import { ConversationSidebar } from './components/conversation-sidebar'
@@ -35,12 +32,10 @@ import './styles.css'
 
 export function AiChatPage() {
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
-  const user = useAppSelector((state) => state.auth.user)
-  const { merchantId, storeId, currentStore } = useBusinessContext()
+  const { merchantId, storeId } = useBusinessContext()
   const navigate = useNavigate()
   const [messageApi, messageContext] = antMessage.useMessage()
   const [error, setError] = useState<string | null>(null)
-  const [assistantMode, setAssistantMode] = useState<AiAssistantMode>('chat')
   const [editingSession, setEditingSession] = useState<AiSessionSummary | null>(
     null,
   )
@@ -60,6 +55,7 @@ export function AiChatPage() {
     refreshSessions: conversations.loadSessions,
     onSessionLoaded: conversations.updateSessionSummary,
     onError: setError,
+    storeId: storeId || undefined,
   })
   const sharing = useAiSharing({ token, merchantId })
 
@@ -173,57 +169,43 @@ export function AiChatPage() {
       />
 
       <div className="ai-chat-main">
-        <AssistantModeHeader
-          mode={assistantMode}
-          currentSession={conversations.currentSession}
-          onChange={setAssistantMode}
-        />
-        {assistantMode === 'agent' ? (
-          <AgentPanel
-            token={token}
-            merchantId={merchantId}
-            storeId={storeId || undefined}
-            storeName={currentStore?.name}
-            sourcePage="ai-chat"
-            canWrite={
-              user?.roles.some((role) =>
-                ['admin', 'operator'].includes(role),
-              ) ?? false
+        <div className="ai-assistant-mode">
+          <div>
+            <strong>AI 运营助手</strong>
+            <div>可直接聊天，也可查商品、库存、订单、经营数据与平台规则</div>
+          </div>
+        </div>
+        <>
+          <ChatMessageList
+            currentSessionId={conversations.currentSessionId}
+            sessionView={conversations.sessionView}
+            messages={chat.messages}
+            allMessages={chat.allMessages}
+            streaming={chat.streaming}
+            error={error}
+            endRef={chat.messagesEndRef}
+            onClearError={() => setError(null)}
+            onFavorite={(item) =>
+              runAction(() => chat.favorite(item)).then(() => undefined)
             }
+            onLink={setLinkingMessage}
+            onEdit={setEditingMessage}
+            onRegenerate={chat.regenerate}
+            onSelectBranch={chat.selectBranch}
+            onBusinessNavigate={navigateToBusiness}
           />
-        ) : (
-          <>
-            <ChatMessageList
-              currentSessionId={conversations.currentSessionId}
-              sessionView={conversations.sessionView}
-              messages={chat.messages}
-              allMessages={chat.allMessages}
-              streaming={chat.streaming}
-              error={error}
-              endRef={chat.messagesEndRef}
-              onClearError={() => setError(null)}
-              onFavorite={(item) =>
-                runAction(() => chat.favorite(item)).then(() => undefined)
-              }
-              onLink={setLinkingMessage}
-              onEdit={setEditingMessage}
-              onRegenerate={chat.regenerate}
-              onSelectBranch={chat.selectBranch}
-              onBusinessNavigate={navigateToBusiness}
-            />
-            <ChatComposer
-              currentSession={conversations.currentSession}
-              inputValue={chat.inputValue}
-              streaming={chat.streaming}
-              onChange={chat.setInputValue}
-              onSend={async () => {
-                setError(null)
-                await chat.send()
-              }}
-              onStop={chat.stop}
-            />
-          </>
-        )}
+          <ChatComposer
+            currentSession={conversations.currentSession}
+            inputValue={chat.inputValue}
+            streaming={chat.streaming}
+            onChange={chat.setInputValue}
+            onSend={async () => {
+              setError(null)
+              await chat.send()
+            }}
+            onStop={chat.stop}
+          />
+        </>
       </div>
 
       <SessionEditModal

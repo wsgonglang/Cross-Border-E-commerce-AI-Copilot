@@ -17,11 +17,11 @@ const operator: AuthenticatedUser = {
 describe('AgentRunsService', () => {
   it('persists tool calls incrementally and completes the run', async () => {
     const upsert = vi.fn().mockResolvedValue(undefined)
-    const update = vi.fn().mockResolvedValue(undefined)
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
     const prisma = {
       agentRun: {
         create: vi.fn().mockResolvedValue({ id: 'run-1' }),
-        update,
+        updateMany,
       },
       agentToolCall: { upsert },
       $transaction: vi.fn((operations: unknown[]) => Promise.all(operations)),
@@ -74,11 +74,14 @@ describe('AgentRunsService', () => {
         update: {},
       }),
     )
-    const completeArgs = update.mock.calls.at(-1)?.[0] as {
-      where: { id: string }
+    const completeArgs = updateMany.mock.calls.at(-1)?.[0] as {
+      where: { id: string; status: { in: string[] } }
       data: { status: string }
     }
-    expect(completeArgs.where).toEqual({ id: 'run-1' })
+    expect(completeArgs.where).toEqual({
+      id: 'run-1',
+      status: { in: ['PLANNING', 'RUNNING'] },
+    })
     expect(completeArgs.data.status).toBe('COMPLETED')
   })
 
@@ -126,14 +129,49 @@ describe('AgentRunsService', () => {
   })
 
   it('stores a safe failure state without provider details', async () => {
-    const update = vi.fn().mockResolvedValue(undefined)
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
     const service = new AgentRunsService(
-      { agentRun: { update } } as unknown as PrismaService,
+      { agentRun: { updateMany } } as unknown as PrismaService,
       {} as MerchantAccessService,
     )
 
     await service.fail('run-1', 'AI Agent planning failed')
 
-    expect(update).toHaveBeenCalledOnce()
+    expect(updateMany).toHaveBeenCalledOnce()
+  })
+
+  it('cancels only the current user non-terminal run and returns its message link', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 })
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'run-1',
+      sessionId: 'session-1',
+      userMessageId: 'message-1',
+    })
+    const service = new AgentRunsService(
+      { agentRun: { findFirst, updateMany } } as unknown as PrismaService,
+      {
+        assertAccess: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MerchantAccessService,
+    )
+
+    await expect(
+      service.cancel(operator, 'merchant-1', 'run-1'),
+    ).resolves.toEqual({
+      sessionId: 'session-1',
+      userMessageId: 'message-1',
+    })
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'run-1',
+          merchantId: 'merchant-1',
+          userId: operator.id,
+        },
+      }),
+    )
+    const cancelArgs = updateMany.mock.calls[0]?.[0] as {
+      data: { status: string }
+    }
+    expect(cancelArgs.data.status).toBe('CANCELLED')
   })
 })

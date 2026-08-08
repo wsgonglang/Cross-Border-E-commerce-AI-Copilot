@@ -37,6 +37,28 @@ export class AgentRunDto {
   @IsString()
   @MaxLength(120)
   sourcePage?: string
+
+  @ApiPropertyOptional({
+    description: 'Persist this run in an AI conversation',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  sessionId?: string
+
+  @ApiPropertyOptional({
+    description: 'Create the user turn under this message',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  parentMessageId?: string
+
+  @ApiPropertyOptional({ description: 'Regenerate an existing assistant turn' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  regenerateMessageId?: string
 }
 
 export class AiResultsQueryDto {

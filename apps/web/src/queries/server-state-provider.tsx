@@ -1,28 +1,16 @@
-import { QueryClientProvider, useQueryClient } from '@tanstack/react-query'
-import { type ReactNode, useEffect, useRef } from 'react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { type ReactNode, useMemo } from 'react'
 
 import { useAppSelector } from '../store/hooks'
-import { queryClient } from './query-client'
-
-function AuthQueryBoundary({ children }: { children: ReactNode }) {
-  const userId = useAppSelector((state) => state.auth.user?.id)
-  const client = useQueryClient()
-  const previousUserId = useRef(userId)
-
-  useEffect(() => {
-    if (previousUserId.current !== userId) {
-      client.clear()
-      previousUserId.current = userId
-    }
-  }, [client, userId])
-
-  return children
-}
+import { createQueryClient } from './query-client'
 
 export function ServerStateProvider({ children }: { children: ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthQueryBoundary>{children}</AuthQueryBoundary>
-    </QueryClientProvider>
-  )
+  const userId = useAppSelector((state) => state.auth.user?.id)
+  // A per-user client prevents cross-account cache reuse and avoids clearing a
+  // newly-started merchant query in an effect immediately after session restore.
+  // userId intentionally invalidates the client even though client creation
+  // itself does not read it; the dependency is the cache ownership boundary.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const client = useMemo(() => createQueryClient(), [userId])
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }

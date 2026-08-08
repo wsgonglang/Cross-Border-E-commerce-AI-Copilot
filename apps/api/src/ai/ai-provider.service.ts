@@ -537,6 +537,9 @@ export class OpenAiProvider implements AiProvider {
           content: message.content,
         }
       }
+      if (message.role === 'system') {
+        return { role: 'system' as const, content: message.content }
+      }
       return { role: 'user' as const, content: message.content }
     })
   }

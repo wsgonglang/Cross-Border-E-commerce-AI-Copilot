@@ -83,4 +83,28 @@ describe('ChatMessageList', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.getByText('思考中…')).toBeInTheDocument()
   })
+
+  it('shows the persisted Agent tool trace and usage on an assistant message', () => {
+    renderList({
+      ...message,
+      agentRun: {
+        runId: 'run-1',
+        status: 'COMPLETED',
+        toolCalls: [
+          {
+            id: 'call-1',
+            name: 'search_products',
+            status: 'success',
+            input: { keyword: 'charger' },
+          },
+        ],
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        modelName: 'qwen3.7-plus',
+      },
+    })
+
+    fireEvent.click(screen.getByText('业务工具轨迹（1）'))
+    expect(screen.getByText('search_products')).toBeInTheDocument()
+    expect(screen.getByText('Token 15 · qwen3.7-plus')).toBeInTheDocument()
+  })
 })

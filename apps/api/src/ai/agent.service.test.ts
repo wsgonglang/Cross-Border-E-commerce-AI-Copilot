@@ -7,6 +7,8 @@ import type { AiProvider } from './ai-provider.service'
 import { AgentService } from './agent.service'
 import type { AgentRunsService } from './agent-runs.service'
 import type { AgentToolsService } from './agent-tools.service'
+import type { AiService } from './ai.service'
+import type { AiSessionsService } from './ai-sessions.service'
 
 const operator = {
   id: 'user-1',
@@ -41,6 +43,8 @@ function runs() {
     appendToolCall: vi.fn().mockResolvedValue(undefined),
     complete: vi.fn().mockResolvedValue(undefined),
     fail: vi.fn().mockResolvedValue(undefined),
+    isCancelled: vi.fn().mockResolvedValue(false),
+    cancel: vi.fn(),
   }
 }
 
@@ -49,6 +53,8 @@ function service(input: {
   tools?: { execute: ReturnType<typeof vi.fn> }
   agentRuns?: ReturnType<typeof runs>
   assertStore?: ReturnType<typeof vi.fn>
+  aiService?: Partial<AiService>
+  aiSessions?: Partial<AiSessionsService>
 }) {
   return new AgentService(
     {
@@ -59,11 +65,71 @@ function service(input: {
     {
       assertStore: input.assertStore ?? vi.fn(),
     } as unknown as StoresService,
+    (input.aiService ?? {
+      getModelContextForLeaf: vi.fn().mockResolvedValue([]),
+      generateTitleForConversation: vi.fn().mockResolvedValue(undefined),
+    }) as unknown as AiService,
+    (input.aiSessions ?? {
+      prepareAgentTurn: vi.fn(),
+      finishAgentTurn: vi.fn(),
+      failAgentTurn: vi.fn(),
+    }) as unknown as AiSessionsService,
     input.aiProvider,
   )
 }
 
 describe('AgentService', () => {
+  it('persists a session turn and plans from the active branch context', async () => {
+    const agentRuns = runs()
+    const getModelContextForLeaf = vi.fn().mockResolvedValue([
+      { role: 'user', content: '先查全部商品' },
+      { role: 'assistant', content: '已找到三个商品' },
+      { role: 'user', content: '重点看第一个' },
+    ])
+    const prepareAgentTurn = vi.fn().mockResolvedValue({
+      sessionId: 'session-1',
+      userMessageId: 'message-user-2',
+    })
+    const finishAgentTurn = vi.fn().mockResolvedValue('message-ai-2')
+    const target = service({
+      aiProvider: provider(),
+      agentRuns,
+      aiService: {
+        getModelContextForLeaf,
+        generateTitleForConversation: vi.fn(),
+      },
+      aiSessions: {
+        prepareAgentTurn,
+        finishAgentTurn,
+        failAgentTurn: vi.fn(),
+      },
+    })
+
+    const started = await target.run(
+      operator,
+      'merchant-1',
+      '重点看第一个',
+      undefined,
+      7,
+      'ai-chat',
+      { sessionId: 'session-1' },
+    )
+
+    expect(started).toMatchObject({
+      runId: 'run-1',
+      sessionId: 'session-1',
+      userMessageId: 'message-user-2',
+    })
+    await vi.waitFor(() => expect(finishAgentTurn).toHaveBeenCalledOnce())
+    expect(getModelContextForLeaf).toHaveBeenCalledWith(
+      'session-1',
+      'message-user-2',
+    )
+    expect(agentRuns.complete).toHaveBeenCalledWith(
+      expect.objectContaining({ assistantMessageId: 'message-ai-2' }),
+    )
+  })
+
   it('returns the run id immediately and completes in the background', async () => {
     const agentRuns = runs()
     const target = service({ aiProvider: provider(), agentRuns })
@@ -449,6 +515,7 @@ describe('AgentService', () => {
       '请优化 P-DEMO-001 并分析经营数据',
       undefined,
       'dashboard',
+      undefined,
     )
   })
 

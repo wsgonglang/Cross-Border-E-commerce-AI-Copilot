@@ -18,6 +18,18 @@ export interface AiMessage {
   favorited?: boolean
   links: AiMessageLink[]
   createdAt: string
+  agentRun?: {
+    runId: string
+    status: import('./agent').AgentRunStatus
+    toolCalls: import('./agent').AgentToolCallSummary[]
+    usage: {
+      promptTokens: number
+      completionTokens: number
+      totalTokens: number
+    }
+    providerName?: string
+    modelName?: string
+  }
 }
 
 export type AiMessageLinkType = 'PRODUCT' | 'ORDER'

@@ -29,13 +29,19 @@ export interface AgentRunResponse {
     totalTokens: number
   }
   createdOptimizationIds: string[]
+  sessionId?: string
+  userMessageId?: string
+  assistantMessageId?: string
 }
 
-export type AgentRunStatus = 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+export type AgentRunStatus =
+  'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 export interface AgentRunStartResponse {
   runId: string
   status: AgentRunStatus
+  sessionId?: string
+  userMessageId?: string
 }
 
 export interface AgentRunSummary extends AgentRunResponse {

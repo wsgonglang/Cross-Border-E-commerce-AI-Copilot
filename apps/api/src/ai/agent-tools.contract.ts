@@ -15,6 +15,7 @@ export interface PlannedAgentToolCall {
 
 /** 受控 Agent 循环中的中立会话消息，由各 Provider 自行映射到具体协议。 */
 export type AgentConversationMessage =
+  | { role: 'system'; content: string }
   | { role: 'user'; content: string }
   | {
       role: 'assistant'

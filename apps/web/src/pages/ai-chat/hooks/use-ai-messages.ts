@@ -12,6 +12,8 @@ import {
   linkAiMessage,
   selectAiSessionBranch,
 } from '../../../api/ai'
+import { cancelAgentRun, runAgent } from '../../../api/agent'
+import { getAgentRun } from '../../../api/ai-results'
 import { getActiveLineage } from '../branching'
 
 interface UseAiMessagesInput {
@@ -22,6 +24,7 @@ interface UseAiMessagesInput {
   onSessionLoaded: (session: AiSessionDetail) => void
   refreshSessions: () => Promise<void>
   token: string
+  storeId?: string
 }
 
 interface StreamInput {
@@ -37,51 +40,15 @@ interface StreamInput {
   ) => void
   updateStreaming: (sessionId: string, streaming: boolean) => void
   updateActiveLeaf: (sessionId: string, messageId: string) => void
+  onRunStarted: (runId: string) => void
   text: string
   token: string
+  storeId?: string
 }
 
 function streamMessage(input: StreamInput): AbortController {
   const userMessageId = `optimistic-user-${Date.now()}`
   const assistantId = `optimistic-assistant-${Date.now()}`
-  let renderBuffer = ''
-  let animationFrameId: number | null = null
-
-  const flushRenderBuffer = () => {
-    if (!renderBuffer) return
-    const content = renderBuffer
-    renderBuffer = ''
-    input.updateMessages(input.sessionId, (previous) =>
-      previous.map((item) =>
-        item.id === assistantId
-          ? { ...item, content: item.content + content }
-          : item,
-      ),
-    )
-  }
-
-  const scheduleRender = () => {
-    if (animationFrameId !== null) return
-    animationFrameId = window.requestAnimationFrame(() => {
-      animationFrameId = null
-      flushRenderBuffer()
-    })
-  }
-
-  const appendChunk = (chunk: string) => {
-    if (!chunk) return
-    renderBuffer += chunk
-    scheduleRender()
-  }
-
-  const flushPendingRender = () => {
-    if (animationFrameId !== null) {
-      window.cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
-    flushRenderBuffer()
-  }
-
   const optimisticUser: AiMessage = {
     id: userMessageId,
     sessionId: input.sessionId,
@@ -111,43 +78,64 @@ function streamMessage(input: StreamInput): AbortController {
   input.updateStreaming(input.sessionId, true)
   const controller = new AbortController()
 
-  const endpoint = input.regenerateMessageId
-    ? `/api/merchants/${input.merchantId}/ai/sessions/${input.sessionId}/messages/${input.regenerateMessageId}/regenerate`
-    : `/api/merchants/${input.merchantId}/ai/chat`
-  void fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${input.token}`,
-    },
-    body: input.regenerateMessageId
-      ? undefined
-      : JSON.stringify({
-          content: input.text,
-          sessionId: input.sessionId,
-          parentMessageId: input.parentMessageId,
-        }),
-    signal: controller.signal,
+  void runAgent(input.token, input.merchantId, input.text, {
+    storeId: input.storeId,
+    sourcePage: 'ai-chat',
+    sessionId: input.sessionId,
+    parentMessageId: input.parentMessageId,
+    regenerateMessageId: input.regenerateMessageId,
   })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`请求失败：${response.status}`)
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('当前浏览器不支持流式响应')
-      const decoder = new TextDecoder('utf-8')
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          appendChunk(decoder.decode())
-          break
+    .then(async (started) => {
+      input.onRunStarted(started.runId)
+      while (!controller.signal.aborted) {
+        const run = await getAgentRun(
+          input.token,
+          input.merchantId,
+          started.runId,
+        )
+        const progressText = run.toolCalls.length
+          ? `已调用 ${run.toolCalls.map((call) => call.name).join('、')}，正在整理结论…`
+          : 'Agent 正在理解问题并规划…'
+        input.updateMessages(input.sessionId, (previous) =>
+          previous.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  content:
+                    run.status === 'COMPLETED' ? run.answer : progressText,
+                  agentRun: {
+                    runId: run.runId,
+                    status: run.status,
+                    toolCalls: run.toolCalls,
+                    usage: run.usage,
+                    providerName: run.providerName,
+                    modelName: run.modelName,
+                  },
+                }
+              : item,
+          ),
+        )
+        if (run.status === 'COMPLETED') return
+        if (run.status === 'FAILED') {
+          throw new Error(run.error || 'Agent 运行失败')
         }
-        appendChunk(decoder.decode(value, { stream: true }))
+        await new Promise<void>((resolve) => {
+          const timer = window.setTimeout(resolve, 600)
+          controller.signal.addEventListener(
+            'abort',
+            () => {
+              window.clearTimeout(timer)
+              resolve()
+            },
+            { once: true },
+          )
+        })
       }
     })
     .catch((error: Error) => {
       if (error.name !== 'AbortError') input.onError(error.message)
     })
     .finally(() => {
-      flushPendingRender()
       input.updateStreaming(input.sessionId, false)
       void input.onComplete()
     })
@@ -163,6 +151,7 @@ export function useAiMessages({
   onSessionLoaded,
   refreshSessions,
   token,
+  storeId,
 }: UseAiMessagesInput) {
   const [messagesBySession, setMessagesBySession] = useState<
     Record<string, AiMessage[]>
@@ -173,6 +162,7 @@ export function useAiMessages({
   const [streamingSessionIds, setStreamingSessionIds] = useState<string[]>([])
   const [inputValue, setInputValue] = useState('')
   const abortControllersRef = useRef(new Map<string, AbortController>())
+  const runIdsRef = useRef(new Map<string, string>())
   const streamingSessionIdsRef = useRef(new Set<string>())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -277,16 +267,19 @@ export function useAiMessages({
     const controller = streamMessage({
       token,
       merchantId,
+      storeId,
       sessionId,
       text,
       parentMessageId,
       updateMessages,
       updateStreaming,
       updateActiveLeaf,
+      onRunStarted: (runId) => runIdsRef.current.set(sessionId, runId),
       onError,
       onComplete: async () => {
         if (abortControllersRef.current.get(sessionId) === controller) {
           abortControllersRef.current.delete(sessionId)
+          runIdsRef.current.delete(sessionId)
         }
         await loadCurrentSession(sessionId, true)
         await refreshSessions()
@@ -304,6 +297,7 @@ export function useAiMessages({
     refreshSessions,
     streaming,
     token,
+    storeId,
     updateMessages,
     updateStreaming,
     updateActiveLeaf,
@@ -321,15 +315,18 @@ export function useAiMessages({
       const controller = streamMessage({
         token,
         merchantId,
+        storeId,
         sessionId,
         ...options,
         updateMessages,
         updateStreaming,
         updateActiveLeaf,
+        onRunStarted: (runId) => runIdsRef.current.set(sessionId, runId),
         onError,
         onComplete: async () => {
           if (abortControllersRef.current.get(sessionId) === controller) {
             abortControllersRef.current.delete(sessionId)
+            runIdsRef.current.delete(sessionId)
           }
           await loadCurrentSession(sessionId, true)
           await refreshSessions()
@@ -343,6 +340,7 @@ export function useAiMessages({
       onError,
       refreshSessions,
       token,
+      storeId,
       updateActiveLeaf,
       updateMessages,
       updateStreaming,
@@ -373,13 +371,15 @@ export function useAiMessages({
       )
         return Promise.resolve()
       startBranchStream(currentSessionId, {
-        text: '',
+        text:
+          allMessages.find((item) => item.id === message.parentId)?.content ??
+          '',
         parentMessageId: message.parentId,
         regenerateMessageId: message.id,
       })
       return Promise.resolve()
     },
-    [currentSessionId, startBranchStream, streaming],
+    [allMessages, currentSessionId, startBranchStream, streaming],
   )
 
   const selectBranch = useCallback(
@@ -408,9 +408,15 @@ export function useAiMessages({
 
   const stop = useCallback(() => {
     if (currentSessionId) {
+      const runId = runIdsRef.current.get(currentSessionId)
+      if (runId) {
+        void cancelAgentRun(token, merchantId, runId).catch((error: Error) =>
+          onError(error.message),
+        )
+      }
       abortControllersRef.current.get(currentSessionId)?.abort()
     }
-  }, [currentSessionId])
+  }, [currentSessionId, merchantId, onError, token])
 
   const favorite = useCallback(
     async (item: AiMessage) => {

@@ -20,10 +20,13 @@ interface AgentRunRecord {
   merchantId: string
   storeId: string | null
   userId: string
+  sessionId: string | null
+  userMessageId: string | null
+  assistantMessageId: string | null
   message: string
   sourcePage: string | null
   answer: string | null
-  status: 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+  status: 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
   providerName: string | null
   modelName: string | null
   promptTokens: number
@@ -92,6 +95,7 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     message: string,
     storeId?: string,
     sourcePage?: string,
+    conversation?: { sessionId: string; userMessageId: string },
   ): Promise<string> {
     const run = await this.prisma.agentRun.create({
       data: {
@@ -100,6 +104,12 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         userId: actor.id,
         message,
         ...(sourcePage ? { sourcePage } : {}),
+        ...(conversation
+          ? {
+              sessionId: conversation.sessionId,
+              userMessageId: conversation.userMessageId,
+            }
+          : {}),
         status: 'PLANNING',
       },
       select: { id: true },
@@ -108,8 +118,8 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async markRunning(runId: string): Promise<void> {
-    await this.prisma.agentRun.update({
-      where: { id: runId },
+    await this.prisma.agentRun.updateMany({
+      where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
       data: { status: 'RUNNING' },
     })
   }
@@ -137,8 +147,8 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         update: {},
       }),
       // 同步刷新运行行的 updatedAt，避免长运行被孤儿回收误杀。
-      this.prisma.agentRun.update({
-        where: { id: runId },
+      this.prisma.agentRun.updateMany({
+        where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
         data: { status: 'RUNNING' },
       }),
     ])
@@ -151,9 +161,13 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     providerName: string
     modelName: string
     createdOptimizationIds: string[]
+    assistantMessageId?: string
   }): Promise<void> {
-    await this.prisma.agentRun.update({
-      where: { id: input.runId },
+    await this.prisma.agentRun.updateMany({
+      where: {
+        id: input.runId,
+        status: { in: ['PLANNING', 'RUNNING'] },
+      },
       data: {
         status: 'COMPLETED',
         answer: input.answer,
@@ -163,20 +177,52 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         completionTokens: input.usage.completionTokens,
         totalTokens: input.usage.totalTokens,
         createdOptimizationIds: asJson(input.createdOptimizationIds),
+        ...(input.assistantMessageId
+          ? { assistantMessageId: input.assistantMessageId }
+          : {}),
         completedAt: new Date(),
       },
     })
   }
 
   async fail(runId: string, error: string): Promise<void> {
-    await this.prisma.agentRun.update({
-      where: { id: runId },
+    await this.prisma.agentRun.updateMany({
+      where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
       data: {
         status: 'FAILED',
         error: error.slice(0, 1000),
         completedAt: new Date(),
       },
     })
+  }
+
+  async isCancelled(runId: string): Promise<boolean> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id: runId },
+      select: { status: true },
+    })
+    return run?.status === 'CANCELLED'
+  }
+
+  async cancel(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    runId: string,
+  ): Promise<{ sessionId?: string; userMessageId?: string }> {
+    await this.merchantAccess.assertAccess(actor, merchantId)
+    const run = await this.prisma.agentRun.findFirst({
+      where: { id: runId, merchantId, userId: actor.id },
+      select: { id: true, sessionId: true, userMessageId: true },
+    })
+    if (!run) throw new NotFoundException('Agent 运行记录不存在')
+    await this.prisma.agentRun.updateMany({
+      where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
+      data: { status: 'CANCELLED', completedAt: new Date() },
+    })
+    return {
+      ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+      ...(run.userMessageId ? { userMessageId: run.userMessageId } : {}),
+    }
   }
 
   async get(
@@ -211,6 +257,11 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
       merchantId: record.merchantId,
       ...(record.storeId ? { storeId: record.storeId } : {}),
       userId: record.userId,
+      ...(record.sessionId ? { sessionId: record.sessionId } : {}),
+      ...(record.userMessageId ? { userMessageId: record.userMessageId } : {}),
+      ...(record.assistantMessageId
+        ? { assistantMessageId: record.assistantMessageId }
+        : {}),
       message: record.message,
       ...(record.sourcePage ? { sourcePage: record.sourcePage } : {}),
       answer: record.answer ?? '',
