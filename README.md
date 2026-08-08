@@ -15,7 +15,7 @@
 
 - [项目亮点](#项目亮点)
 - [一分钟架构](#一分钟架构)
-- [三步启动](#三步启动)
+- [快速启动](#快速启动)
 - [截图预览](#截图预览)
 - [核心功能](#核心功能)
 - [演示账号](#演示账号)
@@ -33,7 +33,7 @@
 | 🧠 **AI 业务闭环** | 单商品优化 → 批量任务 → Agent Tool Calling → 规则 RAG，全链路可演示            |
 | 🔐 **安全第一**    | 服务端 RBAC、商家隔离、人工确认写回、AI 只创建草稿不直接改数据                 |
 | 🌐 **跨境多店铺**  | 一个商家管理多个店铺/渠道，商品刊登、订单、经营数据按店铺隔离                  |
-| 🧪 **工程底线**    | 125+ 自动化测试、路由懒加载、中英文界面、Docker Compose 一键启动               |
+| 🧪 **工程底线**    | 158 项自动化测试、核心界面双语治理、路由懒加载、Docker Compose 一键启动        |
 | 📊 **AI 可度量**   | 草稿接受率、工具成功率、时延、Token — 全部可追溯，按商家隔离                   |
 | 🎯 **面向面试**    | 8 分钟可演示从登录到 AI 优化写回的全闭环（[演示指南](docs/interview-demo.md)） |
 
@@ -48,7 +48,7 @@ flowchart LR
     MySQL[("🗄️ MySQL<br/><small>业务事实 · 审计 · RAG</small>")]
     Redis[("⚡ Redis<br/><small>队列 · 缓存</small>")]
     Worker["🏭 Worker<br/><small>BullMQ · AI Provider</small>"]
-    AI[("🤖 AI Provider<br/><small>OpenAI / Mock</small>")]
+    AI[("🤖 AI Provider<br/><small>OpenAI-compatible / Mock</small>")]
 
     Browser <-->|HTTP / SSE| API
     API -->|读写| MySQL
@@ -74,28 +74,46 @@ flowchart LR
 
 ---
 
-## 三步启动
+## 快速启动
+
+### 方式一：Docker 一键演示（推荐）
 
 ```powershell
-# 1. 安装依赖 & 构建共享包
+Copy-Item .env.example .env
+docker compose --profile app up --build -d
+```
+
+该命令会启动 MySQL、Redis、API、Worker 和 Web，并执行数据库迁移及演示数据初始化。启动后访问：
+
+- Web：`http://localhost:5173`
+- API 健康检查：`http://localhost:3000/api/health`
+- Swagger：`http://localhost:3000/api/docs`
+
+### 方式二：本地开发
+
+先安装依赖、准备环境变量并启动基础设施：
+
+```powershell
 npm install
 Copy-Item .env.example .env
 npm run build --workspace @cross-border/shared
 
-# 2. 启动基础设施（MySQL + Redis）
 docker compose up -d mysql redis
-
-# 3. 初始化数据库 & 启动全服务
 npm run prisma:deploy --workspace @cross-border/api
 npm run prisma:seed --workspace @cross-border/api
-npm run dev:api   # http://localhost:3000
-npm run dev:worker
-npm run dev:web   # http://localhost:5173
 ```
 
-> **或一键 Docker 演示：** `docker compose --profile app up --build -d` 启动全部服务 + 演示种子数据。
->
-> 要求 Node.js 20+、MySQL 8、Redis 7。未配 `OPENAI_API_KEY` 时自动使用 Mock Provider。密钥和密码仅供本地开发，不能用于生产。
+然后分别在三个终端中启动 API、Worker 和 Web：
+
+```powershell
+npm run dev:api
+npm run dev:worker
+npm run dev:web
+```
+
+> 本地开发要求 Node.js 20+、MySQL 8、Redis 7。未配置 `OPENAI_API_KEY` 时自动使用 Mock Provider。
+
+真实模型通过 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 和 `AI_MODEL` 配置。这里的 `OPENAI_*` 表示 **OpenAI 兼容协议**，并不限定只能使用 OpenAI 模型；SiliconFlow、阿里云百炼 Qwen 等提供兼容 Chat Completions 接口的服务均可接入。真实密钥只放在未提交的 `.env` 中。
 
 ---
 
@@ -103,15 +121,15 @@ npm run dev:web   # http://localhost:5173
 
 > 图片位于 `docs/screenshots/`，推送到 GitHub 后会自动渲染。
 
-| 页面                                                          | 预览                                                  |
-| ------------------------------------------------------------- | ----------------------------------------------------- |
-| 🌐 **登录页** ![alt text](docs/screenshots/image.png)         | 中英文切换 · 一键填充 admin/operator/viewer           |
-| 📊 **运营工作台** ![alt text](docs/screenshots/image-1.png)   | 经营指标 · 待办聚合 · 快捷 Agent · 后台任务           |
-| 💬 **AI 运营助手** ![alt text](docs/screenshots/image-2.png)  | 统一 Agent 对话 · 连续追问 · Markdown 回复 · 消息复制 |
-| 📦 **商品 AI 优化** ![alt text](docs/screenshots/image-3.png) | 原文对比 · 多语草稿 · 合规风险 · 人工确认写回         |
-| 🏆 **AI 成果中心** ![alt text](docs/screenshots/image-4.png)  | Agent 运行 · 商品草稿 · 批量任务 · 统一索引           |
-| 📋 **订单运营** ![alt text](docs/screenshots/image-5.png)     | 保存视图 · 组合筛选 · 批量逐单操作 · 时间线           |
-| 📈 **AI 质量度量** ![alt text](docs/screenshots/image-6.png)  | 接受率 · 成功率 · 时延 · Token · 按商家隔离           |
+| 页面                                                                              | 预览                                                  |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 🌐 **登录页** ![登录页双语界面与演示账号](docs/screenshots/image.png)             | 中英文切换 · 一键填充 admin/operator/viewer           |
+| 📊 **运营工作台** ![跨境电商运营工作台](docs/screenshots/image-1.png)             | 经营指标 · 待办聚合 · 快捷 Agent · 后台任务           |
+| 💬 **AI 运营助手** ![统一 Agent 对话与连续追问界面](docs/screenshots/image-2.png) | 统一 Agent 对话 · 连续追问 · Markdown 回复 · 消息复制 |
+| 📦 **商品 AI 优化** ![商品多语言 AI 优化审核界面](docs/screenshots/image-3.png)   | 原文对比 · 多语草稿 · 合规风险 · 人工确认写回         |
+| 🏆 **AI 成果中心** ![AI 运行与草稿成果中心](docs/screenshots/image-4.png)         | Agent 运行 · 商品草稿 · 批量任务 · 统一索引           |
+| 📋 **订单运营** ![订单运营筛选与详情界面](docs/screenshots/image-5.png)           | 保存视图 · 组合筛选 · 批量逐单操作 · 时间线           |
+| 📈 **AI 质量度量** ![AI 质量指标与趋势界面](docs/screenshots/image-6.png)         | 接受率 · 成功率 · 时延 · Token · 按商家隔离           |
 
 ---
 
@@ -158,13 +176,20 @@ npm run dev:web   # http://localhost:5173
 - **用户与权限管理**：管理员可新增、编辑、分配角色和商家范围、重置密码、启停及软删除用户；禁止操作当前账号和移除最后一个启用管理员
 - **商家隔离**：Merchant 是数据隔离租户，复合外键防跨商家错误关联
 - **AI 只写草稿**：Agent 不具备直接修改商品/库存/订单的工具
-- **审计日志**：商品修改、Agent 工具、批量任务、结构化导入、规则文档全记录
+- **审计日志**：商品、订单、Agent 工具、批量任务、结构化导入、规则文档和用户权限等关键写操作全程记录
 
 ### 🌐 跨境多店铺
 
 - **店铺管理**：Store 表示平台/市场/币种/语言/时区
 - **商品刊登**：一个主商品在多个店铺拥有独立标题、价格、语言和发布状态
 - **上下文切换**：全局商家/店铺切换器同步影响工作台、商品、订单、Agent
+
+### 🌍 界面国际化
+
+- **独立界面语言**：`zh-CN` / `en-US` 不与商品目标语言混用，选择结果持久化，并同步 Ant Design、日期、金额和数量格式
+- **核心演示面覆盖**：登录、导航、业务上下文、运营工作台、商品/SKU、优化审核、AI 质量、AI 运营助手和用户权限均使用集中翻译资源
+- **防漏翻译**：自动测试要求每个中文资源键都有非空英文值；`npm run i18n:check` 阻止核心界面重新引入硬编码中文
+- **内容边界**：商品名称、订单数据、用户输入和 AI 历史回复保留原始语言，不伪装成已经翻译的界面文案
 
 ### 📚 规则知识库 (RAG)
 
@@ -212,6 +237,14 @@ npm run dev:web   # http://localhost:5173
 3. 对照原文与草稿，查看卖点、合规风险、建议和置信度
 4. **人工确认并写回** — Product Service 事务写回 + 版本校验 + 审计
 5. 进入审计接口 `GET /api/merchants/:merchantId/audit-logs` 验证
+
+### 管理员用户与权限演示
+
+1. 使用管理员账号进入 **用户与权限** → 新增一个测试用户
+2. 分配 operator/viewer 角色与可访问商家 → 使用该账号登录验证菜单和数据范围
+3. 编辑用户资料、重置密码并停用账号 → 确认已有 Refresh Token 被撤销且账号无法继续访问
+4. 重新启用后执行软删除 → 确认历史业务关系和审计记录仍然保留
+5. 尝试停用当前账号或最后一个启用管理员 → 确认服务端拒绝高风险操作
 
 ### Agent Tool Calling 演示
 
@@ -292,7 +325,7 @@ npm run verify
 
 依次执行：格式化检查 → ESLint → TypeScript 类型检查 → 自动化测试 → 生产构建。
 
-**156 项自动化测试**覆盖：
+**158 项自动化测试**覆盖：
 
 - 认证与 RBAC（登录、角色路由、用户 CRUD、当前账号/最后管理员保护、令牌撤销、商家隔离、viewer 403）
 - 商品（分页隔离、负库存、跨商家失败）
@@ -304,7 +337,7 @@ npm run verify
 - 规则 RAG（商家过滤、拒答、评估集 Recall@3=1.0）
 - 结构化导入（CSV/XLSX 解析边界、预览零写入、键序无关幂等）
 - AI 质量（聚合、空样本、商家和时间窗口缓存隔离）
-- 国际化（中英文切换、金额/日期格式化）
+- 国际化（中英文切换、金额/日期格式化、资源键完整性、核心界面硬编码检查、AI 会话英文控件）
 - 服务端状态（缓存键、精确失效、切换上下文不覆盖）
 
 CI（GitHub Actions）在真实 MySQL/Redis 上运行迁移 + 验证，并分别构建 API/Worker/Web 镜像。
@@ -329,4 +362,4 @@ CI（GitHub Actions）在真实 MySQL/Redis 上运行迁移 + 验证，并分别
 
 ---
 
-> **作品集说明**：本项目是校招“AI 全栈偏前端”岗位作品集。阶段 0-30 已完成业务闭环、工程治理、作品集呈现、完整用户权限管理、跨会话生成竞态治理、长上下文与分叉对话、统一 Agent 会话入口和消息呈现增强；后续只修复可验证的体验与质量缺口，不再增加业务领域。不暴露真实密钥或个人数据。
+> **作品集说明**：本项目是校招“AI 全栈偏前端”岗位作品集。阶段 0-31 已完成业务闭环、工程治理、作品集呈现、完整用户权限管理、跨会话生成竞态治理、长上下文与分叉对话、统一 Agent 会话入口、消息呈现增强和核心界面国际化治理；后续只修复可验证的体验与质量缺口，不再增加业务领域。不暴露真实密钥或个人数据。

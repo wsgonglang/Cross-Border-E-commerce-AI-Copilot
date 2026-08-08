@@ -1,5 +1,6 @@
 import type { AiSessionSummary } from '@cross-border/shared'
 import { Segmented, Typography } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import type { AiAssistantMode } from '../ai-chat.types'
 
@@ -14,14 +15,16 @@ export function AssistantModeHeader({
   mode,
   onChange,
 }: AssistantModeHeaderProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="ai-assistant-mode">
       <Segmented
         value={mode}
         onChange={onChange}
         options={[
-          { label: '普通对话', value: 'chat' },
-          { label: '业务 Agent', value: 'agent' },
+          { label: t('aiChat.legacyChat'), value: 'chat' },
+          { label: t('aiChat.legacyAgent'), value: 'agent' },
         ]}
       />
       {currentSession ? (

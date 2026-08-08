@@ -1,6 +1,7 @@
 import { SendOutlined, StopOutlined } from '@ant-design/icons'
 import type { AiSessionSummary } from '@cross-border/shared'
 import { Alert, Button, Input } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 const { TextArea } = Input
 
@@ -21,14 +22,12 @@ export function ChatComposer({
   onStop,
   streaming,
 }: ChatComposerProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="ai-chat-input-area">
       {currentSession?.archivedAt ? (
-        <Alert
-          type="info"
-          showIcon
-          title="该会话已归档，如需继续对话请先恢复"
-        />
+        <Alert type="info" showIcon title={t('aiChat.composer.archived')} />
       ) : (
         <div className="ai-chat-input-row">
           <TextArea
@@ -40,28 +39,32 @@ export function ChatComposer({
                 void onSend()
               }
             }}
-            placeholder={streaming ? 'AI 正在生成中…' : '输入消息，Enter 发送'}
+            placeholder={
+              streaming
+                ? t('aiChat.composer.generating')
+                : t('aiChat.composer.placeholder')
+            }
             disabled={streaming}
             autoSize={{ minRows: 2, maxRows: 6 }}
           />
           {streaming ? (
             <Button
               danger
-              aria-label="停止生成"
+              aria-label={t('aiChat.composer.stopLabel')}
               icon={<StopOutlined />}
               onClick={onStop}
             >
-              停止
+              {t('aiChat.composer.stop')}
             </Button>
           ) : (
             <Button
               type="primary"
-              aria-label="发送消息"
+              aria-label={t('aiChat.composer.sendLabel')}
               icon={<SendOutlined />}
               onClick={() => void onSend()}
               disabled={!inputValue.trim()}
             >
-              发送
+              {t('aiChat.composer.send')}
             </Button>
           )}
         </div>

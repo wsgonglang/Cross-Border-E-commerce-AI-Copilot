@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from 'antd'
 import type { RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { AiSessionView } from '../ai-chat.types'
 import { getMessageSiblings } from '../branching'
@@ -63,6 +64,8 @@ export function ChatMessageList({
   onSelectBranch,
   sessionView,
 }: ChatMessageListProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="ai-chat-messages">
       {error ? (
@@ -72,8 +75,8 @@ export function ChatMessageList({
         <Empty
           description={
             sessionView === 'archived'
-              ? '没有已归档会话'
-              : '新建或选择一个会话开始协作'
+              ? t('aiChat.messages.noArchived')
+              : t('aiChat.messages.empty')
           }
         />
       ) : null}
@@ -110,7 +113,9 @@ export function ChatMessageList({
                     item.content
                   )
                 ) : (
-                  <span className="ai-chat-thinking">思考中…</span>
+                  <span className="ai-chat-thinking">
+                    {t('aiChat.messages.thinking')}
+                  </span>
                 )}
               </div>
               {item.agentRun?.toolCalls.length ? (
@@ -121,7 +126,9 @@ export function ChatMessageList({
                   items={[
                     {
                       key: 'trace',
-                      label: `业务工具轨迹（${item.agentRun.toolCalls.length}）`,
+                      label: t('aiChat.messages.trace', {
+                        count: item.agentRun.toolCalls.length,
+                      }),
                       children: (
                         <Space direction="vertical" size={6}>
                           {item.agentRun.toolCalls.map((call) => (
@@ -131,7 +138,9 @@ export function ChatMessageList({
                                   call.status === 'success' ? 'green' : 'red'
                                 }
                               >
-                                {call.status === 'success' ? '成功' : '失败'}
+                                {call.status === 'success'
+                                  ? t('aiChat.messages.success')
+                                  : t('aiChat.messages.failed')}
                               </Tag>
                               <span>{call.name}</span>
                             </Space>
@@ -150,20 +159,30 @@ export function ChatMessageList({
               ) : null}
               {!item.id.startsWith('optimistic-') ? (
                 <Space size={4} className="ai-message-actions">
-                  <Tooltip title="复制消息">
+                  <Tooltip title={t('aiChat.messages.copy')}>
                     <Button
                       type="text"
                       size="small"
-                      aria-label="复制消息"
+                      aria-label={t('aiChat.messages.copy')}
                       icon={<CopyOutlined />}
                       onClick={() => void onCopy(item)}
                     />
                   </Tooltip>
-                  <Tooltip title={item.favorited ? '取消收藏' : '收藏消息'}>
+                  <Tooltip
+                    title={
+                      item.favorited
+                        ? t('aiChat.messages.unfavorite')
+                        : t('aiChat.messages.favorite')
+                    }
+                  >
                     <Button
                       type="text"
                       size="small"
-                      aria-label={item.favorited ? '取消收藏消息' : '收藏消息'}
+                      aria-label={
+                        item.favorited
+                          ? t('aiChat.messages.unfavoriteLabel')
+                          : t('aiChat.messages.favorite')
+                      }
                       icon={
                         item.favorited ? (
                           <HeartFilled className="favorite-active" />
@@ -177,33 +196,33 @@ export function ChatMessageList({
                   <Button
                     type="text"
                     size="small"
-                    aria-label="关联业务"
+                    aria-label={t('aiChat.messages.link')}
                     icon={<LinkOutlined />}
                     onClick={() => onLink(item)}
                   >
-                    关联业务
+                    {t('aiChat.messages.link')}
                   </Button>
                   {item.role === 'user' ? (
                     <Button
                       type="text"
                       size="small"
-                      aria-label="编辑并分叉"
+                      aria-label={t('aiChat.messages.editLabel')}
                       icon={<EditOutlined />}
                       disabled={streaming}
                       onClick={() => onEdit?.(item)}
                     >
-                      编辑
+                      {t('aiChat.messages.edit')}
                     </Button>
                   ) : (
                     <Button
                       type="text"
                       size="small"
-                      aria-label="重新生成回答"
+                      aria-label={t('aiChat.messages.regenerateLabel')}
                       icon={<ReloadOutlined />}
                       disabled={streaming}
                       onClick={() => void onRegenerate?.(item)}
                     >
-                      重新生成
+                      {t('aiChat.messages.regenerate')}
                     </Button>
                   )}
                 </Space>
@@ -213,7 +232,7 @@ export function ChatMessageList({
                   <Button
                     type="text"
                     size="small"
-                    aria-label="上一个分支"
+                    aria-label={t('aiChat.messages.previousBranch')}
                     icon={<LeftOutlined />}
                     disabled={streaming || branchIndex === 0}
                     onClick={() =>
@@ -226,7 +245,7 @@ export function ChatMessageList({
                   <Button
                     type="text"
                     size="small"
-                    aria-label="下一个分支"
+                    aria-label={t('aiChat.messages.nextBranch')}
                     icon={<RightOutlined />}
                     disabled={streaming || branchIndex === siblings.length - 1}
                     onClick={() =>

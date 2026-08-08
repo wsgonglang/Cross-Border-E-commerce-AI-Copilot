@@ -5,6 +5,7 @@ import type {
 } from '@cross-border/shared'
 import { message as antMessage } from 'antd'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { downloadAiSession } from '../../api/ai'
@@ -31,6 +32,7 @@ import './message-styles.css'
 import './styles.css'
 
 export function AiChatPage() {
+  const { t } = useTranslation()
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const { merchantId, storeId } = useBusinessContext()
   const navigate = useNavigate()
@@ -73,7 +75,11 @@ export function AiChatPage() {
       if (successMessage) messageApi.success(successMessage)
       return true
     } catch (actionError: unknown) {
-      setError(actionError instanceof Error ? actionError.message : '操作失败')
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : t('aiChat.actionFailed'),
+      )
       return false
     }
   }
@@ -88,7 +94,7 @@ export function AiChatPage() {
           title: values.title,
           groupId: values.groupId ?? '',
         }),
-      '会话信息已更新',
+      t('aiChat.sessionUpdated'),
     )
     if (saved) setEditingSession(null)
   }
@@ -96,7 +102,7 @@ export function AiChatPage() {
   const saveMessageLink = async (target: AiMessage, values: LinkFormValues) => {
     const saved = await runAction(
       () => chat.link(target, values),
-      '消息已关联业务对象',
+      t('aiChat.messageLinked'),
     )
     if (saved) setLinkingMessage(null)
   }
@@ -104,7 +110,7 @@ export function AiChatPage() {
   const createShare = async (values: ShareFormValues): Promise<boolean> =>
     runAction(
       () => sharing.create(values.recipientUserIds, values.expiresInHours),
-      '内部只读分享已创建',
+      t('aiChat.shareCreated'),
     )
 
   const navigateToBusiness = (
@@ -158,7 +164,7 @@ export function AiChatPage() {
         onArchive={(session, archived) =>
           runAction(
             () => conversations.archiveSession(session, archived),
-            archived ? '会话已归档' : '会话已恢复',
+            archived ? t('aiChat.archived') : t('aiChat.restored'),
           ).then(() => undefined)
         }
         onDelete={(session) =>
@@ -171,8 +177,8 @@ export function AiChatPage() {
       <div className="ai-chat-main">
         <div className="ai-assistant-mode">
           <div>
-            <strong>AI 运营助手</strong>
-            <div>可直接聊天，也可查商品、库存、订单、经营数据与平台规则</div>
+            <strong>{t('aiChat.title')}</strong>
+            <div>{t('aiChat.description')}</div>
           </div>
         </div>
         <>
@@ -188,7 +194,7 @@ export function AiChatPage() {
             onCopy={(item) =>
               runAction(
                 () => navigator.clipboard.writeText(item.content),
-                '消息已复制',
+                t('aiChat.copied'),
               ).then(() => undefined)
             }
             onFavorite={(item) =>
@@ -242,7 +248,10 @@ export function AiChatPage() {
         onCancel={sharing.close}
         onCreate={createShare}
         onCopy={async (shareId) => {
-          await runAction(() => sharing.copyLink(shareId), '分享链接已复制')
+          await runAction(
+            () => sharing.copyLink(shareId),
+            t('aiChat.shareLinkCopied'),
+          )
         }}
         onRevoke={async (shareId) => {
           await runAction(() => sharing.revoke(shareId))

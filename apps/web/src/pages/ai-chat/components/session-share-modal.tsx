@@ -6,6 +6,7 @@ import type {
 } from '@cross-border/shared'
 import { Alert, Button, Form, List, Modal, Select, Space, Tag } from 'antd'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { ShareFormValues } from '../ai-chat.types'
 
@@ -28,6 +29,8 @@ export function SessionShareModal({
   session,
   shares,
 }: SessionShareModalProps) {
+  const { t, i18n } = useTranslation()
+  const locale = i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'zh-CN'
   const [form] = Form.useForm<ShareFormValues>()
 
   useEffect(() => {
@@ -44,21 +47,23 @@ export function SessionShareModal({
     <Modal
       width={720}
       open={Boolean(session)}
-      title="内部只读分享"
+      title={t('aiChat.share.title')}
       footer={null}
       onCancel={onCancel}
     >
       <Alert
         type="warning"
         showIcon
-        title="仅当前商家的指定登录用户可访问"
-        description="分享保存创建时的脱敏快照，不会随原会话后续修改；到期或撤销后立即失效。"
+        title={t('aiChat.share.warning')}
+        description={t('aiChat.share.description')}
       />
       <Form form={form} layout="vertical" className="modal-form">
         <Form.Item
           name="recipientUserIds"
-          label="授权同事"
-          rules={[{ required: true, message: '请选择至少一位同事' }]}
+          label={t('aiChat.share.recipients')}
+          rules={[
+            { required: true, message: t('aiChat.share.recipientsRequired') },
+          ]}
         >
           <Select
             mode="multiple"
@@ -70,15 +75,15 @@ export function SessionShareModal({
         </Form.Item>
         <Form.Item
           name="expiresInHours"
-          label="有效期"
+          label={t('aiChat.share.expiry')}
           rules={[{ required: true }]}
         >
           <Select
             options={[
-              { label: '1 小时', value: 1 },
-              { label: '24 小时', value: 24 },
-              { label: '3 天', value: 72 },
-              { label: '7 天', value: 168 },
+              { label: t('aiChat.share.hour'), value: 1 },
+              { label: t('aiChat.share.hours24'), value: 24 },
+              { label: t('aiChat.share.days3'), value: 72 },
+              { label: t('aiChat.share.days7'), value: 168 },
             ]}
           />
         </Form.Item>
@@ -87,12 +92,12 @@ export function SessionShareModal({
           icon={<ShareAltOutlined />}
           onClick={() => void create()}
         >
-          创建分享快照
+          {t('aiChat.share.create')}
         </Button>
       </Form>
       <List
-        header="已创建分享"
-        locale={{ emptyText: '暂无分享' }}
+        header={t('aiChat.share.created')}
+        locale={{ emptyText: t('aiChat.share.empty') }}
         dataSource={shares}
         renderItem={(share) => (
           <List.Item
@@ -105,7 +110,7 @@ export function SessionShareModal({
                       type="link"
                       onClick={() => void onCopy(share.id)}
                     >
-                      复制链接
+                      {t('aiChat.share.copy')}
                     </Button>,
                     <Button
                       key="revoke"
@@ -113,7 +118,7 @@ export function SessionShareModal({
                       danger
                       onClick={() => void onRevoke(share.id)}
                     >
-                      撤销
+                      {t('aiChat.share.revoke')}
                     </Button>,
                   ]
             }
@@ -121,11 +126,19 @@ export function SessionShareModal({
             <List.Item.Meta
               title={
                 <Space>
-                  <span>{share.recipientCount} 位收件人</span>
-                  {share.revokedAt ? <Tag color="red">已撤销</Tag> : null}
+                  <span>
+                    {t('aiChat.share.recipientsCount', {
+                      count: share.recipientCount,
+                    })}
+                  </span>
+                  {share.revokedAt ? (
+                    <Tag color="red">{t('aiChat.share.revoked')}</Tag>
+                  ) : null}
                 </Space>
               }
-              description={`有效期至 ${new Date(share.expiresAt).toLocaleString('zh-CN')}`}
+              description={t('aiChat.share.expiresAt', {
+                date: new Date(share.expiresAt).toLocaleString(locale),
+              })}
             />
           </List.Item>
         )}

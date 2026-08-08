@@ -26,6 +26,7 @@ import {
   Tag,
   Typography,
 } from 'antd'
+import { useTranslation } from 'react-i18next'
 
 import type { AiSessionView } from '../ai-chat.types'
 
@@ -73,13 +74,15 @@ export function ConversationSidebar({
   sessions,
   streamingSessionIds,
 }: ConversationSidebarProps) {
+  const { t } = useTranslation()
+
   const confirmDelete = (session: AiSessionSummary) => {
     Modal.confirm({
-      title: '永久删除该会话？',
-      content: '此操作只允许用于已归档会话，且无法恢复。',
-      okText: '永久删除',
+      title: t('aiChat.sidebar.deleteTitle'),
+      content: t('aiChat.sidebar.deleteDescription'),
+      okText: t('aiChat.sidebar.delete'),
       okButtonProps: { danger: true },
-      cancelText: '取消',
+      cancelText: t('common.cancel'),
       onOk: () => onDelete(session),
     })
   }
@@ -87,38 +90,42 @@ export function ConversationSidebar({
   const sessionActions = (session: AiSessionSummary) => [
     {
       key: 'rename',
-      label: '重命名与分组',
+      label: t('aiChat.sidebar.rename'),
       icon: <EditOutlined />,
       onClick: () => onEdit(session),
     },
     {
       key: 'pin',
-      label: session.pinned ? '取消置顶' : '置顶会话',
+      label: session.pinned
+        ? t('aiChat.sidebar.unpin')
+        : t('aiChat.sidebar.pin'),
       icon: session.pinned ? <PushpinFilled /> : <PushpinOutlined />,
       onClick: () => void onPin(session),
     },
     {
       key: 'share',
-      label: '内部分享',
+      label: t('aiChat.sidebar.share'),
       icon: <ShareAltOutlined />,
       disabled: Boolean(session.archivedAt),
       onClick: () => void onShare(session),
     },
     {
       key: 'markdown',
-      label: '导出 Markdown',
+      label: t('aiChat.sidebar.exportMarkdown'),
       icon: <DownloadOutlined />,
       onClick: () => void onDownload(session, 'markdown'),
     },
     {
       key: 'json',
-      label: '导出 JSON',
+      label: t('aiChat.sidebar.exportJson'),
       icon: <DownloadOutlined />,
       onClick: () => void onDownload(session, 'json'),
     },
     {
       key: 'archive',
-      label: session.archivedAt ? '恢复会话' : '归档会话',
+      label: session.archivedAt
+        ? t('aiChat.sidebar.restore')
+        : t('aiChat.sidebar.archive'),
       icon: session.archivedAt ? <UndoOutlined /> : <InboxOutlined />,
       onClick: () => void onArchive(session, !session.archivedAt),
     },
@@ -126,7 +133,7 @@ export function ConversationSidebar({
       ? [
           {
             key: 'delete',
-            label: '永久删除',
+            label: t('aiChat.sidebar.delete'),
             danger: true,
             icon: <DeleteOutlined />,
             onClick: () => confirmDelete(session),
@@ -144,22 +151,22 @@ export function ConversationSidebar({
           icon={<PlusOutlined />}
           onClick={() => void onNew()}
         >
-          新建对话
+          {t('aiChat.sidebar.new')}
         </Button>
         <Input
           allowClear
           prefix={<SearchOutlined />}
           value={keyword}
           onChange={(event) => onKeywordChange(event.target.value)}
-          placeholder="搜索标题或消息内容"
+          placeholder={t('aiChat.sidebar.search')}
         />
         <Space.Compact block>
           <Segmented
             block
             value={sessionView}
             options={[
-              { label: '进行中', value: 'active' },
-              { label: '已归档', value: 'archived' },
+              { label: t('aiChat.sidebar.active'), value: 'active' },
+              { label: t('aiChat.sidebar.archived'), value: 'archived' },
             ]}
             onChange={onViewChange}
           />
@@ -169,14 +176,14 @@ export function ConversationSidebar({
           value={groupId}
           options={groupOptions}
           onChange={onGroupChange}
-          placeholder="全部分组"
+          placeholder={t('aiChat.sidebar.allGroups')}
           suffixIcon={<FolderOutlined />}
         />
       </div>
       <div className="ai-chat-session-list">
         <List
           dataSource={sessions}
-          locale={{ emptyText: '暂无匹配会话' }}
+          locale={{ emptyText: t('aiChat.sidebar.empty') }}
           renderItem={(session) => (
             <List.Item
               key={session.id}
@@ -194,7 +201,9 @@ export function ConversationSidebar({
                     type="text"
                     size="small"
                     icon={<MoreOutlined />}
-                    aria-label={`管理会话 ${session.title}`}
+                    aria-label={t('aiChat.sidebar.manage', {
+                      title: session.title,
+                    })}
                     onClick={(event) => event.stopPropagation()}
                   />
                 </Dropdown>,
@@ -210,7 +219,9 @@ export function ConversationSidebar({
                       <LoadingOutlined
                         spin
                         className="session-streaming"
-                        aria-label={`${session.title} 正在生成`}
+                        aria-label={t('aiChat.sidebar.generating', {
+                          title: session.title,
+                        })}
                       />
                     ) : null}
                     <Typography.Text ellipsis className="session-title">
@@ -220,7 +231,11 @@ export function ConversationSidebar({
                 }
                 description={
                   <Space size={4} wrap>
-                    <span>{session.messageCount} 条消息</span>
+                    <span>
+                      {t('aiChat.sidebar.messageCount', {
+                        count: session.messageCount,
+                      })}
+                    </span>
                     {session.groupId ? <Tag>{session.groupId}</Tag> : null}
                   </Space>
                 }

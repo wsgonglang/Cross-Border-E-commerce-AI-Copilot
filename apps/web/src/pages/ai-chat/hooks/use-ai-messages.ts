@@ -5,6 +5,7 @@ import type {
   AiSessionSummary,
 } from '@cross-border/shared'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   favoriteAiMessage,
@@ -44,6 +45,9 @@ interface StreamInput {
   text: string
   token: string
   storeId?: string
+  progressWithTools: (toolNames: string[]) => string
+  planningText: string
+  runFailedText: string
 }
 
 function streamMessage(input: StreamInput): AbortController {
@@ -94,8 +98,8 @@ function streamMessage(input: StreamInput): AbortController {
           started.runId,
         )
         const progressText = run.toolCalls.length
-          ? `已调用 ${run.toolCalls.map((call) => call.name).join('、')}，正在整理结论…`
-          : 'Agent 正在理解问题并规划…'
+          ? input.progressWithTools(run.toolCalls.map((call) => call.name))
+          : input.planningText
         input.updateMessages(input.sessionId, (previous) =>
           previous.map((item) =>
             item.id === assistantId
@@ -117,7 +121,7 @@ function streamMessage(input: StreamInput): AbortController {
         )
         if (run.status === 'COMPLETED') return
         if (run.status === 'FAILED') {
-          throw new Error(run.error || 'Agent 运行失败')
+          throw new Error(run.error || input.runFailedText)
         }
         await new Promise<void>((resolve) => {
           const timer = window.setTimeout(resolve, 600)
@@ -153,6 +157,14 @@ export function useAiMessages({
   token,
   storeId,
 }: UseAiMessagesInput) {
+  const { t, i18n } = useTranslation()
+  const progressWithTools = useCallback(
+    (toolNames: string[]) =>
+      t('aiChat.progressWithTools', {
+        tools: toolNames.join(i18n.resolvedLanguage === 'en-US' ? ', ' : '、'),
+      }),
+    [i18n.resolvedLanguage, t],
+  )
   const [messagesBySession, setMessagesBySession] = useState<
     Record<string, AiMessage[]>
   >({})
@@ -271,6 +283,9 @@ export function useAiMessages({
       sessionId,
       text,
       parentMessageId,
+      progressWithTools,
+      planningText: t('aiChat.planning'),
+      runFailedText: t('aiChat.runFailed'),
       updateMessages,
       updateStreaming,
       updateActiveLeaf,
@@ -294,9 +309,11 @@ export function useAiMessages({
     merchantId,
     messages,
     onError,
+    progressWithTools,
     refreshSessions,
     streaming,
     token,
+    t,
     storeId,
     updateMessages,
     updateStreaming,
@@ -318,6 +335,9 @@ export function useAiMessages({
         storeId,
         sessionId,
         ...options,
+        progressWithTools,
+        planningText: t('aiChat.planning'),
+        runFailedText: t('aiChat.runFailed'),
         updateMessages,
         updateStreaming,
         updateActiveLeaf,
@@ -338,8 +358,10 @@ export function useAiMessages({
       loadCurrentSession,
       merchantId,
       onError,
+      progressWithTools,
       refreshSessions,
       token,
+      t,
       storeId,
       updateActiveLeaf,
       updateMessages,

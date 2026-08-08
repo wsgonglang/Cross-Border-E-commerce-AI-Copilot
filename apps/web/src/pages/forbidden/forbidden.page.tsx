@@ -1,17 +1,19 @@
 import { Button, Result } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import './styles.css'
 
 export function ForbiddenPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   return (
     <Result
       className="forbidden-page"
       status="403"
-      title="没有访问权限"
-      subTitle="当前账号角色无法访问该页面。服务端也会拒绝对应接口请求。"
+      title={t('app.forbiddenTitle')}
+      subTitle={t('app.forbiddenDescription')}
       extra={
         <Button
           type="primary"
@@ -19,7 +21,7 @@ export function ForbiddenPage() {
             void navigate('/')
           }}
         >
-          返回工作台
+          {t('app.backToDashboard')}
         </Button>
       }
     />

@@ -1,6 +1,7 @@
 import type { AiMessage } from '@cross-border/shared'
 import { Alert, Form, Input, Modal, Select } from 'antd'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { LinkFormValues } from '../ai-chat.types'
 
@@ -15,6 +16,7 @@ export function MessageLinkModal({
   onCancel,
   onSave,
 }: MessageLinkModalProps) {
+  const { t } = useTranslation()
   const [form] = Form.useForm<LinkFormValues>()
 
   useEffect(() => {
@@ -34,36 +36,32 @@ export function MessageLinkModal({
   return (
     <Modal
       open={Boolean(message)}
-      title="关联业务对象"
-      okText="关联"
-      cancelText="取消"
+      title={t('aiChat.linkMessage.title')}
+      okText={t('aiChat.linkMessage.submit')}
+      cancelText={t('common.cancel')}
       onOk={() => void save()}
       onCancel={onCancel}
     >
-      <Alert
-        type="info"
-        showIcon
-        title="使用业务编号关联，服务端会验证当前商家范围"
-      />
+      <Alert type="info" showIcon title={t('aiChat.linkMessage.hint')} />
       <Form form={form} layout="vertical" className="modal-form">
         <Form.Item
           name="entityType"
-          label="对象类型"
+          label={t('aiChat.linkMessage.type')}
           rules={[{ required: true }]}
         >
           <Select
             options={[
-              { label: '商品', value: 'PRODUCT' },
-              { label: '订单', value: 'ORDER' },
+              { label: t('aiChat.linkMessage.product'), value: 'PRODUCT' },
+              { label: t('aiChat.linkMessage.order'), value: 'ORDER' },
             ]}
           />
         </Form.Item>
         <Form.Item
           name="entityReference"
-          label="商品编码或订单号"
+          label={t('aiChat.linkMessage.reference')}
           rules={[{ required: true, max: 64 }]}
         >
-          <Input placeholder="例如 P-DEMO-001 或 ORD-20260701-001" />
+          <Input placeholder={t('aiChat.linkMessage.placeholder')} />
         </Form.Item>
       </Form>
     </Modal>

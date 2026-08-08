@@ -1,6 +1,7 @@
 import type { AiMessage } from '@cross-border/shared'
 import { Alert, Form, Input, Modal } from 'antd'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export function MessageEditModal({
   message,
@@ -11,6 +12,7 @@ export function MessageEditModal({
   onCancel: () => void
   onSave: (content: string) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [form] = Form.useForm<{ content: string }>()
   useEffect(() => {
     if (message) form.setFieldsValue({ content: message.content })
@@ -18,19 +20,15 @@ export function MessageEditModal({
 
   return (
     <Modal
-      title="编辑消息并创建分支"
+      title={t('aiChat.editMessage.title')}
       open={Boolean(message)}
-      okText="发送新分支"
-      cancelText="取消"
+      okText={t('aiChat.editMessage.submit')}
+      cancelText={t('common.cancel')}
       onCancel={onCancel}
       onOk={() => form.submit()}
       destroyOnHidden
     >
-      <Alert
-        type="info"
-        showIcon
-        title="原消息和原回答会保留，可随时通过分支导航切换回来。"
-      />
+      <Alert type="info" showIcon title={t('aiChat.editMessage.hint')} />
       <Form
         form={form}
         layout="vertical"
@@ -38,9 +36,13 @@ export function MessageEditModal({
       >
         <Form.Item
           name="content"
-          label="消息内容"
+          label={t('aiChat.editMessage.content')}
           rules={[
-            { required: true, whitespace: true, message: '请输入消息内容' },
+            {
+              required: true,
+              whitespace: true,
+              message: t('aiChat.editMessage.required'),
+            },
           ]}
         >
           <Input.TextArea rows={6} maxLength={10_000} showCount />

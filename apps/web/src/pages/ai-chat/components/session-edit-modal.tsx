@@ -1,6 +1,7 @@
 import type { AiSessionSummary } from '@cross-border/shared'
 import { Form, Input, Modal, Select } from 'antd'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { SessionFormValues } from '../ai-chat.types'
 
@@ -22,6 +23,7 @@ export function SessionEditModal({
   onSave,
   session,
 }: SessionEditModalProps) {
+  const { t } = useTranslation()
   const [form] = Form.useForm<SessionFormValues>()
 
   useEffect(() => {
@@ -40,31 +42,31 @@ export function SessionEditModal({
   return (
     <Modal
       open={Boolean(session)}
-      title="重命名与分组"
-      okText="保存"
-      cancelText="取消"
+      title={t('aiChat.editSession.title')}
+      okText={t('users.save')}
+      cancelText={t('common.cancel')}
       onOk={() => void save()}
       onCancel={onCancel}
     >
       <Form form={form} layout="vertical">
         <Form.Item
           name="title"
-          label="会话名称"
+          label={t('aiChat.editSession.name')}
           rules={[{ required: true, max: 255 }]}
         >
           <Input />
         </Form.Item>
-        <Form.Item name="groupId" label="分组">
+        <Form.Item name="groupId" label={t('aiChat.editSession.group')}>
           <Select
             allowClear
             showSearch
             options={groupOptions}
-            placeholder="选择或输入分组名称"
+            placeholder={t('aiChat.editSession.groupPlaceholder')}
             popupRender={(menu) => (
               <>
                 {menu}
                 <Input
-                  placeholder="输入新分组后按 Enter"
+                  placeholder={t('aiChat.editSession.newGroup')}
                   onPressEnter={(event) => {
                     const value = event.currentTarget.value.trim().slice(0, 30)
                     if (!value) return

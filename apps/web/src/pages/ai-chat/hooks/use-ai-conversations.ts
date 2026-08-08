@@ -1,5 +1,6 @@
 import type { AiSessionDetail, AiSessionSummary } from '@cross-border/shared'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   createAiSession,
@@ -21,6 +22,7 @@ export function useAiConversations({
   onError,
   token,
 }: UseAiConversationsInput) {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState<AiSessionSummary[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [sessionView, setSessionView] = useState<AiSessionView>('active')
@@ -62,16 +64,20 @@ export function useAiConversations({
   const createSession = useCallback(async () => {
     if (!token || !merchantId) return null
     try {
-      const session = await createAiSession(token, merchantId, 'AI 对话')
+      const session = await createAiSession(
+        token,
+        merchantId,
+        t('aiChat.defaultSessionTitle'),
+      )
       setSessionView('active')
       setSessions((previous) => [session, ...previous])
       setCurrentSessionId(session.id)
       return session
     } catch (error: unknown) {
-      onError(error instanceof Error ? error.message : '创建会话失败')
+      onError(error instanceof Error ? error.message : t('aiChat.createFailed'))
       return null
     }
-  }, [merchantId, onError, token])
+  }, [merchantId, onError, t, token])
 
   const updateSession = useCallback(
     async (
