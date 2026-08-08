@@ -29,6 +29,7 @@ function renderList(
   item: AiMessage,
   callbacks?: {
     onFavorite?: (message: AiMessage) => Promise<void>
+    onCopy?: (message: AiMessage) => Promise<void>
     onLink?: (message: AiMessage) => void
     onBusinessNavigate?: (
       entityType: 'PRODUCT' | 'ORDER',
@@ -44,6 +45,7 @@ function renderList(
       error={null}
       endRef={createRef<HTMLDivElement>()}
       onClearError={vi.fn()}
+      onCopy={callbacks?.onCopy ?? vi.fn()}
       onFavorite={callbacks?.onFavorite ?? vi.fn()}
       onLink={callbacks?.onLink ?? vi.fn()}
       onBusinessNavigate={callbacks?.onBusinessNavigate ?? vi.fn()}
@@ -52,16 +54,35 @@ function renderList(
 }
 
 describe('ChatMessageList', () => {
-  it('keeps favorite and business-link actions on persisted messages', () => {
+  it('keeps copy, favorite and business-link actions on persisted messages', () => {
+    const onCopy = vi.fn().mockResolvedValue(undefined)
     const onFavorite = vi.fn().mockResolvedValue(undefined)
     const onLink = vi.fn()
-    renderList(message, { onFavorite, onLink })
+    renderList(message, { onCopy, onFavorite, onLink })
 
+    fireEvent.click(screen.getByRole('button', { name: '复制消息' }))
     fireEvent.click(screen.getByRole('button', { name: '收藏消息' }))
     fireEvent.click(screen.getByRole('button', { name: '关联业务' }))
 
+    expect(onCopy).toHaveBeenCalledWith(message)
     expect(onFavorite).toHaveBeenCalledWith(message)
     expect(onLink).toHaveBeenCalledWith(message)
+  })
+
+  it('renders assistant Markdown as semantic headings, emphasis, lists and tables', () => {
+    renderList({
+      ...message,
+      content:
+        '### 库存诊断\n\n**状态健康**\n\n- 保持补货节奏\n\n| SKU | 库存 |\n| --- | ---: |\n| SKU-DEMO-BLACK | 120 |',
+      links: [],
+    })
+
+    expect(
+      screen.getByRole('heading', { level: 3, name: '库存诊断' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('状态健康').tagName).toBe('STRONG')
+    expect(screen.getByRole('listitem')).toHaveTextContent('保持补货节奏')
+    expect(screen.getByRole('table')).toHaveTextContent('SKU-DEMO-BLACK')
   })
 
   it('navigates from an existing business association', () => {

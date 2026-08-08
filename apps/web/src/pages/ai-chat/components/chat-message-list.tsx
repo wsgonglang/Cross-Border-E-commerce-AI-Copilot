@@ -1,4 +1,5 @@
 import {
+  CopyOutlined,
   EditOutlined,
   HeartFilled,
   HeartOutlined,
@@ -22,6 +23,7 @@ import type { RefObject } from 'react'
 
 import type { AiSessionView } from '../ai-chat.types'
 import { getMessageSiblings } from '../branching'
+import { MarkdownMessage } from './markdown-message'
 
 interface ChatMessageListProps {
   currentSessionId: string | null
@@ -35,6 +37,7 @@ interface ChatMessageListProps {
     entityCode: string,
   ) => void
   onClearError: () => void
+  onCopy: (message: AiMessage) => Promise<void>
   onFavorite: (message: AiMessage) => Promise<void>
   onLink: (message: AiMessage) => void
   onEdit?: (message: AiMessage) => void
@@ -52,6 +55,7 @@ export function ChatMessageList({
   streaming = false,
   onBusinessNavigate,
   onClearError,
+  onCopy,
   onFavorite,
   onLink,
   onEdit,
@@ -99,7 +103,13 @@ export function ChatMessageList({
             </Avatar>
             <div className="ai-chat-message-content">
               <div className="ai-chat-bubble">
-                {item.content || (
+                {item.content ? (
+                  item.role === 'assistant' ? (
+                    <MarkdownMessage content={item.content} />
+                  ) : (
+                    item.content
+                  )
+                ) : (
                   <span className="ai-chat-thinking">思考中…</span>
                 )}
               </div>
@@ -140,6 +150,15 @@ export function ChatMessageList({
               ) : null}
               {!item.id.startsWith('optimistic-') ? (
                 <Space size={4} className="ai-message-actions">
+                  <Tooltip title="复制消息">
+                    <Button
+                      type="text"
+                      size="small"
+                      aria-label="复制消息"
+                      icon={<CopyOutlined />}
+                      onClick={() => void onCopy(item)}
+                    />
+                  </Tooltip>
                   <Tooltip title={item.favorited ? '取消收藏' : '收藏消息'}>
                     <Button
                       type="text"

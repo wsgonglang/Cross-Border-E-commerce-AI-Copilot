@@ -57,7 +57,6 @@
   background: #fff;
   color: #344054;
   line-height: 1.7;
-  white-space: pre-wrap;
   word-break: break-word;
   box-shadow: 0 1px 2px rgb(16 24 40 / 4%);
 }
@@ -90,6 +89,120 @@
   border-color: #0f766e;
   color: #fff;
   background: #0f766e;
+  white-space: pre-wrap;
+}
+
+.ai-chat-markdown {
+  overflow-x: auto;
+}
+
+.ai-chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ai-chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.ai-chat-markdown h1,
+.ai-chat-markdown h2,
+.ai-chat-markdown h3,
+.ai-chat-markdown h4,
+.ai-chat-markdown h5,
+.ai-chat-markdown h6 {
+  margin: 1.15em 0 0.45em;
+  color: #1d2939;
+  line-height: 1.35;
+}
+
+.ai-chat-markdown h1 {
+  font-size: 1.5em;
+}
+
+.ai-chat-markdown h2 {
+  font-size: 1.35em;
+}
+
+.ai-chat-markdown h3 {
+  font-size: 1.2em;
+}
+
+.ai-chat-markdown h4,
+.ai-chat-markdown h5,
+.ai-chat-markdown h6 {
+  font-size: 1.05em;
+}
+
+.ai-chat-markdown p,
+.ai-chat-markdown ul,
+.ai-chat-markdown ol,
+.ai-chat-markdown blockquote,
+.ai-chat-markdown pre,
+.ai-chat-markdown table {
+  margin: 0 0 0.85em;
+}
+
+.ai-chat-markdown ul,
+.ai-chat-markdown ol {
+  padding-left: 1.5em;
+}
+
+.ai-chat-markdown li + li {
+  margin-top: 0.25em;
+}
+
+.ai-chat-markdown blockquote {
+  padding-left: 12px;
+  border-left: 3px solid #98a2b3;
+  color: #667085;
+}
+
+.ai-chat-markdown code {
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+  background: #f2f4f7;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.ai-chat-markdown pre {
+  max-width: 100%;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: #101828;
+  color: #f2f4f7;
+}
+
+.ai-chat-markdown pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.ai-chat-markdown table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.ai-chat-markdown th,
+.ai-chat-markdown td {
+  padding: 8px 10px;
+  border: 1px solid #d0d5dd;
+  text-align: left;
+}
+
+.ai-chat-markdown th {
+  background: #f9fafb;
+  color: #1d2939;
+  font-weight: 600;
+}
+
+.ai-chat-markdown a {
+  color: #087ea4;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .ai-chat-thinking {

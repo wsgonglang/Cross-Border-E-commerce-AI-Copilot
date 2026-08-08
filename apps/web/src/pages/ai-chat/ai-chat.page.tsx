@@ -185,6 +185,12 @@ export function AiChatPage() {
             error={error}
             endRef={chat.messagesEndRef}
             onClearError={() => setError(null)}
+            onCopy={(item) =>
+              runAction(
+                () => navigator.clipboard.writeText(item.content),
+                '消息已复制',
+              ).then(() => undefined)
+            }
             onFavorite={(item) =>
               runAction(() => chat.favorite(item)).then(() => undefined)
             }
