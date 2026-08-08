@@ -16,6 +16,7 @@ import {
 } from './agent-tools.contract'
 import { AgentToolsService } from './agent-tools.service'
 import { AgentRunsService } from './agent-runs.service'
+import { compactAgentToolResult } from './context-budget'
 
 const MAX_TOOL_CALLS = 6
 const MAX_AGENT_STEPS = 4
@@ -196,9 +197,11 @@ export class AgentService {
           toolCallId: call.id,
           name: summary.name,
           content: JSON.stringify(
-            summary.status === 'success'
-              ? (summary.output ?? {})
-              : { error: summary.error },
+            compactAgentToolResult(
+              summary.status === 'success'
+                ? (summary.output ?? {})
+                : { error: summary.error },
+            ),
           ),
         })
       }

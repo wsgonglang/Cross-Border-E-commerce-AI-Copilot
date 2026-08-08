@@ -148,6 +148,71 @@ describe('AgentService', () => {
     )
   })
 
+  it('bounds oversized tool feedback for the model while preserving the full audited result', async () => {
+    const runAgentStep = vi
+      .fn()
+      .mockResolvedValueOnce({
+        toolCalls: [
+          { id: 'call-1', name: 'get_business_overview', arguments: {} },
+        ],
+        answer: null,
+        usage: zeroUsage,
+      })
+      .mockResolvedValueOnce({
+        toolCalls: [],
+        answer: '已分析',
+        usage: zeroUsage,
+      })
+    const fullOutput = {
+      rows: Array.from({ length: 30 }, (_, index) => ({
+        id: `row-${index}`,
+        description: '经营数据'.repeat(300),
+      })),
+    }
+    const tools = {
+      execute: vi.fn().mockResolvedValue({
+        id: 'call-1',
+        name: 'get_business_overview',
+        status: 'success',
+        input: {},
+        output: fullOutput,
+      }),
+    }
+    const agentRuns = runs()
+    const target = service({
+      aiProvider: provider({ runAgentStep }),
+      tools,
+      agentRuns,
+    })
+
+    await target.executeRun({
+      actor: operator,
+      merchantId: 'merchant-1',
+      runId: 'run-1',
+      message: '查看经营数据',
+      days: 7,
+    })
+
+    const secondStep = runAgentStep.mock.calls[1]?.[0] as {
+      messages: Array<{ role: string; content?: string }>
+    }
+    const feedbackContent =
+      secondStep.messages.find((message) => message.role === 'tool')?.content ??
+      '{}'
+    const modelFeedback = JSON.parse(feedbackContent) as {
+      truncation: { truncated: boolean; budgetTokens: number }
+    }
+    expect(modelFeedback.truncation.truncated).toBe(true)
+    expect(feedbackContent.length).toBeLessThan(
+      JSON.stringify(fullOutput).length,
+    )
+    expect(agentRuns.appendToolCall).toHaveBeenCalledWith(
+      'run-1',
+      expect.objectContaining({ output: fullOutput }),
+      0,
+    )
+  })
+
   it('does not expose the draft tool without explicit intent and refuses rogue calls', async () => {
     const runAgentStep = vi
       .fn()

@@ -32,12 +32,17 @@ function createHarness(provider: AiProvider) {
     aiMessage: {
       findMany: vi.fn().mockResolvedValue([
         {
+          id: 'user-message',
           role: 'user',
           content: '优化标题',
           parentId: null,
           childrenIds: [],
         },
       ]),
+    },
+    aiConversationSummary: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue(undefined),
     },
     $transaction: vi.fn(
       (callback: (client: typeof transaction) => Promise<unknown>) =>
@@ -211,23 +216,33 @@ describe('AiService', () => {
     )
   })
 
-  it('truncates long lineages to the recent history window', async () => {
+  it('compresses an oversized active lineage into a persisted summary plus recent raw messages', async () => {
     const chat = vi.fn().mockResolvedValue(undefined)
+    const summarizeConversation = vi.fn().mockResolvedValue({
+      summary: {
+        overview: '用户正在优化 P-DEMO-001，并要求保留品牌词。',
+        decisions: ['目标市场为美国'],
+        constraints: ['保留品牌词'],
+        entityReferences: ['P-DEMO-001'],
+        openQuestions: ['是否需要西语版本'],
+      },
+      usage: { promptTokens: 100, completionTokens: 30, totalTokens: 130 },
+    })
     const provider: AiProvider = {
       name: 'test',
       model: 'test-model',
       chat,
       generateTitle: () => Promise.resolve('标题优化'),
+      summarizeConversation,
       optimizeProduct: vi.fn(),
       runAgentStep: vi.fn(),
     }
     const { prisma, service, transaction } = createHarness(provider)
     transaction.aiMessage.findFirst.mockResolvedValue({ childrenIds: [] })
-    // 构造 40 条单链消息，末尾为本次新消息，窗口应只保留最近 30 条。
-    const chain = Array.from({ length: 40 }, (_, index) => ({
-      id: index === 39 ? 'user-message' : `m-${index}`,
+    const chain = Array.from({ length: 20 }, (_, index) => ({
+      id: index === 19 ? 'user-message' : `m-${index}`,
       role: index % 2 === 0 ? 'user' : 'assistant',
-      content: `消息-${index}`,
+      content: `${index === 2 ? 'P-DEMO-001 保留品牌词 ' : ''}${'长内容'.repeat(400)}`,
       parentId: index === 0 ? null : `m-${index - 1}`,
       childrenIds: [],
     }))
@@ -237,15 +252,126 @@ describe('AiService', () => {
       operator,
       'merchant-1',
       'session-1',
-      '消息-39',
-      'm-38',
+      '继续优化',
+      'm-18',
+      undefined,
+      vi.fn(),
+    )
+
+    const history = chat.mock.calls[0]?.[0] as Array<{
+      role: string
+      content: string
+    }>
+    expect(history[0]).toMatchObject({ role: 'system' })
+    expect(history[0]?.content).toContain('P-DEMO-001')
+    expect(history.length).toBeLessThan(chain.length)
+    expect(history.at(-1)?.content).toContain('长内容')
+    expect(summarizeConversation).toHaveBeenCalledOnce()
+    const checkpointInput = prisma.aiConversationSummary.upsert.mock
+      .calls[0]?.[0] as unknown as {
+      create: {
+        sessionId: string
+        sourceMessageCount: number
+        totalTokens: number
+      }
+    }
+    expect(checkpointInput.create.sessionId).toBe('session-1')
+    expect(checkpointInput.create.sourceMessageCount).toBeGreaterThan(0)
+    expect(checkpointInput.create.totalTokens).toBe(130)
+  })
+
+  it('reuses a branch-compatible summary checkpoint without another summary call', async () => {
+    const chat = vi.fn().mockResolvedValue(undefined)
+    const summarizeConversation = vi.fn()
+    const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
+      chat,
+      generateTitle: () => Promise.resolve('标题优化'),
+      summarizeConversation,
+      optimizeProduct: vi.fn(),
+      runAgentStep: vi.fn(),
+    }
+    const { prisma, service, transaction } = createHarness(provider)
+    transaction.aiMessage.findFirst.mockResolvedValue({ childrenIds: [] })
+    const chain = Array.from({ length: 14 }, (_, index) => ({
+      id: index === 13 ? 'user-message' : `m-${index}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: '历史内容'.repeat(500),
+      parentId: index === 0 ? null : `m-${index - 1}`,
+      childrenIds: [],
+    }))
+    prisma.aiMessage.findMany.mockResolvedValue(chain)
+    prisma.aiConversationSummary.findMany.mockResolvedValue([
+      {
+        coveredThroughMessageId: 'm-10',
+        summaryJson: {
+          overview: '已讨论 P-DEMO-001 的英文优化。',
+          decisions: [],
+          constraints: [],
+          entityReferences: ['P-DEMO-001'],
+          openQuestions: [],
+        },
+      },
+    ])
+
+    await service.chat(
+      operator,
+      'merchant-1',
+      'session-1',
+      '继续',
+      'm-12',
+      undefined,
+      vi.fn(),
+    )
+
+    const history = chat.mock.calls[0]?.[0] as Array<{
+      role: string
+      content: string
+    }>
+    expect(history[0]?.role).toBe('system')
+    expect(history[0]?.content).toContain('P-DEMO-001')
+    expect(history).toHaveLength(4)
+    expect(summarizeConversation).not.toHaveBeenCalled()
+    expect(prisma.aiConversationSummary.upsert).not.toHaveBeenCalled()
+  })
+
+  it('falls back to a token-bounded recent suffix when summarization fails', async () => {
+    const chat = vi.fn().mockResolvedValue(undefined)
+    const provider: AiProvider = {
+      name: 'test',
+      model: 'test-model',
+      chat,
+      generateTitle: () => Promise.resolve('标题优化'),
+      summarizeConversation: vi.fn().mockRejectedValue(new Error('timeout')),
+      optimizeProduct: vi.fn(),
+      runAgentStep: vi.fn(),
+    }
+    const { prisma, service, transaction } = createHarness(provider)
+    transaction.aiMessage.findFirst.mockResolvedValue({ childrenIds: [] })
+    const chain = Array.from({ length: 20 }, (_, index) => ({
+      id: index === 19 ? 'user-message' : `m-${index}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: `消息-${index}-${'长内容'.repeat(400)}`,
+      parentId: index === 0 ? null : `m-${index - 1}`,
+      childrenIds: [],
+    }))
+    prisma.aiMessage.findMany.mockResolvedValue(chain)
+
+    await service.chat(
+      operator,
+      'merchant-1',
+      'session-1',
+      '继续',
+      'm-18',
       undefined,
       vi.fn(),
     )
 
     const history = chat.mock.calls[0]?.[0] as Array<{ content: string }>
-    expect(history).toHaveLength(30)
-    expect(history[0]?.content).toBe('消息-10')
-    expect(history.at(-1)?.content).toBe('消息-39')
+    expect(history.length).toBeLessThan(chain.length)
+    expect(history[0]?.content).not.toContain('结构化摘要')
+    expect(history.at(-1)?.content).toContain('消息-19')
+    expect(prisma.aiConversationSummary.upsert).not.toHaveBeenCalled()
   })
 })

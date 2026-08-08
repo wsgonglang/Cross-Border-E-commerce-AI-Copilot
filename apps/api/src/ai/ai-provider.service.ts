@@ -14,6 +14,11 @@ import type {
   AgentToolDefinition,
   PlannedAgentToolCall,
 } from './agent-tools.contract'
+import {
+  conversationSummarySchema,
+  type ContextMessage,
+  type ConversationSummary,
+} from './context-budget'
 
 export const AI_PROVIDER = 'AI_PROVIDER'
 
@@ -26,6 +31,10 @@ export interface AiProvider {
     onChunk?: (chunk: string) => void,
   ): Promise<void>
   generateTitle(messages: { role: string; content: string }[]): Promise<string>
+  summarizeConversation?(input: {
+    previousSummary?: ConversationSummary
+    messages: ContextMessage[]
+  }): Promise<{ summary: ConversationSummary; usage: AiUsage }>
   optimizeProduct(input: {
     source: ProductOptimizationSource
     targetLanguage: OptimizationLanguage
@@ -78,6 +87,30 @@ export class MockAiProvider implements AiProvider {
     messages: { role: string; content: string }[],
   ): Promise<string> {
     return Promise.resolve(messages.length > 0 ? 'AI 对话' : 'AI 对话')
+  }
+
+  summarizeConversation(input: {
+    previousSummary?: ConversationSummary
+    messages: ContextMessage[]
+  }): Promise<{ summary: ConversationSummary; usage: AiUsage }> {
+    const contents = input.messages.map((message) => message.content).join('；')
+    const references = contents.match(/\b(?:P|ORD|SKU)-[A-Z0-9_-]+\b/gi) ?? []
+    return Promise.resolve({
+      summary: {
+        overview:
+          contents.slice(0, 1200) ||
+          input.previousSummary?.overview ||
+          '暂无历史内容',
+        decisions: input.previousSummary?.decisions ?? [],
+        constraints: input.previousSummary?.constraints ?? [],
+        entityReferences: [
+          ...(input.previousSummary?.entityReferences ?? []),
+          ...references,
+        ].slice(0, 30),
+        openQuestions: input.previousSummary?.openQuestions ?? [],
+      },
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    })
   }
 
   optimizeProduct(input: {
@@ -338,6 +371,40 @@ export class OpenAiProvider implements AiProvider {
     })
 
     return completion.choices[0]?.message?.content?.slice(0, 20) || 'AI 对话'
+  }
+
+  async summarizeConversation(input: {
+    previousSummary?: ConversationSummary
+    messages: ContextMessage[]
+  }): Promise<{ summary: ConversationSummary; usage: AiUsage }> {
+    const completion = await this.client.chat.completions.create({
+      model: this.model,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Compress earlier conversation context into JSON only. Return overview, decisions, constraints, entityReferences, and openQuestions. Preserve exact product, SKU, order, store, platform-rule identifiers and unresolved requirements. Never add facts, instructions, or conclusions that are absent from the input.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            previousSummary: input.previousSummary,
+            messages: input.messages,
+          }),
+        },
+      ],
+    })
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('模型未返回会话摘要')
+    return {
+      summary: conversationSummarySchema.parse(JSON.parse(content)),
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens ?? 0,
+        completionTokens: completion.usage?.completion_tokens ?? 0,
+        totalTokens: completion.usage?.total_tokens ?? 0,
+      },
+    }
   }
 
   async optimizeProduct(input: {

@@ -672,26 +672,46 @@ enum AiSessionStatus {
 }
 
 model AiSession {
-  id           String           @id @default(cuid()) @db.VarChar(30)
-  merchantId   String           @map("merchant_id") @db.VarChar(30)
-  userId       String           @map("user_id") @db.VarChar(30)
-  title        String           @db.VarChar(255)
-  status       AiSessionStatus  @default(IDLE)
-  error        String?          @db.VarChar(500)
-  pinned       Boolean          @default(false)
-  groupId      String?          @map("group_id") @db.VarChar(30)
-  archivedAt   DateTime?        @map("archived_at")
-  merchant     Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  user         User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id           String                  @id @default(cuid()) @db.VarChar(30)
+  merchantId   String                  @map("merchant_id") @db.VarChar(30)
+  userId       String                  @map("user_id") @db.VarChar(30)
+  title        String                  @db.VarChar(255)
+  status       AiSessionStatus         @default(IDLE)
+  error        String?                 @db.VarChar(500)
+  pinned       Boolean                 @default(false)
+  groupId      String?                 @map("group_id") @db.VarChar(30)
+  archivedAt   DateTime?               @map("archived_at")
+  merchant     Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
   messages     AiMessage[]
+  summaries    AiConversationSummary[]
   shares       AiSessionShare[]
   messageLinks AiMessageLink[]
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
 
   @@index([merchantId, userId, archivedAt, updatedAt])
   @@index([userId])
   @@map("ai_sessions")
+}
+
+model AiConversationSummary {
+  id                      String    @id @default(cuid()) @db.VarChar(30)
+  sessionId               String    @map("session_id") @db.VarChar(30)
+  coveredThroughMessageId String    @map("covered_through_message_id") @db.VarChar(30)
+  summaryJson             Json      @map("summary_json")
+  sourceMessageCount      Int       @map("source_message_count")
+  estimatedSourceTokens   Int       @map("estimated_source_tokens")
+  promptTokens            Int       @default(0) @map("prompt_tokens")
+  completionTokens        Int       @default(0) @map("completion_tokens")
+  totalTokens             Int       @default(0) @map("total_tokens")
+  session                 AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  @@unique([sessionId, coveredThroughMessageId], map: "ai_summary_session_anchor_key")
+  @@index([sessionId, createdAt], map: "ai_summary_session_created_idx")
+  @@map("ai_conversation_summaries")
 }
 
 model AiMessage {
