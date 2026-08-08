@@ -36,6 +36,44 @@ interface StreamInput {
 function streamMessage(input: StreamInput): AbortController {
   const userMessageId = `optimistic-user-${Date.now()}`
   const assistantId = `optimistic-assistant-${Date.now()}`
+  let renderBuffer = ''
+  let animationFrameId: number | null = null
+
+  const flushRenderBuffer = () => {
+    if (!renderBuffer) return
+    const content = renderBuffer
+    renderBuffer = ''
+    input.updateMessages(input.sessionId, (previous) =>
+      previous.map((item) =>
+        item.id === assistantId
+          ? { ...item, content: item.content + content }
+          : item,
+      ),
+    )
+  }
+
+  const scheduleRender = () => {
+    if (animationFrameId !== null) return
+    animationFrameId = window.requestAnimationFrame(() => {
+      animationFrameId = null
+      flushRenderBuffer()
+    })
+  }
+
+  const appendChunk = (chunk: string) => {
+    if (!chunk) return
+    renderBuffer += chunk
+    scheduleRender()
+  }
+
+  const flushPendingRender = () => {
+    if (animationFrameId !== null) {
+      window.cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
+    flushRenderBuffer()
+  }
+
   input.updateMessages(input.sessionId, (previous) => [
     ...previous,
     {
@@ -80,21 +118,18 @@ function streamMessage(input: StreamInput): AbortController {
       const decoder = new TextDecoder('utf-8')
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        input.updateMessages(input.sessionId, (previous) =>
-          previous.map((item) =>
-            item.id === assistantId
-              ? { ...item, content: item.content + chunk }
-              : item,
-          ),
-        )
+        if (done) {
+          appendChunk(decoder.decode())
+          break
+        }
+        appendChunk(decoder.decode(value, { stream: true }))
       }
     })
     .catch((error: Error) => {
       if (error.name !== 'AbortError') input.onError(error.message)
     })
     .finally(() => {
+      flushPendingRender()
       input.updateStreaming(input.sessionId, false)
       void input.onComplete()
     })

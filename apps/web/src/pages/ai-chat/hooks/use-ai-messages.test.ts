@@ -116,6 +116,119 @@ describe('useAiMessages session isolation', () => {
     )
   })
 
+  it('batches multiple stream chunks into one animation frame', async () => {
+    mockedGetAiSession.mockImplementation((_token, _merchantId, id) =>
+      Promise.resolve(session(id, [])),
+    )
+
+    let streamController: ReadableStreamDefaultController<Uint8Array>
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller
+        },
+      }),
+    } as Response)
+    let scheduledFrame: FrameRequestCallback | undefined
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        scheduledFrame = callback
+        return 7
+      })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+
+    const props = hookProps('session-a')
+    const { result } = renderHook(() => useAiMessages(props))
+    await waitFor(() => expect(mockedGetAiSession).toHaveBeenCalled())
+
+    act(() => result.current.setInputValue('stream in batches'))
+    await act(async () => result.current.send())
+    await act(async () => {
+      streamController.enqueue(new TextEncoder().encode('first '))
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      streamController.enqueue(new TextEncoder().encode('second'))
+      await Promise.resolve()
+    })
+
+    expect(requestFrame).toHaveBeenCalledTimes(1)
+    expect(
+      result.current.messages.find((item) => item.role === 'assistant')
+        ?.content,
+    ).toBe('')
+
+    act(() => scheduledFrame?.(16))
+    expect(
+      result.current.messages.find((item) => item.role === 'assistant')
+        ?.content,
+    ).toBe('first second')
+
+    act(() => streamController.close())
+    await waitFor(() => expect(props.refreshSessions).toHaveBeenCalledTimes(1))
+  })
+
+  it('flushes buffered content when generation stops before the next frame', async () => {
+    let generationStarted = false
+    let resolveReload: ((value: AiSessionDetail) => void) | undefined
+    const reload = new Promise<AiSessionDetail>((resolve) => {
+      resolveReload = resolve
+    })
+    mockedGetAiSession.mockImplementation((_token, _merchantId, id) =>
+      generationStarted ? reload : Promise.resolve(session(id, [])),
+    )
+
+    let streamController: ReadableStreamDefaultController<Uint8Array>
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+      },
+    })
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+      init?.signal?.addEventListener('abort', () => {
+        streamController.error(new DOMException('Aborted', 'AbortError'))
+      })
+      return Promise.resolve({ ok: true, body: stream } as Response)
+    })
+    let scheduledFrame: FrameRequestCallback | undefined
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      scheduledFrame = callback
+      return 11
+    })
+    const cancelFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined)
+
+    const props = hookProps('session-a')
+    const { result } = renderHook(() => useAiMessages(props))
+    await waitFor(() => expect(mockedGetAiSession).toHaveBeenCalled())
+    generationStarted = true
+
+    act(() => result.current.setInputValue('stop safely'))
+    await act(async () => result.current.send())
+    await act(async () => {
+      streamController.enqueue(new TextEncoder().encode('buffered partial'))
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(scheduledFrame).toBeTypeOf('function'))
+
+    act(() => result.current.stop())
+    await waitFor(() => expect(result.current.streaming).toBe(false))
+    expect(cancelFrame).toHaveBeenCalledWith(11)
+    expect(
+      result.current.messages.find((item) => item.role === 'assistant')
+        ?.content,
+    ).toBe('buffered partial')
+
+    resolveReload?.(
+      session('session-a', [message('session-a', 'buffered partial')]),
+    )
+    await waitFor(() => expect(props.refreshSessions).toHaveBeenCalledTimes(1))
+  })
+
   it('preserves the optimistic stream when returning and stops that session only', async () => {
     mockedGetAiSession.mockImplementation((_token, _merchantId, id) =>
       Promise.resolve(
