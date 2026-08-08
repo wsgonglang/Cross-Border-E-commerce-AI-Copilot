@@ -70,6 +70,12 @@
   opacity: 0.72;
 }
 
+.ai-message-branch-nav {
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
 .ai-chat-message-user .ai-message-actions {
   justify-content: flex-end;
 }

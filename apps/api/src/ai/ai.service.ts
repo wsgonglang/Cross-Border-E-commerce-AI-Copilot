@@ -81,7 +81,11 @@ export class AiService {
       }
       await transaction.aiSession.update({
         where: { id: currentSessionId },
-        data: { status: 'STREAMING', error: null },
+        data: {
+          status: 'STREAMING',
+          error: null,
+          activeLeafMessageId: message.id,
+        },
       })
       return message
     })
@@ -140,12 +144,76 @@ export class AiService {
     }
   }
 
+  async regenerate(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    assistantMessageId: string,
+    signal: AbortSignal | undefined,
+    onChunk: (chunk: string) => void,
+  ): Promise<void> {
+    await this.sessionsService.get(user, merchantId, sessionId)
+    const messages = await this.prisma.aiMessage.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' },
+    })
+    const assistant = messages.find(
+      (message) =>
+        message.id === assistantMessageId && message.role === 'assistant',
+    )
+    if (!assistant?.parentId) {
+      throw new NotFoundException('可重新生成的 AI 消息不存在')
+    }
+    const parent = messages.find((message) => message.id === assistant.parentId)
+    if (!parent) throw new NotFoundException('父消息不存在于当前会话')
+    const lineage = this.buildLineage(messages, assistant.parentId)
+    const history = await this.buildModelContext(sessionId, lineage)
+    await this.prisma.aiSession.update({
+      where: { id: sessionId },
+      data: {
+        status: 'STREAMING',
+        error: null,
+        activeLeafMessageId: assistant.parentId,
+      },
+    })
+
+    let assistantContent = ''
+    try {
+      await this.aiProvider.chat(history, signal, (chunk: string) => {
+        assistantContent += chunk
+        onChunk(chunk)
+      })
+      await this.finishGeneration(
+        sessionId,
+        assistant.parentId,
+        assistantContent,
+        this.toStringArray(parent.childrenIds),
+      )
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        await this.finishGeneration(
+          sessionId,
+          assistant.parentId,
+          assistantContent,
+          this.toStringArray(parent.childrenIds),
+        )
+        return
+      }
+      const message =
+        error instanceof Error ? error.message : '未知 AI 服务异常'
+      await this.updateSessionError(sessionId, message)
+      throw error
+    }
+  }
+
   private async finishGeneration(
     sessionId: string,
     parentId: string,
     content: string,
+    existingChildrenIds: string[] = [],
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
+      let activeLeafMessageId = parentId
       if (content) {
         const assistant = await transaction.aiMessage.create({
           data: {
@@ -160,12 +228,15 @@ export class AiService {
         })
         await transaction.aiMessage.update({
           where: { id: parentId },
-          data: { childrenIds: [assistant.id] },
+          data: {
+            childrenIds: [...existingChildrenIds, assistant.id],
+          },
         })
+        activeLeafMessageId = assistant.id
       }
       await transaction.aiSession.update({
         where: { id: sessionId },
-        data: { status: 'DONE' },
+        data: { status: 'DONE', activeLeafMessageId },
       })
     })
   }

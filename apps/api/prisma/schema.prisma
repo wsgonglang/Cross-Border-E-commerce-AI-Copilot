@@ -680,6 +680,7 @@ model AiSession {
   error        String?                 @db.VarChar(500)
   pinned       Boolean                 @default(false)
   groupId      String?                 @map("group_id") @db.VarChar(30)
+  activeLeafMessageId String?          @map("active_leaf_message_id") @db.VarChar(30)
   archivedAt   DateTime?               @map("archived_at")
   merchant     Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   user         User                    @relation(fields: [userId], references: [id], onDelete: Restrict)

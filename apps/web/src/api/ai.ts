@@ -34,6 +34,22 @@ export function getAiSession(
   )
 }
 
+export function selectAiSessionBranch(
+  token: string,
+  merchantId: string,
+  sessionId: string,
+  messageId: string,
+): Promise<AiSessionDetail> {
+  return apiRequest(
+    token,
+    `/api/merchants/${merchantId}/ai/sessions/${sessionId}/active-branch`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ messageId }),
+    },
+  )
+}
+
 export function createAiSession(
   token: string,
   merchantId: string,

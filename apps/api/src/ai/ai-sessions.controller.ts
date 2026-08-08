@@ -22,6 +22,7 @@ import {
   CreateAiSessionDto,
   FavoriteAiMessageDto,
   LinkAiMessageDto,
+  SelectAiBranchDto,
   UpdateAiSessionDto,
 } from './dto/ai.dto'
 
@@ -68,6 +69,22 @@ export class AiSessionsController {
     @Body() dto: UpdateAiSessionDto,
   ) {
     return this.sessionsService.update(user, merchantId, sessionId, dto)
+  }
+
+  @Patch(':sessionId/active-branch')
+  @Roles('admin', 'operator')
+  selectBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('merchantId') merchantId: string,
+    @Param('sessionId') sessionId: string,
+    @Body() dto: SelectAiBranchDto,
+  ) {
+    return this.sessionsService.selectBranch(
+      user,
+      merchantId,
+      sessionId,
+      dto.messageId,
+    )
   }
 
   @Delete(':sessionId')

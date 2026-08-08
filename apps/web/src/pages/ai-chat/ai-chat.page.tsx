@@ -22,6 +22,7 @@ import { ChatComposer } from './components/chat-composer'
 import { ChatMessageList } from './components/chat-message-list'
 import { ConversationSidebar } from './components/conversation-sidebar'
 import { MessageLinkModal } from './components/message-link-modal'
+import { MessageEditModal } from './components/message-edit-modal'
 import { SessionEditModal } from './components/session-edit-modal'
 import { SessionShareModal } from './components/session-share-modal'
 import { useAiConversations } from './hooks/use-ai-conversations'
@@ -44,6 +45,7 @@ export function AiChatPage() {
     null,
   )
   const [linkingMessage, setLinkingMessage] = useState<AiMessage | null>(null)
+  const [editingMessage, setEditingMessage] = useState<AiMessage | null>(null)
 
   const conversations = useAiConversations({
     token,
@@ -195,6 +197,8 @@ export function AiChatPage() {
               currentSessionId={conversations.currentSessionId}
               sessionView={conversations.sessionView}
               messages={chat.messages}
+              allMessages={chat.allMessages}
+              streaming={chat.streaming}
               error={error}
               endRef={chat.messagesEndRef}
               onClearError={() => setError(null)}
@@ -202,6 +206,9 @@ export function AiChatPage() {
                 runAction(() => chat.favorite(item)).then(() => undefined)
               }
               onLink={setLinkingMessage}
+              onEdit={setEditingMessage}
+              onRegenerate={chat.regenerate}
+              onSelectBranch={chat.selectBranch}
               onBusinessNavigate={navigateToBusiness}
             />
             <ChatComposer
@@ -230,6 +237,15 @@ export function AiChatPage() {
         message={linkingMessage}
         onCancel={() => setLinkingMessage(null)}
         onSave={saveMessageLink}
+      />
+      <MessageEditModal
+        message={editingMessage}
+        onCancel={() => setEditingMessage(null)}
+        onSave={async (content) => {
+          if (!editingMessage) return
+          await chat.edit(editingMessage, content)
+          setEditingMessage(null)
+        }}
       />
       <SessionShareModal
         session={sharing.session}

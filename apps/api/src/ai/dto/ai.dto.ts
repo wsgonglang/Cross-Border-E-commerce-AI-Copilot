@@ -132,6 +132,14 @@ export class FavoriteAiMessageDto {
   favorited!: boolean
 }
 
+export class SelectAiBranchDto {
+  @ApiProperty({ description: '要切换到的同级分支消息 ID' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  messageId!: string
+}
+
 export class LinkAiMessageDto {
   @ApiProperty({ enum: ['PRODUCT', 'ORDER'] })
   @IsIn(['PRODUCT', 'ORDER'])

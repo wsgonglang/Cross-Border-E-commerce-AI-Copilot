@@ -103,7 +103,10 @@ describe('AiService', () => {
     })
     expect(transaction.aiSession.update).toHaveBeenLastCalledWith({
       where: { id: 'session-1' },
-      data: { status: 'DONE' },
+      data: {
+        status: 'DONE',
+        activeLeafMessageId: 'assistant-message',
+      },
     })
   })
 
@@ -144,7 +147,10 @@ describe('AiService', () => {
     })
     expect(transaction.aiSession.update).toHaveBeenLastCalledWith({
       where: { id: 'session-1' },
-      data: { status: 'DONE' },
+      data: {
+        status: 'DONE',
+        activeLeafMessageId: 'assistant-message',
+      },
     })
   })
 

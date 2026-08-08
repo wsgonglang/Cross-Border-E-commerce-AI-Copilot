@@ -6,7 +6,13 @@ import type {
 } from '@cross-border/shared'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { favoriteAiMessage, getAiSession, linkAiMessage } from '../../../api/ai'
+import {
+  favoriteAiMessage,
+  getAiSession,
+  linkAiMessage,
+  selectAiSessionBranch,
+} from '../../../api/ai'
+import { getActiveLineage } from '../branching'
 
 interface UseAiMessagesInput {
   createSession: () => Promise<AiSessionSummary | null>
@@ -23,12 +29,14 @@ interface StreamInput {
   onComplete: () => Promise<void>
   onError: (message: string) => void
   parentMessageId?: string
+  regenerateMessageId?: string
   sessionId: string
   updateMessages: (
     sessionId: string,
     update: (messages: AiMessage[]) => AiMessage[],
   ) => void
   updateStreaming: (sessionId: string, streaming: boolean) => void
+  updateActiveLeaf: (sessionId: string, messageId: string) => void
   text: string
   token: string
 }
@@ -74,41 +82,51 @@ function streamMessage(input: StreamInput): AbortController {
     flushRenderBuffer()
   }
 
+  const optimisticUser: AiMessage = {
+    id: userMessageId,
+    sessionId: input.sessionId,
+    role: 'user',
+    content: input.text,
+    parentId: input.parentMessageId,
+    childrenIds: [],
+    links: [],
+    createdAt: new Date().toISOString(),
+  }
+  const optimisticAssistant: AiMessage = {
+    id: assistantId,
+    sessionId: input.sessionId,
+    role: 'assistant',
+    content: '',
+    parentId: input.regenerateMessageId ? input.parentMessageId : userMessageId,
+    childrenIds: [],
+    links: [],
+    createdAt: new Date().toISOString(),
+  }
   input.updateMessages(input.sessionId, (previous) => [
     ...previous,
-    {
-      id: userMessageId,
-      sessionId: input.sessionId,
-      role: 'user',
-      content: input.text,
-      childrenIds: [],
-      links: [],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: assistantId,
-      sessionId: input.sessionId,
-      role: 'assistant',
-      content: '',
-      childrenIds: [],
-      links: [],
-      createdAt: new Date().toISOString(),
-    },
+    ...(input.regenerateMessageId ? [] : [optimisticUser]),
+    optimisticAssistant,
   ])
+  input.updateActiveLeaf(input.sessionId, assistantId)
   input.updateStreaming(input.sessionId, true)
   const controller = new AbortController()
 
-  void fetch(`/api/merchants/${input.merchantId}/ai/chat`, {
+  const endpoint = input.regenerateMessageId
+    ? `/api/merchants/${input.merchantId}/ai/sessions/${input.sessionId}/messages/${input.regenerateMessageId}/regenerate`
+    : `/api/merchants/${input.merchantId}/ai/chat`
+  void fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${input.token}`,
     },
-    body: JSON.stringify({
-      content: input.text,
-      sessionId: input.sessionId,
-      parentMessageId: input.parentMessageId,
-    }),
+    body: input.regenerateMessageId
+      ? undefined
+      : JSON.stringify({
+          content: input.text,
+          sessionId: input.sessionId,
+          parentMessageId: input.parentMessageId,
+        }),
     signal: controller.signal,
   })
     .then(async (response) => {
@@ -149,15 +167,26 @@ export function useAiMessages({
   const [messagesBySession, setMessagesBySession] = useState<
     Record<string, AiMessage[]>
   >({})
+  const [activeLeafBySession, setActiveLeafBySession] = useState<
+    Record<string, string | undefined>
+  >({})
   const [streamingSessionIds, setStreamingSessionIds] = useState<string[]>([])
   const [inputValue, setInputValue] = useState('')
   const abortControllersRef = useRef(new Map<string, AbortController>())
   const streamingSessionIdsRef = useRef(new Set<string>())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const messages = useMemo(
+  const allMessages = useMemo(
     () => (currentSessionId ? (messagesBySession[currentSessionId] ?? []) : []),
     [currentSessionId, messagesBySession],
+  )
+  const messages = useMemo(
+    () =>
+      getActiveLineage(
+        allMessages,
+        currentSessionId ? activeLeafBySession[currentSessionId] : undefined,
+      ),
+    [activeLeafBySession, allMessages, currentSessionId],
   )
   const streaming = currentSessionId
     ? streamingSessionIds.includes(currentSessionId)
@@ -185,6 +214,16 @@ export function useAiMessages({
     [],
   )
 
+  const updateActiveLeaf = useCallback(
+    (sessionId: string, messageId: string | undefined) => {
+      setActiveLeafBySession((current) => ({
+        ...current,
+        [sessionId]: messageId,
+      }))
+    },
+    [],
+  )
+
   const loadCurrentSession = useCallback(
     async (sessionId = currentSessionId, force = false) => {
       if (!sessionId || !token || !merchantId) {
@@ -193,9 +232,17 @@ export function useAiMessages({
       if (!force && streamingSessionIdsRef.current.has(sessionId)) return
       const session = await getAiSession(token, merchantId, sessionId)
       updateMessages(sessionId, () => session.messages)
+      updateActiveLeaf(sessionId, session.activeLeafMessageId)
       onSessionLoaded(session)
     },
-    [currentSessionId, merchantId, onSessionLoaded, token, updateMessages],
+    [
+      currentSessionId,
+      merchantId,
+      onSessionLoaded,
+      token,
+      updateActiveLeaf,
+      updateMessages,
+    ],
   )
 
   useEffect(() => {
@@ -235,6 +282,7 @@ export function useAiMessages({
       parentMessageId,
       updateMessages,
       updateStreaming,
+      updateActiveLeaf,
       onError,
       onComplete: async () => {
         if (abortControllersRef.current.get(sessionId) === controller) {
@@ -258,7 +306,105 @@ export function useAiMessages({
     token,
     updateMessages,
     updateStreaming,
+    updateActiveLeaf,
   ])
+
+  const startBranchStream = useCallback(
+    (
+      sessionId: string,
+      options: {
+        text: string
+        parentMessageId?: string
+        regenerateMessageId?: string
+      },
+    ) => {
+      const controller = streamMessage({
+        token,
+        merchantId,
+        sessionId,
+        ...options,
+        updateMessages,
+        updateStreaming,
+        updateActiveLeaf,
+        onError,
+        onComplete: async () => {
+          if (abortControllersRef.current.get(sessionId) === controller) {
+            abortControllersRef.current.delete(sessionId)
+          }
+          await loadCurrentSession(sessionId, true)
+          await refreshSessions()
+        },
+      })
+      abortControllersRef.current.set(sessionId, controller)
+    },
+    [
+      loadCurrentSession,
+      merchantId,
+      onError,
+      refreshSessions,
+      token,
+      updateActiveLeaf,
+      updateMessages,
+      updateStreaming,
+    ],
+  )
+
+  const edit = useCallback(
+    (message: AiMessage, content: string): Promise<void> => {
+      const text = content.trim()
+      if (!currentSessionId || message.role !== 'user' || !text || streaming)
+        return Promise.resolve()
+      startBranchStream(currentSessionId, {
+        text,
+        parentMessageId: message.parentId,
+      })
+      return Promise.resolve()
+    },
+    [currentSessionId, startBranchStream, streaming],
+  )
+
+  const regenerate = useCallback(
+    (message: AiMessage): Promise<void> => {
+      if (
+        !currentSessionId ||
+        message.role !== 'assistant' ||
+        !message.parentId ||
+        streaming
+      )
+        return Promise.resolve()
+      startBranchStream(currentSessionId, {
+        text: '',
+        parentMessageId: message.parentId,
+        regenerateMessageId: message.id,
+      })
+      return Promise.resolve()
+    },
+    [currentSessionId, startBranchStream, streaming],
+  )
+
+  const selectBranch = useCallback(
+    async (messageId: string) => {
+      if (!currentSessionId || streaming) return
+      const session = await selectAiSessionBranch(
+        token,
+        merchantId,
+        currentSessionId,
+        messageId,
+      )
+      updateMessages(currentSessionId, () => session.messages)
+      updateActiveLeaf(currentSessionId, session.activeLeafMessageId)
+      onSessionLoaded(session)
+    },
+    [
+      currentSessionId,
+      merchantId,
+      onSessionLoaded,
+      streaming,
+      token,
+      updateActiveLeaf,
+      updateMessages,
+    ],
+  )
 
   const stop = useCallback(() => {
     if (currentSessionId) {
@@ -321,11 +467,15 @@ export function useAiMessages({
   )
 
   return {
+    allMessages,
+    edit,
     favorite,
     inputValue,
     link,
     messages,
     messagesEndRef,
+    regenerate,
+    selectBranch,
     send,
     setInputValue,
     stop,

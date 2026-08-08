@@ -49,6 +49,7 @@ export interface AiSessionSummary {
 }
 
 export interface AiSessionDetail extends AiSessionSummary {
+  activeLeafMessageId?: string
   messages: AiMessage[]
 }
 

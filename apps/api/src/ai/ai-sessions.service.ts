@@ -109,8 +109,34 @@ export class AiSessionsService {
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
       archivedAt: session.archivedAt?.toISOString(),
+      activeLeafMessageId:
+        session.activeLeafMessageId ??
+        this.findLatestLeaf(session.messages, session.messages.at(-1)?.id),
       messages: session.messages.map((message) => this.toMessage(message)),
     }
+  }
+
+  async selectBranch(
+    user: AuthenticatedUser,
+    merchantId: string,
+    sessionId: string,
+    messageId: string,
+  ): Promise<AiSessionDetail> {
+    await this.assertOwnedSession(user, merchantId, sessionId)
+    const messages = await this.prisma.aiMessage.findMany({
+      where: { sessionId },
+      select: { id: true, childrenIds: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!messages.some((message) => message.id === messageId)) {
+      throw new NotFoundException('分支消息不存在')
+    }
+    const activeLeafMessageId = this.findLatestLeaf(messages, messageId)
+    await this.prisma.aiSession.update({
+      where: { id: sessionId },
+      data: { activeLeafMessageId },
+    })
+    return this.get(user, merchantId, sessionId)
   }
 
   async create(
@@ -479,6 +505,25 @@ export class AiSessionsService {
     return Array.isArray(value)
       ? value.filter((item): item is string => typeof item === 'string')
       : []
+  }
+
+  private findLatestLeaf(
+    messages: Array<{ id: string; childrenIds: unknown }>,
+    startId: string | undefined,
+  ): string | undefined {
+    if (!startId) return undefined
+    const byId = new Map(messages.map((message) => [message.id, message]))
+    const visited = new Set<string>()
+    let currentId = startId
+    while (!visited.has(currentId)) {
+      visited.add(currentId)
+      const children = this.toStringArray(
+        byId.get(currentId)?.childrenIds,
+      ).filter((id) => byId.has(id))
+      if (!children.length) return currentId
+      currentId = children.at(-1)!
+    }
+    return currentId
   }
 
   private toRevisions(

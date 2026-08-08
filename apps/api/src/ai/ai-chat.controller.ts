@@ -23,6 +23,49 @@ export class AiChatController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    return this.stream(req, res, (signal, onChunk) =>
+      this.aiService.chat(
+        user,
+        merchantId,
+        dto.sessionId,
+        dto.content,
+        dto.parentMessageId,
+        signal,
+        onChunk,
+      ),
+    )
+  }
+
+  @Post('sessions/:sessionId/messages/:messageId/regenerate')
+  @Roles('admin', 'operator')
+  async regenerate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('merchantId') merchantId: string,
+    @Param('sessionId') sessionId: string,
+    @Param('messageId') messageId: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    return this.stream(req, res, (signal, onChunk) =>
+      this.aiService.regenerate(
+        user,
+        merchantId,
+        sessionId,
+        messageId,
+        signal,
+        onChunk,
+      ),
+    )
+  }
+
+  private async stream(
+    req: Request,
+    res: Response,
+    operation: (
+      signal: AbortSignal,
+      onChunk: (chunk: string) => void,
+    ) => Promise<void>,
+  ): Promise<void> {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.setHeader('X-Accel-Buffering', 'no')
     res.setHeader('Cache-Control', 'no-cache')
@@ -35,19 +78,11 @@ export class AiChatController {
     })
 
     try {
-      await this.aiService.chat(
-        user,
-        merchantId,
-        dto.sessionId,
-        dto.content,
-        dto.parentMessageId,
-        abortController.signal,
-        (chunk: string) => {
-          if (!res.writableEnded) {
-            res.write(chunk)
-          }
-        },
-      )
+      await operation(abortController.signal, (chunk: string) => {
+        if (!res.writableEnded) {
+          res.write(chunk)
+        }
+      })
     } catch {
       if (!res.headersSent) {
         res.status(500).json({ message: 'AI 服务异常' })
