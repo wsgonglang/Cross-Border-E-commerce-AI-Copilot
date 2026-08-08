@@ -1,7 +1,9 @@
 .ai-chat-messages {
+  min-height: 0;
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ai-chat-empty {
