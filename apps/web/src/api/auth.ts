@@ -1,4 +1,12 @@
-import type { AuthenticatedUser, AuthSession } from '@cross-border/shared'
+import type {
+  AuthenticatedUser,
+  AuthSession,
+  RoleCode,
+  UserStatus,
+  UserSummary,
+} from '@cross-border/shared'
+
+import { apiRequest } from './client'
 
 interface LoginInput {
   email: string
@@ -94,23 +102,53 @@ export async function logout(): Promise<void> {
   })
 }
 
-export async function getUsers(
+export async function getUsers(accessToken: string): Promise<UserSummary[]> {
+  return apiRequest(accessToken, '/api/users')
+}
+
+export interface CreateUserInput {
+  email: string
+  name: string
+  password: string
+  roles: RoleCode[]
+  merchantIds: string[]
+}
+
+export interface UpdateUserInput {
+  email?: string
+  name?: string
+  password?: string
+  roles?: RoleCode[]
+  merchantIds?: string[]
+  status?: UserStatus
+}
+
+export function createUser(
   accessToken: string,
-): Promise<AuthenticatedUser[]> {
-  const response = await fetch('/api/users', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    credentials: 'include',
+  input: CreateUserInput,
+): Promise<UserSummary> {
+  return apiRequest(accessToken, '/api/users', {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
+}
 
-  if (!response.ok) {
-    throw new Error(await getErrorMessage(response))
-  }
+export function updateUser(
+  accessToken: string,
+  userId: string,
+  input: UpdateUserInput,
+): Promise<UserSummary> {
+  return apiRequest(accessToken, `/api/users/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
 
-  const payload = (await response.json()) as unknown
-  if (!Array.isArray(payload) || !payload.every(isAuthenticatedUser)) {
-    throw new Error('用户服务返回了无效数据')
-  }
-  return payload
+export function deleteUser(
+  accessToken: string,
+  userId: string,
+): Promise<{ id: string }> {
+  return apiRequest(accessToken, `/api/users/${userId}`, {
+    method: 'DELETE',
+  })
 }

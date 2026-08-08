@@ -1,3 +1,7 @@
 .users-page {
   min-width: 0;
 }
+
+.users-page .ant-table-cell .ant-tag {
+  margin-block: 2px;
+}

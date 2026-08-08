@@ -6,9 +6,12 @@ export {
 } from './environment'
 export {
   ROLE_CODES,
+  USER_STATUSES,
   type AuthenticatedUser,
   type AuthSession,
   type RoleCode,
+  type UserStatus,
+  type UserSummary,
 } from './auth'
 export {
   MERCHANT_STATUSES,
