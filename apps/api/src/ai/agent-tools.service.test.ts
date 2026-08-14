@@ -72,7 +72,7 @@ function createHarness() {
     optimizations as unknown as ProductOptimizationsService,
     audit as unknown as AuditLogsService,
   )
-  return { service, products, orders, optimizations, audit }
+  return { service, products, orders, rules, optimizations, audit }
 }
 
 describe('AgentToolsService', () => {
@@ -118,6 +118,30 @@ describe('AgentToolsService', () => {
     expect(result.output).toMatchObject({
       status: 'DRAFT',
       requiresHumanConfirmation: true,
+    })
+  })
+
+  it('inherits platform and market from the selected store for rule retrieval', async () => {
+    const { service, rules } = createHarness()
+    rules.search.mockResolvedValue({ sufficient: false, sources: [] })
+
+    await service.execute(
+      operator,
+      'merchant-1',
+      {
+        id: 'call-rules',
+        name: 'search_platform_rules',
+        arguments: { query: '充电器认证要求' },
+      },
+      'store-1',
+      7,
+      { platform: 'AMAZON', market: 'US' },
+    )
+
+    expect(rules.search).toHaveBeenCalledWith(operator, 'merchant-1', {
+      query: '充电器认证要求',
+      platform: 'AMAZON',
+      market: 'US',
     })
   })
 

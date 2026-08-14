@@ -58,6 +58,9 @@ export const agentToolInputSchemas = {
   search_platform_rules: z
     .object({
       query: z.string().trim().min(2).max(200),
+      platform: z.string().trim().min(2).max(64).optional(),
+      market: z.string().trim().min(2).max(32).optional(),
+      category: z.string().trim().min(2).max(64).optional(),
     })
     .strict(),
   create_product_optimization_draft: z

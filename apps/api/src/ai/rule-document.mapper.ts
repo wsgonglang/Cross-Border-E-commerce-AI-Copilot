@@ -11,6 +11,13 @@ interface RuleDocumentSource {
   createdById: string
   title: string
   platform: string
+  market: string | null
+  language: string | null
+  category: string | null
+  effectiveFrom: Date | null
+  effectiveTo: Date | null
+  version: string | null
+  supersedesDocumentId: string | null
   scope: string
   sourceUrl: string | null
   content: string
@@ -30,6 +37,13 @@ export function toRuleDocumentSummary(
     createdById: source.createdById,
     title: source.title,
     platform: source.platform,
+    market: source.market ?? undefined,
+    language: source.language ?? undefined,
+    category: source.category ?? undefined,
+    effectiveFrom: source.effectiveFrom?.toISOString(),
+    effectiveTo: source.effectiveTo?.toISOString(),
+    version: source.version ?? undefined,
+    supersedesDocumentId: source.supersedesDocumentId ?? undefined,
     scope: source.scope as RuleDocumentScope,
     sourceUrl: source.sourceUrl ?? undefined,
     status: source.status as RuleDocumentStatus,

@@ -453,24 +453,36 @@ model ImportItem {
 }
 
 model RuleDocument {
-  id          String             @id @default(cuid()) @db.VarChar(30)
-  merchantId  String?            @map("merchant_id") @db.VarChar(30)
-  createdById String             @map("created_by_id") @db.VarChar(30)
-  title       String             @db.VarChar(255)
-  platform    String             @db.VarChar(64)
-  scope       RuleDocumentScope
-  sourceUrl   String?            @map("source_url") @db.VarChar(500)
-  content     String             @db.MediumText
-  contentHash String             @map("content_hash") @db.Char(64)
-  status      RuleDocumentStatus @default(ACTIVE)
-  merchant    Merchant?          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  createdBy   User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  chunks      RuleChunk[]
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  id                   String             @id @default(cuid()) @db.VarChar(30)
+  merchantId           String?            @map("merchant_id") @db.VarChar(30)
+  createdById          String             @map("created_by_id") @db.VarChar(30)
+  title                String             @db.VarChar(255)
+  platform             String             @db.VarChar(64)
+  market               String?            @db.VarChar(32)
+  language             String?            @db.VarChar(16)
+  category             String?            @db.VarChar(64)
+  effectiveFrom        DateTime?          @map("effective_from")
+  effectiveTo          DateTime?          @map("effective_to")
+  version              String?            @db.VarChar(64)
+  supersedesDocumentId String?            @map("supersedes_document_id") @db.VarChar(30)
+  scope                RuleDocumentScope
+  sourceUrl            String?            @map("source_url") @db.VarChar(500)
+  content              String             @db.MediumText
+  contentHash          String             @map("content_hash") @db.Char(64)
+  status               RuleDocumentStatus @default(ACTIVE)
+  merchant             Merchant?          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  createdBy            User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  chunks               RuleChunk[]
+  supersedes           RuleDocument?      @relation("RuleDocumentVersions", fields: [supersedesDocumentId], references: [id], onDelete: SetNull)
+  supersededBy         RuleDocument[]     @relation("RuleDocumentVersions")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
 
   @@index([merchantId, status, createdAt])
   @@index([scope, status, createdAt])
+  @@index([platform, market, category, status])
+  @@index([effectiveFrom, effectiveTo])
+  @@index([supersedesDocumentId])
   @@index([contentHash])
   @@index([createdById])
   @@map("rule_documents")

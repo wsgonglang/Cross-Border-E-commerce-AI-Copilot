@@ -467,6 +467,7 @@ describe('AgentService', () => {
       expect.any(Object),
       'store-1',
       7,
+      { platform: 'Amazon', market: 'US' },
     )
   })
 

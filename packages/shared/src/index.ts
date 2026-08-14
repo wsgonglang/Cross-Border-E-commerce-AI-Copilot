@@ -126,6 +126,8 @@ export {
   type RuleDocumentStatus,
   type RuleDocumentSummary,
   type RuleSearchResult,
+  type RuleSearchFilters,
+  type RuleSearchReason,
   type RuleSearchSource,
 } from './rule-knowledge'
 export {

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import {
   IsIn,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUrl,
@@ -20,6 +21,46 @@ export class ImportRuleDocumentDto {
   @MinLength(2)
   @MaxLength(64)
   platform!: string
+
+  @ApiPropertyOptional({ maxLength: 32, example: 'US' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  market?: string
+
+  @ApiPropertyOptional({ maxLength: 16, example: 'zh-CN' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  language?: string
+
+  @ApiPropertyOptional({ maxLength: 64, example: 'ELECTRONICS' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  category?: string
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  effectiveFrom?: string
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  effectiveTo?: string
+
+  @ApiPropertyOptional({ maxLength: 64 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  version?: string
+
+  @ApiPropertyOptional({ maxLength: 30 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  supersedesDocumentId?: string
 
   @ApiProperty({ enum: ['GLOBAL', 'MERCHANT'] })
   @IsIn(['GLOBAL', 'MERCHANT'])
@@ -48,4 +89,27 @@ export class SearchRuleDocumentsDto {
   @MinLength(2)
   @MaxLength(200)
   query!: string
+
+  @ApiPropertyOptional({ maxLength: 64 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  platform?: string
+
+  @ApiPropertyOptional({ maxLength: 32 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  market?: string
+
+  @ApiPropertyOptional({ maxLength: 64 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  category?: string
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  asOf?: string
 }

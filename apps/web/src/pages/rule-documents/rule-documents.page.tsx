@@ -42,6 +42,13 @@ interface ImportForm {
   platform: string
   scope: RuleDocumentScope
   sourceUrl?: string
+  market?: string
+  language?: string
+  category?: string
+  effectiveFrom?: string
+  effectiveTo?: string
+  version?: string
+  supersedesDocumentId?: string
   content: string
 }
 
@@ -63,6 +70,8 @@ export function RuleDocumentsPage() {
   const [detail, setDetail] = useState<RuleDocumentDetail | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [searching, setSearching] = useState(false)
+  const [searchPlatform, setSearchPlatform] = useState<string>()
+  const [searchMarket, setSearchMarket] = useState<string>()
   const [searchResult, setSearchResult] = useState<RuleSearchResult | null>(
     null,
   )
@@ -111,6 +120,13 @@ export function RuleDocumentsPage() {
       platform: 'DEMO_MARKETPLACE',
       scope: 'MERCHANT',
       sourceUrl: '',
+      market: '',
+      language: 'zh-CN',
+      category: '',
+      effectiveFrom: '',
+      effectiveTo: '',
+      version: '',
+      supersedesDocumentId: undefined,
       content: '',
     })
     setImportOpen(true)
@@ -124,6 +140,16 @@ export function RuleDocumentsPage() {
       const created = await importRuleDocument(token, merchantId, {
         ...values,
         sourceUrl: values.sourceUrl || undefined,
+        market: values.market || undefined,
+        language: values.language || undefined,
+        category: values.category || undefined,
+        version: values.version || undefined,
+        effectiveFrom: values.effectiveFrom
+          ? new Date(values.effectiveFrom).toISOString()
+          : undefined,
+        effectiveTo: values.effectiveTo
+          ? new Date(values.effectiveTo).toISOString()
+          : undefined,
       })
       setImportOpen(false)
       setDetail(created)
@@ -170,7 +196,11 @@ export function RuleDocumentsPage() {
     setSearching(true)
     try {
       setSearchResult(
-        await searchRuleDocuments(token, merchantId, query.trim()),
+        await searchRuleDocuments(token, merchantId, {
+          query: query.trim(),
+          ...(searchPlatform ? { platform: searchPlatform } : {}),
+          ...(searchMarket ? { market: searchMarket } : {}),
+        }),
       )
     } catch (searchError: unknown) {
       void messageApi.error(
@@ -216,6 +246,21 @@ export function RuleDocumentsPage() {
           loading={searching}
           placeholder="例如：充电器需要核对哪些认证？"
           onSearch={(value) => void search(value)}
+        />
+        <Select
+          allowClear
+          placeholder="按平台过滤"
+          value={searchPlatform}
+          onChange={setSearchPlatform}
+          options={[
+            ...new Set(documents.map((document) => document.platform)),
+          ].map((value) => ({ value, label: value }))}
+        />
+        <Input
+          allowClear
+          placeholder="市场，如 US"
+          value={searchMarket}
+          onChange={(event) => setSearchMarket(event.target.value || undefined)}
         />
       </div>
 
@@ -263,7 +308,8 @@ export function RuleDocumentsPage() {
                       <p>{source.excerpt}</p>
                       <Typography.Text type="secondary">
                         分块 {source.chunkId} · 相关度{' '}
-                        {(source.score * 100).toFixed(1)}%
+                        {(source.score * 100).toFixed(1)}%{' · '}查询覆盖{' '}
+                        {(source.coverage * 100).toFixed(1)}%
                       </Typography.Text>
                     </>
                   }
@@ -395,6 +441,38 @@ export function RuleDocumentsPage() {
           <Form.Item name="sourceUrl" label="来源地址">
             <Input placeholder="https://..." />
           </Form.Item>
+          <div className="form-grid">
+            <Form.Item name="market" label="适用市场">
+              <Input placeholder="US / BR" />
+            </Form.Item>
+            <Form.Item name="category" label="适用类目">
+              <Input placeholder="ELECTRONICS" />
+            </Form.Item>
+            <Form.Item name="language" label="原文语言">
+              <Input placeholder="zh-CN" />
+            </Form.Item>
+            <Form.Item name="version" label="规则版本">
+              <Input placeholder="2026.08" />
+            </Form.Item>
+            <Form.Item name="effectiveFrom" label="生效时间">
+              <Input type="datetime-local" />
+            </Form.Item>
+            <Form.Item name="effectiveTo" label="失效时间">
+              <Input type="datetime-local" />
+            </Form.Item>
+          </div>
+          <Form.Item name="supersedesDocumentId" label="替代已有版本">
+            <Select
+              allowClear
+              placeholder="可选；导入成功后旧版本自动归档"
+              options={documents
+                .filter((document) => document.status === 'ACTIVE')
+                .map((document) => ({
+                  value: document.id,
+                  label: `${document.title} · ${document.version ?? '未标版本'}`,
+                }))}
+            />
+          </Form.Item>
           <Form.Item
             name="content"
             label="规则原文（Markdown 或纯文本）"
@@ -419,6 +497,21 @@ export function RuleDocumentsPage() {
               </Descriptions.Item>
               <Descriptions.Item label="作用域">
                 {detail.scope === 'GLOBAL' ? '全局' : '当前商家'}
+              </Descriptions.Item>
+              <Descriptions.Item label="适用范围">
+                {[detail.market, detail.category, detail.language]
+                  .filter(Boolean)
+                  .join(' · ') || '未限定'}
+              </Descriptions.Item>
+              <Descriptions.Item label="版本/有效期">
+                {detail.version ?? '未标版本'} ·{' '}
+                {detail.effectiveFrom
+                  ? new Date(detail.effectiveFrom).toLocaleString()
+                  : '立即生效'}{' '}
+                ～{' '}
+                {detail.effectiveTo
+                  ? new Date(detail.effectiveTo).toLocaleString()
+                  : '长期有效'}
               </Descriptions.Item>
               <Descriptions.Item label="分块数量">
                 {detail.chunkCount}

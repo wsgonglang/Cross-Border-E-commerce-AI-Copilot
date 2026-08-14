@@ -30,6 +30,9 @@ export interface RetrievalCandidate {
     id: string
     title: string
     platform: string
+    market: string | null
+    category: string | null
+    version: string | null
     scope: 'GLOBAL' | 'MERCHANT'
     sourceUrl: string | null
   }
@@ -39,6 +42,7 @@ export interface RankedRuleChunk {
   candidate: RetrievalCandidate
   score: number
   matchedTerms: string[]
+  coverage: number
 }
 
 function normalize(value: string): string {
@@ -47,19 +51,22 @@ function normalize(value: string): string {
 
 export function buildSearchTerms(value: string): string[] {
   const normalized = normalize(value)
-  const terms = new Set<string>()
+    .replaceAll('刊登', '发布')
+    .replaceAll('上架', '发布')
+    .replaceAll('法规', '规则')
+  const terms: string[] = []
   for (const match of normalized.matchAll(/[\p{Script=Latin}\p{N}]+/gu)) {
-    if (match[0].length > 1 && !STOP_TERMS.has(match[0])) terms.add(match[0])
+    if (match[0].length > 1 && !STOP_TERMS.has(match[0])) terms.push(match[0])
   }
   for (const match of normalized.matchAll(/[\p{Script=Han}]+/gu)) {
     const text = match[0]
-    if (text.length === 1 && !STOP_TERMS.has(text)) terms.add(text)
+    if (text.length === 1 && !STOP_TERMS.has(text)) terms.push(text)
     for (let index = 0; index < text.length - 1; index += 1) {
       const term = text.slice(index, index + 2)
-      if (!STOP_TERMS.has(term)) terms.add(term)
+      if (!STOP_TERMS.has(term)) terms.push(term)
     }
   }
-  return [...terms]
+  return terms
 }
 
 function splitLongParagraph(paragraph: string, maxLength: number): string[] {
@@ -137,19 +144,24 @@ export function rankRuleChunks(
   candidates: RetrievalCandidate[],
   limit = 3,
 ): RankedRuleChunk[] {
-  const queryTerms = buildSearchTerms(query)
+  const queryTerms = [...new Set(buildSearchTerms(query))]
   if (queryTerms.length === 0 || candidates.length === 0) return []
 
   const documentFrequency = new Map<string, number>()
   for (const term of queryTerms) {
     documentFrequency.set(
       term,
-      candidates.filter((candidate) => candidate.searchTerms.includes(term))
+      candidates.filter((candidate) => new Set(candidate.searchTerms).has(term))
         .length,
     )
   }
 
-  return candidates
+  const averageLength =
+    candidates.reduce(
+      (sum, candidate) => sum + Math.max(1, candidate.searchTerms.length),
+      0,
+    ) / candidates.length
+  const ranked = candidates
     .map((candidate) => {
       const titleTerms = buildSearchTerms(
         `${candidate.document.title} ${candidate.document.platform}`,
@@ -164,11 +176,19 @@ export function rankRuleChunks(
         ).length
         const titleBoost = titleTerms.includes(term) ? 0.75 : 0
         const frequency = documentFrequency.get(term) ?? 0
-        const inverseFrequency =
-          Math.log((candidates.length + 1) / (frequency + 1)) + 1
-        return (
-          sum + (Math.max(1, termFrequency) + titleBoost) * inverseFrequency
+        const inverseFrequency = Math.log(
+          1 + (candidates.length - frequency + 0.5) / (frequency + 0.5),
         )
+        const k1 = 1.2
+        const b = 0.75
+        const lengthNormalization =
+          k1 *
+          (1 -
+            b +
+            (b * Math.max(1, candidate.searchTerms.length)) / averageLength)
+        const bm25 =
+          (termFrequency * (k1 + 1)) / (termFrequency + lengthNormalization)
+        return sum + (bm25 + titleBoost) * inverseFrequency
       }, 0)
       const coverage = matchedTerms.length / queryTerms.length
       const exactPhraseBoost = normalize(candidate.content).includes(
@@ -177,20 +197,20 @@ export function rankRuleChunks(
         ? 2
         : 0
       const rawScore = lexicalScore + exactPhraseBoost
-      const score = Math.min(
-        1,
-        rawScore / Math.max(4, queryTerms.length * 1.5) + coverage * 0.25,
-      )
+      const score =
+        1 - Math.exp(-rawScore / Math.max(2, Math.sqrt(queryTerms.length)))
       return {
         candidate,
         score: Number(score.toFixed(3)),
         matchedTerms,
+        coverage: Number(coverage.toFixed(3)),
       }
     })
     .filter(
       (result) =>
         result.matchedTerms.length >= Math.min(2, queryTerms.length) &&
-        result.score >= 0.15,
+        result.coverage >= 0.25 &&
+        result.score >= 0.2,
     )
     .sort(
       (left, right) =>
@@ -198,5 +218,37 @@ export function rankRuleChunks(
         left.candidate.document.id.localeCompare(right.candidate.document.id) ||
         left.candidate.id.localeCompare(right.candidate.id),
     )
-    .slice(0, limit)
+  const diversified: RankedRuleChunk[] = []
+  const usedDocuments = new Set<string>()
+  for (const result of ranked) {
+    if (usedDocuments.has(result.candidate.document.id)) continue
+    diversified.push(result)
+    usedDocuments.add(result.candidate.document.id)
+    if (diversified.length === limit) return diversified
+  }
+  for (const result of ranked) {
+    if (diversified.includes(result)) continue
+    diversified.push(result)
+    if (diversified.length === limit) break
+  }
+  return diversified
+}
+
+export function assessRuleRanking(ranked: RankedRuleChunk[]): {
+  sufficient: boolean
+  topScore?: number
+  topCoverage?: number
+  scoreGap?: number
+} {
+  const top = ranked[0]
+  if (!top) return { sufficient: false }
+  const scoreGap = Number((top.score - (ranked[1]?.score ?? 0)).toFixed(3))
+  const confidence =
+    top.score * 0.55 + top.coverage * 0.35 + Math.min(0.1, scoreGap * 0.5)
+  return {
+    sufficient: confidence >= 0.18,
+    topScore: top.score,
+    topCoverage: top.coverage,
+    scoreGap,
+  }
 }

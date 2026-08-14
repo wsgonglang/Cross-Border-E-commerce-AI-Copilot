@@ -19,6 +19,7 @@ import { AgentRunsService } from './agent-runs.service'
 import { AiService } from './ai.service'
 import { AiSessionsService } from './ai-sessions.service'
 import { compactAgentToolResult } from './context-budget'
+import { validateRuleCitations } from './rule-citation-validator'
 
 const MAX_TOOL_CALLS = 6
 const MAX_AGENT_STEPS = 4
@@ -96,6 +97,9 @@ export class AgentService {
         ? `${store.name} / ${store.platform} / ${store.market}，storeId=${store.id}`
         : undefined,
       storeId,
+      storeContext: store
+        ? { platform: store.platform, market: store.market }
+        : undefined,
       days,
       sessionId: turn?.sessionId,
       userMessageId: turn?.userMessageId,
@@ -146,6 +150,7 @@ export class AgentService {
     message: string
     storeName?: string
     storeId?: string
+    storeContext?: { platform: string; market: string }
     days: number
     sessionId?: string
     userMessageId?: string
@@ -286,6 +291,7 @@ export class AgentService {
             call,
             storeId,
             days,
+            input.storeContext,
           )
         }
         results.push(summary)
@@ -308,6 +314,7 @@ export class AgentService {
     if (answer === null) {
       answer = FALLBACK_ANSWER
     }
+    answer = validateRuleCitations(answer, results).answer
 
     const createdOptimizationIds = results.flatMap((result) => {
       if (

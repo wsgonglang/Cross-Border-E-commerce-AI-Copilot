@@ -32,6 +32,13 @@ export function importRuleDocument(
   input: {
     title: string
     platform: string
+    market?: string
+    language?: string
+    category?: string
+    effectiveFrom?: string
+    effectiveTo?: string
+    version?: string
+    supersedesDocumentId?: string
     scope: RuleDocumentScope
     sourceUrl?: string
     content: string
@@ -56,10 +63,15 @@ export function archiveRuleDocument(
 export function searchRuleDocuments(
   token: string,
   merchantId: string,
-  query: string,
+  input: {
+    query: string
+    platform?: string
+    market?: string
+    category?: string
+  },
 ): Promise<RuleSearchResult> {
   return apiRequest(token, `${basePath(merchantId)}/search`, {
     method: 'POST',
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(input),
   })
 }

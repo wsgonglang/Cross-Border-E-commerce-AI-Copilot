@@ -56,7 +56,7 @@ export class RuleDocumentsController {
     @Param('merchantId') merchantId: string,
     @Body() dto: SearchRuleDocumentsDto,
   ): Promise<RuleSearchResult> {
-    return this.rulesService.search(user, merchantId, dto.query)
+    return this.rulesService.search(user, merchantId, dto)
   }
 
   @Patch(':documentId/archive')

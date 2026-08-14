@@ -40,6 +40,9 @@ function chunk(
       merchantId,
       title: '电器商品发布规范',
       platform: 'DEMO_MARKETPLACE',
+      market: null,
+      category: null,
+      version: null,
       scope: merchantId ? ('MERCHANT' as const) : ('GLOBAL' as const),
       sourceUrl: 'https://example.invalid/rules/electrical',
     },
@@ -97,7 +100,7 @@ describe('PlatformRulesService', () => {
       status: 'ACTIVE',
       OR: [{ merchantId: null }, { merchantId: 'merchant-1' }],
     })
-    expect(result.sufficient).toBe(true)
+    expect(result.sufficient, JSON.stringify(result)).toBe(true)
     expect(result.sources[0]).toMatchObject({
       citation: 'R1',
       platform: 'DEMO_MARKETPLACE',
@@ -125,6 +128,54 @@ describe('PlatformRulesService', () => {
     expect(result.sufficient).toBe(false)
     expect(result.sources).toEqual([])
     expect(result.notice).toContain('信息不足')
+  })
+
+  it('applies platform, market, category and effective-time filters before ranking', async () => {
+    const findMany = vi.fn().mockResolvedValue([])
+    const { rules } = service({ ruleChunk: { findMany } })
+
+    await rules.search(viewer, 'merchant-1', {
+      query: '充电器认证',
+      platform: 'amazon',
+      market: 'us',
+      category: 'electronics',
+      asOf: '2026-08-01T00:00:00.000Z',
+    })
+
+    const searchInput = findMany.mock.calls[0]?.[0] as {
+      where: { document: Record<string, unknown> & { AND: unknown } }
+    }
+    const documentWhere = searchInput.where.document
+    expect(documentWhere).toMatchObject({
+      platform: 'AMAZON',
+      status: 'ACTIVE',
+      OR: [{ merchantId: null }, { merchantId: 'merchant-1' }],
+    })
+    expect(JSON.stringify(documentWhere.AND)).toContain('US')
+    expect(JSON.stringify(documentWhere.AND)).toContain('ELECTRONICS')
+    expect(JSON.stringify(documentWhere.AND)).toContain('effectiveFrom')
+    expect(JSON.stringify(documentWhere.AND)).toContain('effectiveTo')
+  })
+
+  it('marks a search incomplete instead of silently trusting over 500 candidates', async () => {
+    const chunks = Array.from({ length: 501 }, (_, index) => ({
+      ...chunk(
+        `chunk-${index}`,
+        `doc-${index}`,
+        '充电器发布前必须核对目标市场安全认证。',
+      ),
+    }))
+    const { rules } = service({
+      ruleChunk: { findMany: vi.fn().mockResolvedValue(chunks) },
+    })
+
+    const result = await rules.search(viewer, 'merchant-1', '充电器安全认证')
+
+    expect(result).toMatchObject({
+      sufficient: false,
+      reason: 'CANDIDATE_LIMIT_EXCEEDED',
+      diagnostics: { candidateCount: 500, truncated: true },
+    })
   })
 
   it('imports immutable source text, chunks, and audit in one transaction', async () => {
@@ -195,5 +246,76 @@ describe('PlatformRulesService', () => {
         content: '这是一份已经导入过的规则原文，内容长度满足导入要求。',
       }),
     ).rejects.toThrow('已存在内容一致的有效文档')
+  })
+
+  it('archives the previous active version in the same import transaction', async () => {
+    const now = new Date()
+    const transaction = {
+      ruleDocument: {
+        create: vi.fn().mockImplementation(({ data }: { data: object }) => ({
+          id: 'document-v2',
+          merchantId: 'merchant-1',
+          createdById: admin.id,
+          title: '电器规范',
+          platform: 'AMAZON',
+          market: 'US',
+          language: 'zh-CN',
+          category: 'ELECTRONICS',
+          effectiveFrom: now,
+          effectiveTo: null,
+          version: '2.0',
+          supersedesDocumentId: 'document-v1',
+          scope: 'MERCHANT',
+          sourceUrl: null,
+          content: '充电器发布前必须核对安全认证，规则正文满足最小长度。',
+          contentHash: 'b'.repeat(64),
+          status: 'ACTIVE',
+          createdAt: now,
+          updatedAt: now,
+          _count: { chunks: 1 },
+          data,
+        })),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+      auditLog: { create: vi.fn().mockResolvedValue(undefined) },
+    }
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce({ id: 'document-v1' })
+      .mockResolvedValueOnce(null)
+    const { rules } = service({
+      ruleDocument: { findFirst },
+      $transaction: vi.fn(
+        (callback: (client: typeof transaction) => Promise<unknown>) =>
+          callback(transaction),
+      ),
+    })
+
+    await rules.import(admin, 'merchant-1', {
+      title: '电器规范',
+      platform: 'amazon',
+      market: 'us',
+      language: 'zh-CN',
+      category: 'electronics',
+      version: '2.0',
+      effectiveFrom: now.toISOString(),
+      supersedesDocumentId: 'document-v1',
+      scope: 'MERCHANT',
+      content: '充电器发布前必须核对安全认证，规则正文满足最小长度。',
+    })
+
+    expect(transaction.ruleDocument.update).toHaveBeenCalledWith({
+      where: { id: 'document-v1' },
+      data: { status: 'ARCHIVED' },
+    })
+    const createInput = transaction.ruleDocument.create.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>
+    }
+    expect(createInput.data).toMatchObject({
+      market: 'US',
+      category: 'ELECTRONICS',
+      version: '2.0',
+      supersedesDocumentId: 'document-v1',
+    })
   })
 })

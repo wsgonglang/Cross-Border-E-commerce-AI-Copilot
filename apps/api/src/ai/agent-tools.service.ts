@@ -36,6 +36,7 @@ export class AgentToolsService {
     call: PlannedAgentToolCall,
     storeId?: string,
     days: number = 7,
+    ruleContext?: { platform: string; market: string },
   ): Promise<AgentToolCallSummary> {
     if (!isAgentToolName(call.name)) {
       return this.failedCall(actor, merchantId, call, '模型请求了未授权工具')
@@ -58,6 +59,7 @@ export class AgentToolsService {
         input,
         storeId,
         days,
+        ruleContext,
       )
       const result: AgentToolCallSummary = {
         id: call.id,
@@ -90,6 +92,7 @@ export class AgentToolsService {
     input: Record<string, unknown>,
     storeId?: string,
     days: number = 7,
+    ruleContext?: { platform: string; market: string },
   ): Promise<unknown> {
     switch (name) {
       case 'search_products': {
@@ -180,11 +183,22 @@ export class AgentToolsService {
           storeId,
         )
       case 'search_platform_rules':
-        return this.rulesService.search(
-          actor,
-          merchantId,
-          input.query as string,
-        )
+        return this.rulesService.search(actor, merchantId, {
+          query: input.query as string,
+          ...(typeof input.platform === 'string'
+            ? { platform: input.platform }
+            : ruleContext
+              ? { platform: ruleContext.platform }
+              : {}),
+          ...(typeof input.market === 'string'
+            ? { market: input.market }
+            : ruleContext
+              ? { market: ruleContext.market }
+              : {}),
+          ...(typeof input.category === 'string'
+            ? { category: input.category }
+            : {}),
+        })
       case 'create_product_optimization_draft': {
         const product = await this.findProductByCode(
           actor,
