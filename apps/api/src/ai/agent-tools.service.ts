@@ -5,6 +5,7 @@ import type {
   AuthenticatedUser,
   OptimizationLanguage,
   ProductSummary,
+  RuleSearchResult,
 } from '@cross-border/shared'
 
 import { AuditLogsService } from '../commerce/audit-logs.service'
@@ -18,6 +19,7 @@ import {
 } from './agent-tools.contract'
 import { PlatformRulesService } from './platform-rules.service'
 import { ProductOptimizationsService } from './product-optimizations.service'
+import { scopeRuleCitationsToToolCall } from './rule-citation-validator'
 
 @Injectable()
 export class AgentToolsService {
@@ -52,7 +54,7 @@ export class AgentToolsService {
     }
     const input = parsed.data as Record<string, unknown>
     try {
-      const output = await this.runTool(
+      const rawOutput = await this.runTool(
         actor,
         merchantId,
         call.name,
@@ -61,6 +63,10 @@ export class AgentToolsService {
         days,
         ruleContext,
       )
+      const output =
+        call.name === 'search_platform_rules'
+          ? scopeRuleCitationsToToolCall(rawOutput as RuleSearchResult, call.id)
+          : rawOutput
       const result: AgentToolCallSummary = {
         id: call.id,
         name: call.name,
@@ -185,15 +191,15 @@ export class AgentToolsService {
       case 'search_platform_rules':
         return this.rulesService.search(actor, merchantId, {
           query: input.query as string,
-          ...(typeof input.platform === 'string'
-            ? { platform: input.platform }
-            : ruleContext
-              ? { platform: ruleContext.platform }
+          ...(ruleContext
+            ? { platform: ruleContext.platform }
+            : typeof input.platform === 'string'
+              ? { platform: input.platform }
               : {}),
-          ...(typeof input.market === 'string'
-            ? { market: input.market }
-            : ruleContext
-              ? { market: ruleContext.market }
+          ...(ruleContext
+            ? { market: ruleContext.market }
+            : typeof input.market === 'string'
+              ? { market: input.market }
               : {}),
           ...(typeof input.category === 'string'
             ? { category: input.category }

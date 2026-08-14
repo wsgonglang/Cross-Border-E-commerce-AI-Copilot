@@ -285,6 +285,7 @@ export class MockAiProvider implements AiProvider {
     let succeeded = 0
     let failed = 0
     let draftCreated = false
+    const ruleEvidence: string[] = []
     for (const item of toolMessages) {
       try {
         const parsed = JSON.parse(item.content) as Record<string, unknown>
@@ -298,6 +299,23 @@ export class MockAiProvider implements AiProvider {
           ) {
             draftCreated = true
           }
+          if (
+            item.name === 'search_platform_rules' &&
+            parsed.sufficient === true &&
+            Array.isArray(parsed.sources)
+          ) {
+            for (const source of (parsed.sources as unknown[]).slice(0, 3)) {
+              if (source && typeof source === 'object') {
+                const record = source as Record<string, unknown>
+                if (
+                  typeof record.citation === 'string' &&
+                  typeof record.excerpt === 'string'
+                ) {
+                  ruleEvidence.push(`${record.excerpt} [${record.citation}]`)
+                }
+              }
+            }
+          }
         }
       } catch {
         failed += 1
@@ -310,6 +328,7 @@ export class MockAiProvider implements AiProvider {
       draftCreated
         ? '优化草稿已创建，但尚未写回正式商品，请到商品管理中人工确认。'
         : '',
+      ruleEvidence.length > 0 ? `规则依据：${ruleEvidence.join(' ')}` : '',
     ].filter(Boolean)
     return parts.join(' ')
   }

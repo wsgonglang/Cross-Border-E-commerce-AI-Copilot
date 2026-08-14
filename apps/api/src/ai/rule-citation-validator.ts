@@ -2,11 +2,35 @@ import type {
   AgentToolCallSummary,
   RuleSearchResult,
 } from '@cross-border/shared'
+import { createHash } from 'node:crypto'
 
 const INSUFFICIENT_RULE_ANSWER =
   '当前可访问规则文档信息不足，不能据此给出平台规则结论。请补充适用平台、市场或规则来源后重试。'
 const INVALID_CITATION_ANSWER =
   '模型生成的规则结论未通过引用校验，请以工具轨迹中的规则原文为准并重新检索。'
+const CITATION_PATTERN = /\[(R(?:\d+|[A-F0-9]{8}-\d+))\]/g
+
+/**
+ * Direct searches can use compact R1/R2 labels. Inside an Agent run the same
+ * labels would collide across multiple tool calls, so bind them to the call.
+ */
+export function scopeRuleCitationsToToolCall(
+  result: RuleSearchResult,
+  toolCallId: string,
+): RuleSearchResult {
+  const callScope = createHash('sha256')
+    .update(toolCallId)
+    .digest('hex')
+    .slice(0, 8)
+    .toUpperCase()
+  return {
+    ...result,
+    sources: result.sources.map((source, index) => ({
+      ...source,
+      citation: `R${callScope}-${index + 1}`,
+    })),
+  }
+}
 
 function asRuleResult(call: AgentToolCallSummary): RuleSearchResult | null {
   if (
@@ -36,10 +60,13 @@ export function validateRuleCitations(
   answer: string,
   toolCalls: AgentToolCallSummary[],
 ): CitationValidationResult {
-  const ruleResults = toolCalls.map(asRuleResult).filter(Boolean)
-  if (ruleResults.length === 0) {
+  const ruleCalls = toolCalls.filter(
+    (call) => call.name === 'search_platform_rules',
+  )
+  if (ruleCalls.length === 0) {
     return { answer, valid: true, cited: [], available: [] }
   }
+  const ruleResults = ruleCalls.map(asRuleResult).filter(Boolean)
 
   const available = [
     ...new Set(
@@ -51,10 +78,12 @@ export function validateRuleCitations(
     ),
   ]
   const cited = [
-    ...new Set([...answer.matchAll(/\[(R\d+)\]/g)].map((match) => match[1]!)),
+    ...new Set(
+      [...answer.matchAll(CITATION_PATTERN)].map((match) => match[1]!),
+    ),
   ]
 
-  if (available.length === 0) {
+  if (ruleResults.length === 0 || available.length === 0) {
     return {
       answer: INSUFFICIENT_RULE_ANSWER,
       valid: false,

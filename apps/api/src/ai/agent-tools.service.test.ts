@@ -145,6 +145,66 @@ describe('AgentToolsService', () => {
     })
   })
 
+  it('does not let model arguments override trusted store rule context', async () => {
+    const { service, rules, audit } = createHarness()
+    rules.search.mockResolvedValue({
+      query: '充电器认证要求',
+      sufficient: true,
+      reason: 'MATCHED',
+      notice: 'ok',
+      filters: { platform: 'AMAZON', market: 'US' },
+      diagnostics: {
+        candidateCount: 1,
+        candidateLimit: 500,
+        truncated: false,
+      },
+      sources: [
+        {
+          citation: 'R1',
+          documentId: 'doc-1',
+          chunkId: 'chunk-1',
+          title: '美国站电器规则',
+          platform: 'AMAZON',
+          market: 'US',
+          scope: 'GLOBAL',
+          excerpt: '充电器需要核对安全资料。',
+          score: 0.9,
+          coverage: 0.8,
+        },
+      ],
+    })
+
+    const result = await service.execute(
+      operator,
+      'merchant-1',
+      {
+        id: 'call-rules-context',
+        name: 'search_platform_rules',
+        arguments: {
+          query: '充电器认证要求',
+          platform: 'SHOPEE',
+          market: 'BR',
+        },
+      },
+      'store-1',
+      7,
+      { platform: 'AMAZON', market: 'US' },
+    )
+
+    expect(rules.search).toHaveBeenCalledWith(operator, 'merchant-1', {
+      query: '充电器认证要求',
+      platform: 'AMAZON',
+      market: 'US',
+    })
+    const output = result.output as {
+      sources: Array<{ citation: string }>
+    }
+    expect(output.sources[0]?.citation).toMatch(/^R[A-F0-9]{8}-1$/)
+    expect(audit.recordAgentToolCall).toHaveBeenCalledWith(
+      expect.objectContaining({ output: result.output }),
+    )
+  })
+
   it('rejects invalid model arguments before calling business services', async () => {
     const { service, products, audit } = createHarness()
 

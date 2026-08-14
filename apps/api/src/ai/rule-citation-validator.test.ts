@@ -4,11 +4,17 @@ import type {
 } from '@cross-border/shared'
 import { describe, expect, it } from 'vitest'
 
-import { validateRuleCitations } from './rule-citation-validator'
+import {
+  scopeRuleCitationsToToolCall,
+  validateRuleCitations,
+} from './rule-citation-validator'
 
-function ruleCall(result: Partial<RuleSearchResult>): AgentToolCallSummary {
+function ruleCall(
+  result: Partial<RuleSearchResult>,
+  id = 'call-1',
+): AgentToolCallSummary {
   return {
-    id: 'call-1',
+    id,
     name: 'search_platform_rules',
     status: 'success',
     input: { query: '充电器认证' },
@@ -49,6 +55,27 @@ describe('validateRuleCitations', () => {
     expect(result).toMatchObject({ valid: true, available: ['R1'] })
   })
 
+  it('binds citation labels to each Agent tool call to prevent collisions', () => {
+    const first = scopeRuleCitationsToToolCall(
+      ruleCall({ sources: [source] }).output as RuleSearchResult,
+      'call-1',
+    )
+    const second = scopeRuleCitationsToToolCall(
+      ruleCall({ sources: [source] }).output as RuleSearchResult,
+      'call-2',
+    )
+
+    expect(first.sources[0]?.citation).toMatch(/^R[A-F0-9]{8}-1$/)
+    expect(first.sources[0]?.citation).not.toBe(second.sources[0]?.citation)
+    const answer = `第一条依据。[${first.sources[0]!.citation}] 第二条依据。[${second.sources[0]!.citation}]`
+    expect(
+      validateRuleCitations(answer, [
+        ruleCall(first, 'call-1'),
+        ruleCall(second, 'call-2'),
+      ]).valid,
+    ).toBe(true)
+  })
+
   it('rejects invented and missing citations', () => {
     expect(
       validateRuleCitations('规则要求如此。[R9]', [
@@ -65,6 +92,21 @@ describe('validateRuleCitations', () => {
     const result = validateRuleCitations('模型自行补充的规则。', [
       ruleCall({ sufficient: false, reason: 'LOW_RELEVANCE', sources: [] }),
     ])
+    expect(result.reason).toBe('INSUFFICIENT_SOURCES')
+    expect(result.answer).toContain('信息不足')
+  })
+
+  it('fails closed when the rule tool itself errors', () => {
+    const failedCall: AgentToolCallSummary = {
+      id: 'call-error',
+      name: 'search_platform_rules',
+      status: 'error',
+      input: { query: '充电器认证' },
+      error: 'database unavailable',
+    }
+
+    const result = validateRuleCitations('模型自行补充的规则。', [failedCall])
+
     expect(result.reason).toBe('INSUFFICIENT_SOURCES')
     expect(result.answer).toContain('信息不足')
   })

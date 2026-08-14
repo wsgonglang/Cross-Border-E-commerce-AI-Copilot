@@ -76,7 +76,9 @@ export const ruleEvaluationCandidates: RetrievalCandidate[] = documents.flatMap(
     })),
 )
 
-export const rulePositiveCases = [
+export type RulePositiveCase = readonly [string, string | readonly string[]]
+
+export const ruleDevelopmentPositiveCases: readonly RulePositiveCase[] = [
   ['充电器需要核对哪些电压和认证', 'electric'],
   ['电源适配器发布前要检查输入电压吗', 'electric'],
   ['认证资料不全能写已经通过认证吗', 'electric'],
@@ -93,6 +95,10 @@ export const rulePositiveCases = [
   ['玩具小零件要写窒息风险警告吗', 'children'],
   ['儿童商品目标市场安全测试要求', 'children'],
   ['预包装食品必须展示哪些标签', 'food'],
+] as const
+
+/** 从 v3 评估起冻结；调参时不得改写期望结果来迁就实现。 */
+export const ruleTestPositiveCases: readonly RulePositiveCase[] = [
   ['食品过敏原和保质期需要标注吗', 'food'],
   ['食品可以宣传治疗疾病吗', 'food'],
   ['收到退货以后几天发起退款', 'returns'],
@@ -101,9 +107,11 @@ export const rulePositiveCases = [
   ['客户邮箱能导出做营销吗', 'privacy'],
   ['收货地址只能用于订单履约吗', 'privacy'],
   ['未经授权可以使用客户电话营销吗', 'privacy'],
+  ['充电器含锂电池时发布和空运需要核对哪些资料', ['electric', 'battery']],
+  ['儿童玩具年龄警告与预包装食品过敏原标签要求', ['children', 'food']],
 ] as const
 
-export const ruleNoAnswerCases = [
+export const ruleDevelopmentNoAnswerCases = [
   '宠物食品冷链温度是多少',
   '巴西进口关税税率是多少',
   '仓库消防通道应该多宽',
@@ -113,6 +121,38 @@ export const ruleNoAnswerCases = [
   '海运集装箱最大装载重量',
   '办公室打印机怎么连接无线网络',
 ] as const
+
+/** 困难负例留在冻结测试集，避免只用容易的无答案问题调高指标。 */
+export const ruleTestNoAnswerCases = [
+  '充电器保修期是几年',
+  '锂电池回收费用是多少',
+  '食品进口关税是多少',
+  '客户电话字段最多多少字符',
+] as const
+
+export interface RuleEvaluationDataset {
+  name: 'DEVELOPMENT' | 'TEST' | 'COMBINED'
+  positiveCases: readonly RulePositiveCase[]
+  noAnswerCases: readonly string[]
+}
+
+export const ruleDevelopmentDataset: RuleEvaluationDataset = {
+  name: 'DEVELOPMENT',
+  positiveCases: ruleDevelopmentPositiveCases,
+  noAnswerCases: ruleDevelopmentNoAnswerCases,
+}
+
+export const ruleTestDataset: RuleEvaluationDataset = {
+  name: 'TEST',
+  positiveCases: ruleTestPositiveCases,
+  noAnswerCases: ruleTestNoAnswerCases,
+}
+
+export const ruleCombinedDataset: RuleEvaluationDataset = {
+  name: 'COMBINED',
+  positiveCases: [...ruleDevelopmentPositiveCases, ...ruleTestPositiveCases],
+  noAnswerCases: [...ruleDevelopmentNoAnswerCases, ...ruleTestNoAnswerCases],
+}
 
 export const ruleEvaluationThresholds = {
   hitAt1: 0.85,
@@ -130,12 +170,13 @@ export interface RuleEvaluationMetrics {
 
 export interface RuleEvaluationFailure {
   query: string
-  expected: string
+  expected: string[]
   returned: string[]
   rank: number | null
 }
 
 export interface RuleEvaluationReport {
+  dataset: RuleEvaluationDataset['name']
   totalCases: number
   positiveCases: number
   noAnswerCases: number
@@ -146,6 +187,7 @@ export interface RuleEvaluationReport {
 }
 
 export function evaluateRuleRetrieval(
+  dataset: RuleEvaluationDataset = ruleCombinedDataset,
   candidates: RetrievalCandidate[] = ruleEvaluationCandidates,
 ): RuleEvaluationReport {
   let hitAt1 = 0
@@ -153,38 +195,47 @@ export function evaluateRuleRetrieval(
   let reciprocalRank = 0
   const retrievalFailures: RuleEvaluationFailure[] = []
 
-  for (const [query, expected] of rulePositiveCases) {
+  for (const [query, expected] of dataset.positiveCases) {
     const ranked = rankRuleChunks(query, candidates, 3)
     const returned = ranked.map((result) => result.candidate.document.id)
-    const rankIndex = returned.indexOf(expected)
+    const expectedDocuments =
+      typeof expected === 'string' ? [expected] : [...expected]
+    const rankIndex = returned.findIndex((documentId) =>
+      expectedDocuments.includes(documentId),
+    )
+    const recalledAll = expectedDocuments.every((documentId) =>
+      returned.includes(documentId),
+    )
     if (rankIndex === 0) hitAt1 += 1
-    if (rankIndex >= 0) {
+    if (recalledAll) {
       recallAt3 += 1
+    }
+    if (rankIndex >= 0) {
       reciprocalRank += 1 / (rankIndex + 1)
     }
-    if (rankIndex !== 0) {
+    if (rankIndex !== 0 || !recalledAll) {
       retrievalFailures.push({
         query,
-        expected,
+        expected: expectedDocuments,
         returned,
         rank: rankIndex >= 0 ? rankIndex + 1 : null,
       })
     }
   }
 
-  const abstentionFailures = ruleNoAnswerCases.flatMap((query) => {
+  const abstentionFailures = dataset.noAnswerCases.flatMap((query) => {
     const ranked = rankRuleChunks(query, candidates, 3)
     return assessRuleRanking(ranked).sufficient
       ? [{ query, returned: ranked.map((item) => item.candidate.document.id) }]
       : []
   })
   const metrics = {
-    hitAt1: hitAt1 / rulePositiveCases.length,
-    recallAt3: recallAt3 / rulePositiveCases.length,
-    mrr: reciprocalRank / rulePositiveCases.length,
+    hitAt1: hitAt1 / dataset.positiveCases.length,
+    recallAt3: recallAt3 / dataset.positiveCases.length,
+    mrr: reciprocalRank / dataset.positiveCases.length,
     abstentionAccuracy:
-      (ruleNoAnswerCases.length - abstentionFailures.length) /
-      ruleNoAnswerCases.length,
+      (dataset.noAnswerCases.length - abstentionFailures.length) /
+      dataset.noAnswerCases.length,
   }
   const passed = Object.entries(ruleEvaluationThresholds).every(
     ([name, threshold]) =>
@@ -192,9 +243,10 @@ export function evaluateRuleRetrieval(
   )
 
   return {
-    totalCases: rulePositiveCases.length + ruleNoAnswerCases.length,
-    positiveCases: rulePositiveCases.length,
-    noAnswerCases: ruleNoAnswerCases.length,
+    dataset: dataset.name,
+    totalCases: dataset.positiveCases.length + dataset.noAnswerCases.length,
+    positiveCases: dataset.positiveCases.length,
+    noAnswerCases: dataset.noAnswerCases.length,
     metrics,
     retrievalFailures,
     abstentionFailures,

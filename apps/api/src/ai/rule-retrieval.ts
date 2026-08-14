@@ -208,7 +208,7 @@ export function rankRuleChunks(
     })
     .filter(
       (result) =>
-        result.matchedTerms.length >= Math.min(2, queryTerms.length) &&
+        result.matchedTerms.length >= Math.min(3, queryTerms.length) &&
         result.coverage >= 0.25 &&
         result.score >= 0.2,
     )

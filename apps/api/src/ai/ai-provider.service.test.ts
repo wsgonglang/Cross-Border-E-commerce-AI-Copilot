@@ -60,6 +60,45 @@ describe('MockAiProvider product optimization', () => {
     expect(result.answer).toContain('受控业务 Agent')
   })
 
+  it('keeps rule evidence citations in the default mock Agent answer', async () => {
+    const citation = 'RABCDEF12-1'
+    const result = await new MockAiProvider().runAgentStep({
+      messages: [
+        { role: 'user', content: '查询充电器合规规则' },
+        {
+          role: 'assistant',
+          content: null,
+          toolCalls: [
+            {
+              id: 'call-rules',
+              name: 'search_platform_rules',
+              arguments: { query: '充电器合规规则' },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolCallId: 'call-rules',
+          name: 'search_platform_rules',
+          content: JSON.stringify({
+            sufficient: true,
+            sources: [
+              {
+                citation,
+                excerpt: '充电器发布前必须核对输入电压和安全测试资料。',
+              },
+            ],
+          }),
+        },
+      ],
+      tools: AGENT_TOOL_DEFINITIONS,
+    })
+
+    expect(result.toolCalls).toEqual([])
+    expect(result.answer).toContain('充电器发布前')
+    expect(result.answer).toContain(`[${citation}]`)
+  })
+
   it('chains inventory before draft creation across loop rounds', async () => {
     const provider = new MockAiProvider()
     const message = '先查 P-DEMO-001 的库存，再创建英文优化草稿'

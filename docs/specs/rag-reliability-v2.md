@@ -16,13 +16,16 @@
 ### 范围
 
 - 建立不少于 30 条的固定标注集，包含直接命中、改写、中英混合、多文档、无答案和边界场景。
+- 将用例拆为允许调参的 Development Set 和从 v3 起冻结的 Test Set，分别输出指标。
 - 同时计算 Hit@1、Recall@3、MRR 和无答案拒答准确率。
 - 评估作为 API 自动化测试运行，指标下降时阻断 CI。
+- 每次根据失败样本修改检索实现时，在 `docs/rag-evaluation-log.md` 记录 Before、根因、改动和 After。
 
 ### 验收标准
 
 - 用例总数不少于 30，且无答案用例不少于 8。
-- Hit@1、Recall@3、MRR、拒答准确率均在测试输出和断言中体现。
+- Development Set 和 Test Set 的 Hit@1、Recall@3、MRR、拒答准确率均在测试输出和断言中体现。
+- Test Set 不得在同一数据集版本内为了适配实现而修改期望；新增真实 bad case 先进入 Development Set。
 - README 明确数据集规模和离线评估边界。
 
 ## 4. 阶段二：规则适用范围与版本治理

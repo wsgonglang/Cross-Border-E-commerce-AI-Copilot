@@ -4,27 +4,42 @@ import {
   evaluateRuleRetrieval,
   ruleEvaluationCandidates,
   ruleEvaluationThresholds,
+  ruleDevelopmentDataset,
+  ruleTestDataset,
 } from './rule-retrieval.evaluation'
 import { chunkRuleContent, rankRuleChunks } from './rule-retrieval'
 
 describe('rule retrieval v2 offline evaluation', () => {
-  it('meets the fixed 32-case retrieval and abstention baseline', () => {
-    const report = evaluateRuleRetrieval()
+  it('meets the fixed retrieval and abstention baseline', () => {
+    const development = evaluateRuleRetrieval(ruleDevelopmentDataset)
+    const test = evaluateRuleRetrieval(ruleTestDataset)
 
-    expect(report.totalCases).toBeGreaterThanOrEqual(30)
-    expect(report.metrics.hitAt1).toBeGreaterThanOrEqual(
-      ruleEvaluationThresholds.hitAt1,
+    expect(development.totalCases + test.totalCases).toBeGreaterThanOrEqual(30)
+    for (const report of [development, test]) {
+      expect(report.metrics.hitAt1).toBeGreaterThanOrEqual(
+        ruleEvaluationThresholds.hitAt1,
+      )
+      expect(report.metrics.recallAt3).toBeGreaterThanOrEqual(
+        ruleEvaluationThresholds.recallAt3,
+      )
+      expect(report.metrics.mrr).toBeGreaterThanOrEqual(
+        ruleEvaluationThresholds.mrr,
+      )
+      expect(report.metrics.abstentionAccuracy).toBeGreaterThanOrEqual(
+        ruleEvaluationThresholds.abstentionAccuracy,
+      )
+      expect(report.passed).toBe(true)
+    }
+  })
+
+  it('rejects entity-only hard negatives without supporting rule terms', () => {
+    const ranked = rankRuleChunks(
+      '充电器保修期是几年',
+      ruleEvaluationCandidates,
+      3,
     )
-    expect(report.metrics.recallAt3).toBeGreaterThanOrEqual(
-      ruleEvaluationThresholds.recallAt3,
-    )
-    expect(report.metrics.mrr).toBeGreaterThanOrEqual(
-      ruleEvaluationThresholds.mrr,
-    )
-    expect(report.metrics.abstentionAccuracy).toBeGreaterThanOrEqual(
-      ruleEvaluationThresholds.abstentionAccuracy,
-    )
-    expect(report.passed).toBe(true)
+
+    expect(ranked).toEqual([])
   })
 
   it('preserves term frequency and diversifies documents before adjacent chunks', () => {
