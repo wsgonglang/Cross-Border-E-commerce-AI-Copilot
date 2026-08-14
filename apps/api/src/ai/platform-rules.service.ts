@@ -10,8 +10,6 @@ import type {
   RuleDocumentSummary,
   RuleSearchResult,
 } from '@cross-border/shared'
-import { createHash } from 'node:crypto'
-
 import { asJson, toStringArray } from '../commerce/commerce.utils'
 import { MerchantAccessService } from '../commerce/merchant-access.service'
 import { PrismaService } from '../database/prisma.service'
@@ -23,6 +21,7 @@ import {
   toRuleDocumentDetail,
   toRuleDocumentSummary,
 } from './rule-document.mapper'
+import { createRuleDocumentFingerprint } from './rule-document-fingerprint'
 import {
   chunkRuleContent,
   assessRuleRanking,
@@ -116,23 +115,19 @@ export class PlatformRulesService {
         '被替代规则必须是同平台、同作用域中的有效文档',
       )
     }
-    const contentHash = createHash('sha256')
-      .update(
-        JSON.stringify({
-          merchantId,
-          platform,
-          market,
-          language,
-          category,
-          effectiveFrom: effectiveFrom?.toISOString(),
-          effectiveTo: effectiveTo?.toISOString(),
-          version,
-          supersedesDocumentId: superseded?.id ?? null,
-          title,
-          content: normalizedContent,
-        }),
-      )
-      .digest('hex')
+    const contentHash = createRuleDocumentFingerprint({
+      merchantId,
+      platform,
+      market,
+      language,
+      category,
+      effectiveFrom,
+      effectiveTo,
+      version,
+      supersedesDocumentId: superseded?.id ?? null,
+      title,
+      content: normalizedContent,
+    })
     const duplicate = await this.prisma.ruleDocument.findFirst({
       where: { merchantId, contentHash, status: 'ACTIVE' },
       select: { id: true },

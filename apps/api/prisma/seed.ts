@@ -1,8 +1,8 @@
 import { config } from 'dotenv'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import { hash } from 'bcryptjs'
-import { createHash } from 'node:crypto'
 
+import { createRuleDocumentFingerprint } from '../src/ai/rule-document-fingerprint'
 import { chunkRuleContent } from '../src/ai/rule-retrieval'
 import { PrismaClient } from '../src/generated/prisma/client'
 
@@ -139,8 +139,18 @@ async function seed(): Promise<void> {
   const ruleDocuments = [
     {
       id: 'rule_demo_electric_001',
+      merchantId: null,
       title: '演示平台电器商品发布规范',
       platform: 'DEMO_MARKETPLACE',
+      market: null,
+      language: 'zh-CN',
+      category: 'ELECTRONICS',
+      effectiveFrom: null,
+      effectiveTo: null,
+      version: '2026.1',
+      supersedesDocumentId: null,
+      scope: 'GLOBAL' as const,
+      status: 'ACTIVE' as const,
       sourceUrl: 'https://example.invalid/rules/electrical-products',
       content: `# 电器商品信息要求
 
@@ -152,8 +162,18 @@ async function seed(): Promise<void> {
     },
     {
       id: 'rule_demo_claims_001',
+      merchantId: null,
       title: '演示平台标题与营销声明规范',
       platform: 'DEMO_MARKETPLACE',
+      market: null,
+      language: 'zh-CN',
+      category: 'LISTING',
+      effectiveFrom: null,
+      effectiveTo: null,
+      version: '2026.1',
+      supersedesDocumentId: null,
+      scope: 'GLOBAL' as const,
+      status: 'ACTIVE' as const,
       sourceUrl: 'https://example.invalid/rules/title-and-claims',
       content: `# 商品标题
 
@@ -165,8 +185,18 @@ async function seed(): Promise<void> {
     },
     {
       id: 'rule_demo_battery_001',
+      merchantId: null,
       title: '演示平台含锂电池商品运输资料要求',
       platform: 'DEMO_MARKETPLACE',
+      market: null,
+      language: 'zh-CN',
+      category: 'BATTERY',
+      effectiveFrom: null,
+      effectiveTo: null,
+      version: '2026.1',
+      supersedesDocumentId: null,
+      scope: 'GLOBAL' as const,
+      status: 'ACTIVE' as const,
       sourceUrl: 'https://example.invalid/rules/lithium-battery-shipping',
       content: `# 锂电池运输
 
@@ -176,34 +206,141 @@ async function seed(): Promise<void> {
 
 无法确认电池参数或运输资料时，不得向买家保证该商品可以通过所有航空渠道运输。`,
     },
+    {
+      id: 'rule_demo_amazon_us_electronics_2025',
+      merchantId: null,
+      title: 'Amazon 美国站电器商品演示规则（2025 版）',
+      platform: 'AMAZON',
+      market: 'US',
+      language: 'zh-CN',
+      category: 'ELECTRONICS',
+      effectiveFrom: new Date('2025-01-01T00:00:00.000Z'),
+      effectiveTo: new Date('2026-07-01T00:00:00.000Z'),
+      version: '2025.1',
+      supersedesDocumentId: null,
+      scope: 'GLOBAL' as const,
+      status: 'ARCHIVED' as const,
+      sourceUrl: 'https://example.invalid/amazon/us/electronics/2025',
+      content: `# 适用范围
+
+本演示规则适用于 Amazon 美国站电器商品，规则版本为 2025.1，有效期截止到 2026 年 7 月 1 日。
+
+## 充电器资料
+
+旅行充电器发布前应记录输入电压、输出功率、插头制式和已有安全测试资料。缺少证明材料时不得使用“完全安全”或“适用于所有国家”等绝对化表述。`,
+    },
+    {
+      id: 'rule_demo_amazon_us_electronics_2026',
+      merchantId: null,
+      title: 'Amazon 美国站电器商品演示规则（2026 版）',
+      platform: 'AMAZON',
+      market: 'US',
+      language: 'zh-CN',
+      category: 'ELECTRONICS',
+      effectiveFrom: new Date('2026-07-01T00:00:00.000Z'),
+      effectiveTo: null,
+      version: '2026.2',
+      supersedesDocumentId: 'rule_demo_amazon_us_electronics_2025',
+      scope: 'GLOBAL' as const,
+      status: 'ACTIVE' as const,
+      sourceUrl: 'https://example.invalid/amazon/us/electronics/2026',
+      content: `# 适用范围
+
+本演示规则适用于 Amazon 美国站电器商品，自 2026 年 7 月 1 日起生效，并替代 2025.1 版本。
+
+## 充电器资料
+
+旅行充电器发布前必须核对输入电压、输出功率、美国插头制式和可追溯的安全测试资料。认证名称、编号和检测结论必须与原始资料一致。
+
+## 营销声明
+
+标题和详情不得使用无法证明的“美国第一”“百分百安全”或“全球通用”等保证性表述。资料不完整时，运营人员必须停止发布并补充证据。`,
+    },
+    {
+      id: 'rule_demo_amazon_us_merchant_review',
+      merchantId: merchant.id,
+      title: 'Demo 商家 Amazon 美国站合规复核补充规则',
+      platform: 'AMAZON',
+      market: 'US',
+      language: 'zh-CN',
+      category: 'ELECTRONICS',
+      effectiveFrom: new Date('2026-07-01T00:00:00.000Z'),
+      effectiveTo: null,
+      version: 'internal-1.0',
+      supersedesDocumentId: null,
+      scope: 'MERCHANT' as const,
+      status: 'ACTIVE' as const,
+      sourceUrl: 'https://example.invalid/demo-merchant/amazon-us-review',
+      content: `# 商家内部复核
+
+Demo 商家的 Amazon 美国站电器商品在提交发布前，必须由运营主管复核电压、插头制式、安全测试资料和所有绝对化营销声明。
+
+## 处理要求
+
+复核未通过时只能保存为修改草稿，不得写入正式商品刊登；复核结论和证据链接需要进入审计记录。`,
+    },
+    {
+      id: 'rule_demo_shopee_br_claims_2026',
+      merchantId: null,
+      title: 'Shopee 巴西站商品声明演示规则（2026 版）',
+      platform: 'SHOPEE',
+      market: 'BR',
+      language: 'zh-CN',
+      category: 'LISTING',
+      effectiveFrom: new Date('2026-01-01T00:00:00.000Z'),
+      effectiveTo: null,
+      version: '2026.1',
+      supersedesDocumentId: null,
+      scope: 'GLOBAL' as const,
+      status: 'ACTIVE' as const,
+      sourceUrl: 'https://example.invalid/shopee/br/listing-claims/2026',
+      content: `# 巴西站商品声明
+
+Shopee 巴西站商品标题和葡萄牙语详情必须准确表达商品功能，不得加入无法由资料证明的排名、治疗效果或保证性声明。
+
+## 本地化要求
+
+将中文卖点翻译为葡萄牙语时，应保留型号、规格和限制条件，不得把“有助于”扩大翻译为“保证有效”。`,
+    },
   ]
 
   for (const rule of ruleDocuments) {
     const normalizedContent = rule.content.replace(/\r\n?/g, '\n').trim()
-    const contentHash = createHash('sha256')
-      .update(
-        JSON.stringify({
-          merchantId: null,
-          platform: rule.platform,
-          title: rule.title,
-          content: normalizedContent,
-        }),
-      )
-      .digest('hex')
+    const contentHash = createRuleDocumentFingerprint({
+      merchantId: rule.merchantId,
+      platform: rule.platform,
+      market: rule.market,
+      language: rule.language,
+      category: rule.category,
+      effectiveFrom: rule.effectiveFrom,
+      effectiveTo: rule.effectiveTo,
+      version: rule.version,
+      supersedesDocumentId: rule.supersedesDocumentId,
+      title: rule.title,
+      content: normalizedContent,
+    })
     const chunks = chunkRuleContent(normalizedContent)
     await prisma.$transaction(async (transaction) => {
       await transaction.ruleDocument.upsert({
         where: { id: rule.id },
         create: {
           id: rule.id,
-          merchantId: null,
+          merchantId: rule.merchantId,
           createdById: admin.id,
           title: rule.title,
           platform: rule.platform,
-          scope: 'GLOBAL',
+          market: rule.market,
+          language: rule.language,
+          category: rule.category,
+          effectiveFrom: rule.effectiveFrom,
+          effectiveTo: rule.effectiveTo,
+          version: rule.version,
+          supersedesDocumentId: rule.supersedesDocumentId,
+          scope: rule.scope,
           sourceUrl: rule.sourceUrl,
           content: normalizedContent,
           contentHash,
+          status: rule.status,
           chunks: {
             create: chunks.map((chunk) => ({
               sequence: chunk.sequence,
@@ -216,10 +353,19 @@ async function seed(): Promise<void> {
         update: {
           title: rule.title,
           platform: rule.platform,
+          merchantId: rule.merchantId,
+          market: rule.market,
+          language: rule.language,
+          category: rule.category,
+          effectiveFrom: rule.effectiveFrom,
+          effectiveTo: rule.effectiveTo,
+          version: rule.version,
+          supersedesDocumentId: rule.supersedesDocumentId,
+          scope: rule.scope,
           sourceUrl: rule.sourceUrl,
           content: normalizedContent,
           contentHash,
-          status: 'ACTIVE',
+          status: rule.status,
         },
       })
       await transaction.ruleChunk.deleteMany({
