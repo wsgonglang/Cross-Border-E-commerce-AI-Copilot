@@ -45,6 +45,7 @@ export class AgentController {
             regenerateMessageId: dto.regenerateMessageId,
           }
         : undefined,
+      dto.allowDraftCreation,
     )
   }
 

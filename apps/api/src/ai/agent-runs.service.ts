@@ -27,6 +27,7 @@ interface AgentRunRecord {
   message: string
   sourcePage: string | null
   days: number
+  allowDraftCreation: boolean
   answer: string | null
   status: 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
   providerName: string | null
@@ -111,6 +112,7 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     conversation?: { sessionId: string; userMessageId: string },
     days: number = 7,
     promptVersion?: string,
+    allowDraftCreation: boolean = false,
   ): Promise<string> {
     const run = await this.prisma.agentRun.create({
       data: {
@@ -120,6 +122,7 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         message,
         ...(sourcePage ? { sourcePage } : {}),
         days,
+        allowDraftCreation,
         ...(promptVersion ? { promptVersion } : {}),
         ...(conversation
           ? {
@@ -174,6 +177,7 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         ? { platform: run.store.platform, market: run.store.market }
         : undefined,
       days: run.days,
+      allowDraftCreation: run.allowDraftCreation,
       sessionId: run.sessionId ?? undefined,
       userMessageId: run.userMessageId ?? undefined,
       status: run.status,
@@ -363,6 +367,7 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         : {}),
       message: record.message,
       ...(record.sourcePage ? { sourcePage: record.sourcePage } : {}),
+      allowDraftCreation: record.allowDraftCreation,
       answer: record.answer ?? '',
       status: record.status,
       toolCalls,

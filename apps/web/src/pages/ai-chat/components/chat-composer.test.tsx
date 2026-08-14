@@ -53,4 +53,27 @@ describe('ChatComposer', () => {
     expect(onStop).toHaveBeenCalledOnce()
     expect(screen.getByRole('textbox')).toBeDisabled()
   })
+
+  it('requires an explicit operator choice before authorizing draft creation', () => {
+    const onChange = vi.fn()
+    render(
+      <ChatComposer
+        inputValue="创建商品草稿"
+        streaming={false}
+        canCreateDraft
+        allowDraftCreation={false}
+        onAllowDraftCreationChange={onChange}
+        onChange={vi.fn()}
+        onSend={vi.fn()}
+        onStop={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /允许本次 Agent 创建一条商品优化草稿/,
+      }),
+    )
+    expect(onChange).toHaveBeenCalledWith(true)
+  })
 })

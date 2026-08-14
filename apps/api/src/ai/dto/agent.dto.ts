@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import {
+  IsBoolean,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -37,6 +38,14 @@ export class AgentRunDto {
   @IsString()
   @MaxLength(120)
   sourcePage?: string
+
+  @ApiPropertyOptional({
+    default: false,
+    description: '用户是否显式授权本次运行创建一条商品优化草稿',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowDraftCreation = false
 
   @ApiPropertyOptional({
     description: 'Persist this run in an AI conversation',

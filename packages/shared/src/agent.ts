@@ -62,6 +62,7 @@ export interface AgentRunSummary extends AgentRunResponse {
   userId: string
   message: string
   sourcePage?: string
+  allowDraftCreation?: boolean
   status: AgentRunStatus
   providerName?: string
   modelName?: string

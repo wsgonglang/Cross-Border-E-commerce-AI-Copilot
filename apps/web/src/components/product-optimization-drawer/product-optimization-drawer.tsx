@@ -303,6 +303,13 @@ export function ProductOptimizationDrawer({
 
                 <Divider>{t('optimization.risksAndSuggestions')}</Divider>
                 <Alert
+                  className="optimization-alert"
+                  type="info"
+                  showIcon
+                  message={t('optimization.modelRiskNotice')}
+                  description={t('optimization.ragEvidenceHint')}
+                />
+                <Alert
                   type={draft.complianceRisks.length ? 'warning' : 'success'}
                   showIcon
                   message={

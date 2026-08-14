@@ -89,6 +89,16 @@
   gap: 12px;
 }
 
+.ai-chat-draft-authorization {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--app-text-secondary);
+  font-size: 12px;
+}
+
 @media (max-width: 768px) {
   .ai-chat-sidebar {
     display: none;

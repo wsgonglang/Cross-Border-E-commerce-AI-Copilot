@@ -18,6 +18,10 @@ import type {
   ShareFormValues,
 } from './ai-chat.types'
 import { ChatComposer } from './components/chat-composer'
+import {
+  AgentFeedbackModal,
+  type AgentFeedbackFormValues,
+} from './components/agent-feedback-modal'
 import { ChatMessageList } from './components/chat-message-list'
 import { ConversationSidebar } from './components/conversation-sidebar'
 import { MessageLinkModal } from './components/message-link-modal'
@@ -35,6 +39,10 @@ import './styles.css'
 export function AiChatPage() {
   const { t } = useTranslation()
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
+  const user = useAppSelector((state) => state.auth.user)
+  const canCreateDraft = Boolean(
+    user?.roles.some((role) => role === 'admin' || role === 'operator'),
+  )
   const { merchantId, storeId } = useBusinessContext()
   const navigate = useNavigate()
   const [messageApi, messageContext] = antMessage.useMessage()
@@ -44,6 +52,7 @@ export function AiChatPage() {
   )
   const [linkingMessage, setLinkingMessage] = useState<AiMessage | null>(null)
   const [editingMessage, setEditingMessage] = useState<AiMessage | null>(null)
+  const [feedbackRunId, setFeedbackRunId] = useState<string | null>(null)
 
   const conversations = useAiConversations({
     token,
@@ -202,10 +211,13 @@ export function AiChatPage() {
               runAction(() => chat.favorite(item)).then(() => undefined)
             }
             onFeedback={(runId, rating) =>
-              runAction(
-                () => submitAgentFeedback(token, merchantId, runId, { rating }),
-                t('aiChat.feedbackSaved'),
-              ).then(() => undefined)
+              rating === 'HELPFUL'
+                ? runAction(
+                    () =>
+                      submitAgentFeedback(token, merchantId, runId, { rating }),
+                    t('aiChat.feedbackSaved'),
+                  ).then(() => undefined)
+                : Promise.resolve(setFeedbackRunId(runId))
             }
             onLink={setLinkingMessage}
             onEdit={setEditingMessage}
@@ -217,6 +229,9 @@ export function AiChatPage() {
             currentSession={conversations.currentSession}
             inputValue={chat.inputValue}
             streaming={chat.streaming}
+            canCreateDraft={canCreateDraft}
+            allowDraftCreation={chat.allowDraftCreation}
+            onAllowDraftCreationChange={chat.setAllowDraftCreation}
             onChange={chat.setInputValue}
             onSend={async () => {
               setError(null)
@@ -262,6 +277,24 @@ export function AiChatPage() {
         }}
         onRevoke={async (shareId) => {
           await runAction(() => sharing.revoke(shareId))
+        }}
+      />
+      <AgentFeedbackModal
+        open={Boolean(feedbackRunId)}
+        onCancel={() => setFeedbackRunId(null)}
+        onSubmit={async (values: AgentFeedbackFormValues) => {
+          if (!feedbackRunId) return false
+          const saved = await runAction(
+            () =>
+              submitAgentFeedback(token, merchantId, feedbackRunId, {
+                rating: 'NOT_HELPFUL',
+                reason: values.reason,
+                comment: values.comment,
+              }),
+            t('aiChat.feedbackSaved'),
+          )
+          if (saved) setFeedbackRunId(null)
+          return saved
         }}
       />
     </div>

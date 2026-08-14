@@ -16,6 +16,11 @@
   margin-top: 12px;
 }
 
+.agent-draft-authorization {
+  display: flex;
+  margin-top: 12px;
+}
+
 .agent-result-actions {
   margin-top: 12px;
 }

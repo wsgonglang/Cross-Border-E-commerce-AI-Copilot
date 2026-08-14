@@ -832,6 +832,7 @@ model AgentRun {
   status                 AgentRunStatus     @default(PLANNING)
   sourcePage             String?            @map("source_page") @db.VarChar(120)
   days                   Int                @default(7)
+  allowDraftCreation     Boolean            @default(false) @map("allow_draft_creation")
   providerName           String?            @map("provider_name") @db.VarChar(64)
   modelName              String?            @map("model_name") @db.VarChar(128)
   promptVersion          String?            @map("prompt_version") @db.VarChar(64)

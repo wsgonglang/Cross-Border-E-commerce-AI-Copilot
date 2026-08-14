@@ -172,6 +172,34 @@ describe('AgentService', () => {
     expect(agentRuns.complete).not.toHaveBeenCalled()
   })
 
+  it('persists explicit draft authorization for worker-side policy checks', async () => {
+    const agentRuns = runs()
+    const target = service({ aiProvider: provider(), agentRuns })
+
+    await target.run(
+      operator,
+      'merchant-1',
+      '为 P-DEMO-001 创建英文优化草稿',
+      undefined,
+      7,
+      'ai-chat',
+      undefined,
+      true,
+    )
+
+    expect(agentRuns.start).toHaveBeenCalledWith(
+      operator,
+      'merchant-1',
+      '为 P-DEMO-001 创建英文优化草稿',
+      undefined,
+      'ai-chat',
+      undefined,
+      7,
+      'agent-system-v2',
+      true,
+    )
+  })
+
   it('feeds tool results back to the model and returns draft ids and usage', async () => {
     const runAgentStep = vi
       .fn()
@@ -216,6 +244,7 @@ describe('AgentService', () => {
       runId: 'run-1',
       message: '为 P-DEMO-001 创建英文优化草稿',
       days: 7,
+      allowDraftCreation: true,
     })
 
     expect(result.answer).toBe('草稿已创建，待人工确认。')
@@ -309,7 +338,7 @@ describe('AgentService', () => {
     )
   })
 
-  it('does not expose the draft tool without explicit intent and refuses rogue calls', async () => {
+  it('does not expose the draft tool without explicit authorization and refuses rogue calls', async () => {
     const runAgentStep = vi
       .fn()
       .mockResolvedValueOnce({
@@ -391,6 +420,7 @@ describe('AgentService', () => {
       runId: 'run-1',
       message: '为 P-DEMO-001 创建优化草稿',
       days: 7,
+      allowDraftCreation: true,
     })
 
     expect(tools.execute).toHaveBeenCalledOnce()
@@ -534,6 +564,8 @@ describe('AgentService', () => {
       undefined,
       30,
       'dashboard',
+      undefined,
+      true,
     )
     await target.executeRun({
       actor: viewer,
@@ -541,6 +573,7 @@ describe('AgentService', () => {
       runId: 'run-1',
       message: '请优化 P-DEMO-001 并分析经营数据',
       days: 30,
+      allowDraftCreation: true,
     })
 
     const stepInput = runAgentStep.mock.calls[0]?.[0] as unknown as {
@@ -562,6 +595,7 @@ describe('AgentService', () => {
       undefined,
       30,
       'agent-system-v2',
+      true,
     )
   })
 

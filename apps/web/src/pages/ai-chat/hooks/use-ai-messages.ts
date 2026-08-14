@@ -53,6 +53,7 @@ interface StreamInput {
   progressWithTools: (toolNames: string[]) => string
   planningText: string
   runFailedText: string
+  allowDraftCreation: boolean
 }
 
 function streamMessage(input: StreamInput): AbortController {
@@ -90,6 +91,7 @@ function streamMessage(input: StreamInput): AbortController {
   void runAgent(input.token, input.merchantId, input.text, {
     storeId: input.storeId,
     sourcePage: 'ai-chat',
+    allowDraftCreation: input.allowDraftCreation,
     sessionId: input.sessionId,
     parentMessageId: input.parentMessageId,
     regenerateMessageId: input.regenerateMessageId,
@@ -203,6 +205,7 @@ export function useAiMessages({
   >({})
   const [streamingSessionIds, setStreamingSessionIds] = useState<string[]>([])
   const [inputValue, setInputValue] = useState('')
+  const [allowDraftCreation, setAllowDraftCreation] = useState(false)
   const abortControllersRef = useRef(new Map<string, AbortController>())
   const runIdsRef = useRef(new Map<string, string>())
   const streamingSessionIdsRef = useRef(new Set<string>())
@@ -300,6 +303,8 @@ export function useAiMessages({
     const text = inputValue.trim()
     if (!text || !token || !merchantId || streaming) return
     setInputValue('')
+    const draftAuthorization = allowDraftCreation
+    setAllowDraftCreation(false)
     const created = currentSessionId ? null : await createSession()
     const sessionId = currentSessionId ?? created?.id
     if (!sessionId) return
@@ -316,6 +321,7 @@ export function useAiMessages({
       progressWithTools,
       planningText: t('aiChat.planning'),
       runFailedText: t('aiChat.runFailed'),
+      allowDraftCreation: draftAuthorization,
       updateMessages,
       updateStreaming,
       updateActiveLeaf,
@@ -333,6 +339,7 @@ export function useAiMessages({
     abortControllersRef.current.set(sessionId, controller)
   }, [
     createSession,
+    allowDraftCreation,
     currentSessionId,
     inputValue,
     loadCurrentSession,
@@ -368,6 +375,7 @@ export function useAiMessages({
         progressWithTools,
         planningText: t('aiChat.planning'),
         runFailedText: t('aiChat.runFailed'),
+        allowDraftCreation: false,
         updateMessages,
         updateStreaming,
         updateActiveLeaf,
@@ -526,6 +534,7 @@ export function useAiMessages({
 
   return {
     allMessages,
+    allowDraftCreation,
     edit,
     favorite,
     inputValue,
@@ -536,6 +545,7 @@ export function useAiMessages({
     selectBranch,
     send,
     setInputValue,
+    setAllowDraftCreation,
     stop,
     streaming,
     streamingSessionIds,

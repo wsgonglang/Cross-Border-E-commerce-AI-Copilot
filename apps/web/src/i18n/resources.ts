@@ -157,6 +157,25 @@ export const resources = {
           stopLabel: '停止生成',
           send: '发送',
           sendLabel: '发送消息',
+          allowDraftCreation: '允许本次 Agent 创建一条商品优化草稿',
+          allowDraftCreationHint: '仅创建待确认草稿，不会修改正式商品',
+        },
+        feedback: {
+          title: '这条回答哪里需要改进？',
+          submit: '提交反馈',
+          reason: '主要原因',
+          reasonRequired: '请选择一个原因',
+          comment: '补充说明（可选）',
+          commentPlaceholder:
+            '例如：使用了错误的商品、缺少规则引用或结论不完整',
+          reasons: {
+            WRONG_TOOL: '工具选择错误',
+            INACCURATE_DATA: '业务数据不准确',
+            INCOMPLETE_ANSWER: '回答不完整',
+            CITATION_ISSUE: '规则引用有问题',
+            TOO_SLOW: '响应过慢',
+            OTHER: '其他',
+          },
         },
         sidebar: {
           new: '新建对话',
@@ -405,9 +424,12 @@ export const resources = {
         originalAndDraft: '原内容与结构化草稿',
         currentProduct: '当前商品',
         aiDraft: 'AI 草稿',
-        risksAndSuggestions: '风险与建议',
-        hasRisks: '存在需要人工核实的合规风险',
-        noRisks: '未发现明确风险',
+        risksAndSuggestions: '模型风险提示与优化建议',
+        modelRiskNotice: '以下风险由模型根据商品文本生成，不是平台规则结论',
+        ragEvidenceHint:
+          '需要合规判断时，请通过业务 Agent 检索规则知识库，并以带原文引用的结果为依据。',
+        hasRisks: '模型提示存在需要人工核实的风险',
+        noRisks: '模型未提示明确风险',
         confidence: 'AI 置信度',
         reject: '拒绝草稿',
         confirmTitle: '确认写回正式商品？',
@@ -445,6 +467,9 @@ export const resources = {
         results: '前往 AI 成果中心',
         reviewNow: '立即审核草稿',
         trace: '工具执行轨迹',
+        allowDraftCreation: '允许本次运行创建一条待确认商品草稿',
+        recoveryTimeout:
+          '实时连接已结束，任务仍可能在后台运行，请到 AI 成果中心查看',
         quick: {
           inventory: '查询 P-DEMO-001 的库存',
           order: '查询订单 ORD-20260701-001 的状态',
@@ -845,6 +870,27 @@ export const resources = {
           stopLabel: 'Stop generating',
           send: 'Send',
           sendLabel: 'Send message',
+          allowDraftCreation:
+            'Allow this Agent run to create one product optimization draft',
+          allowDraftCreationHint:
+            'Creates a review draft only; the live product is not changed',
+        },
+        feedback: {
+          title: 'What should be improved in this answer?',
+          submit: 'Submit feedback',
+          reason: 'Primary reason',
+          reasonRequired: 'Select one reason',
+          comment: 'Additional details (optional)',
+          commentPlaceholder:
+            'For example: wrong product, missing rule citation, or incomplete conclusion',
+          reasons: {
+            WRONG_TOOL: 'Wrong tool selected',
+            INACCURATE_DATA: 'Inaccurate business data',
+            INCOMPLETE_ANSWER: 'Incomplete answer',
+            CITATION_ISSUE: 'Rule citation issue',
+            TOO_SLOW: 'Too slow',
+            OTHER: 'Other',
+          },
         },
         sidebar: {
           new: 'New conversation',
@@ -1124,9 +1170,13 @@ export const resources = {
         originalAndDraft: 'Original content and structured draft',
         currentProduct: 'Current product',
         aiDraft: 'AI draft',
-        risksAndSuggestions: 'Risks and suggestions',
-        hasRisks: 'Compliance risks require human verification',
-        noRisks: 'No explicit risks found',
+        risksAndSuggestions: 'Model risk signals and suggestions',
+        modelRiskNotice:
+          'These signals are generated from product text and are not platform-rule conclusions',
+        ragEvidenceHint:
+          'For compliance decisions, use the business Agent to search the rule knowledge base and rely on answers with source citations.',
+        hasRisks: 'The model flagged risks that require human verification',
+        noRisks: 'The model did not flag an explicit risk',
         confidence: 'AI confidence',
         reject: 'Reject draft',
         confirmTitle: 'Apply this draft to the live product?',
@@ -1165,6 +1215,10 @@ export const resources = {
         results: 'Open AI results',
         reviewNow: 'Review draft now',
         trace: 'Tool execution trace',
+        allowDraftCreation:
+          'Allow this run to create one product draft for review',
+        recoveryTimeout:
+          'Live recovery ended. The task may still be running; check AI results for its final status.',
         quick: {
           inventory: 'Check inventory for P-DEMO-001',
           order: 'Check order ORD-20260701-001 status',

@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Input,
   Space,
   Spin,
@@ -15,7 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { runAgent } from '../../api/agent'
-import { useAgentRunQuery } from '../../queries/operations.queries'
+import { useAgentRunStream } from '../../hooks/use-agent-run-stream'
 
 import './styles.css'
 
@@ -46,11 +47,13 @@ export function AgentPanel({
   const [starting, setStarting] = useState(false)
   const [runId, setRunId] = useState<string>()
   const [error, setError] = useState<string | null>(null)
-  // 提交后持续轮询运行记录，工具轨迹逐步落库、逐步展示。
-  const runQuery = useAgentRunQuery(token, merchantId, runId, { poll: true })
-  const result = runQuery.data ?? null
-  const finished = result?.status === 'COMPLETED' || result?.status === 'FAILED'
-  const running = starting || Boolean(runId && !finished)
+  const [allowDraftCreation, setAllowDraftCreation] = useState(false)
+  const runStream = useAgentRunStream(token, merchantId, runId)
+  const result = runStream.data ?? null
+  const finished = Boolean(
+    result && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(result.status),
+  )
+  const running = starting || Boolean(runId && !finished && !runStream.error)
   const defaultQuickPrompts = [
     t('agent.quick.inventory'),
     t('agent.quick.order'),
@@ -60,7 +63,7 @@ export function AgentPanel({
   ]
   const visiblePrompts = quickPrompts ?? defaultQuickPrompts
 
-  const submit = async (preset?: string) => {
+  const submit = async (preset?: string, authorizeDraft = false) => {
     const content = (preset ?? message).trim()
     if (!content || running) return
     setMessage(content)
@@ -72,8 +75,10 @@ export function AgentPanel({
         storeId,
         days,
         sourcePage,
+        allowDraftCreation: canWrite && (authorizeDraft || allowDraftCreation),
       })
       setRunId(started.runId)
+      setAllowDraftCreation(false)
     } catch (runError: unknown) {
       setError(runError instanceof Error ? runError.message : t('agent.failed'))
     } finally {
@@ -97,7 +102,12 @@ export function AgentPanel({
             <Button
               key={prompt}
               size="small"
-              onClick={() => void submit(prompt)}
+              onClick={() =>
+                void submit(
+                  prompt,
+                  canWrite && prompt === defaultQuickPrompts.at(-1),
+                )
+              }
               disabled={running}
             >
               {prompt}
@@ -117,6 +127,16 @@ export function AgentPanel({
           showCount
           placeholder={t('agent.placeholder')}
         />
+        {canWrite ? (
+          <Checkbox
+            className="agent-draft-authorization"
+            checked={allowDraftCreation}
+            disabled={running}
+            onChange={(event) => setAllowDraftCreation(event.target.checked)}
+          >
+            {t('agent.allowDraftCreation')}
+          </Checkbox>
+        ) : null}
         <Button
           className="agent-run-button"
           type="primary"
@@ -130,6 +150,17 @@ export function AgentPanel({
       </Card>
 
       {error ? <Alert type="error" showIcon title={error} /> : null}
+      {runStream.error ? (
+        <Alert
+          type="warning"
+          showIcon
+          title={
+            runStream.error === 'AGENT_RUN_RECOVERY_TIMEOUT'
+              ? t('agent.recoveryTimeout')
+              : runStream.error
+          }
+        />
+      ) : null}
       {result?.status === 'FAILED' ? (
         <Alert
           type="error"

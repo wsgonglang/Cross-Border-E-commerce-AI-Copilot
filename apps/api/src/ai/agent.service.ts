@@ -83,6 +83,7 @@ export class AgentService {
       parentMessageId?: string
       regenerateMessageId?: string
     },
+    allowDraftCreation: boolean = false,
   ): Promise<AgentRunStartResponse> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     if (
@@ -112,6 +113,7 @@ export class AgentService {
       turn,
       days,
       AGENT_PROMPT_VERSION,
+      allowDraftCreation,
     )
     try {
       await this.agentQueue.enqueue(runId)
@@ -162,6 +164,7 @@ export class AgentService {
     storeId?: string
     storeContext?: { platform: string; market: string }
     days: number
+    allowDraftCreation?: boolean
     sessionId?: string
     userMessageId?: string
     signal?: AbortSignal
@@ -171,17 +174,16 @@ export class AgentService {
     const contextualMessage = input.storeName
       ? `[当前店铺：${input.storeName}；时间范围：${periodContext}] ${message}`
       : `[当前商家全部店铺；时间范围：${periodContext}] ${message}`
-    const explicitDraftIntent = /草稿|优化|翻译|DRAFT|OPTIMIZE|TRANSLATE/i.test(
-      message,
-    )
     const canWrite = actor.roles.some((role) =>
       ['admin', 'operator'].includes(role),
     )
-    // 服务端最后防线：无明确意图或无写权限时，草稿工具对模型不可见。
+    // 服务端最后防线：只有持久化的本次显式授权和写角色同时满足时，
+    // 草稿工具才对模型可见；自然语言关键词不作为授权凭据。
+    const draftCreationAuthorized = input.allowDraftCreation && canWrite
     const tools = AGENT_TOOL_DEFINITIONS.filter(
       (tool) =>
         tool.name !== 'create_product_optimization_draft' ||
-        (explicitDraftIntent && canWrite),
+        draftCreationAuthorized,
     )
 
     const branchContext =
@@ -285,7 +287,7 @@ export class AgentService {
         let summary: AgentToolCallSummary
         if (
           call.name === 'create_product_optimization_draft' &&
-          (!explicitDraftIntent || draftToolExecuted)
+          (!draftCreationAuthorized || draftToolExecuted)
         ) {
           // 防线兜底：即使模型越权请求，也回填拒绝结果保持会话协议完整。
           summary = {

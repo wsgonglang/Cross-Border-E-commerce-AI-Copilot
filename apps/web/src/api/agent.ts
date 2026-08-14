@@ -17,6 +17,7 @@ export function runAgent(
     storeId?: string
     days?: number
     sourcePage?: string
+    allowDraftCreation?: boolean
     sessionId?: string
     parentMessageId?: string
     regenerateMessageId?: string

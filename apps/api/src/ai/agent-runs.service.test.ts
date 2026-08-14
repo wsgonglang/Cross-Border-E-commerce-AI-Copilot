@@ -62,6 +62,7 @@ describe('AgentRunsService', () => {
         userId: operator.id,
         message: '查询库存',
         days: 7,
+        allowDraftCreation: false,
         status: 'PLANNING',
       },
       select: { id: true },
