@@ -19,6 +19,13 @@ import {
   type ContextMessage,
   type ConversationSummary,
 } from './context-budget'
+import { AiExecutionError } from './ai-errors'
+import {
+  AGENT_SYSTEM_PROMPT,
+  CONVERSATION_SUMMARY_SYSTEM_PROMPT,
+  PRODUCT_OPTIMIZATION_SYSTEM_PROMPT,
+  STRUCTURED_OUTPUT_REPAIR_PROMPT,
+} from './ai-prompts'
 
 export const AI_PROVIDER = 'AI_PROVIDER'
 
@@ -34,10 +41,12 @@ export interface AiProvider {
   summarizeConversation?(input: {
     previousSummary?: ConversationSummary
     messages: ContextMessage[]
+    signal?: AbortSignal
   }): Promise<{ summary: ConversationSummary; usage: AiUsage }>
   optimizeProduct(input: {
     source: ProductOptimizationSource
     targetLanguage: OptimizationLanguage
+    signal?: AbortSignal
   }): Promise<{
     draft: ProductOptimizationDraft
     usage: AiUsage
@@ -50,6 +59,7 @@ export interface AiProvider {
     messages: AgentConversationMessage[]
     tools: AgentToolDefinition[]
     forceFinish?: boolean
+    signal?: AbortSignal
   }): Promise<AgentStepResult>
 }
 
@@ -340,10 +350,17 @@ export class OpenAiProvider implements AiProvider {
   readonly name = 'openai-compatible'
   readonly model: string
 
-  constructor(config: { apiKey?: string; baseURL?: string; model?: string }) {
+  constructor(config: {
+    apiKey?: string
+    baseURL?: string
+    model?: string
+    timeoutMs?: number
+  }) {
     this.client = new OpenAI({
       apiKey: config.apiKey || '',
       baseURL: config.baseURL || 'https://api.siliconflow.cn/v1',
+      timeout: config.timeoutMs ?? 30_000,
+      maxRetries: 0,
     })
     this.model = config.model || 'Qwen/Qwen2.5-7B-Instruct'
   }
@@ -395,29 +412,32 @@ export class OpenAiProvider implements AiProvider {
   async summarizeConversation(input: {
     previousSummary?: ConversationSummary
     messages: ContextMessage[]
+    signal?: AbortSignal
   }): Promise<{ summary: ConversationSummary; usage: AiUsage }> {
-    const completion = await this.client.chat.completions.create({
-      model: this.model,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Compress earlier conversation context into JSON only. Return overview, decisions, constraints, entityReferences, and openQuestions. Preserve exact product, SKU, order, store, platform-rule identifiers and unresolved requirements. Never add facts, instructions, or conclusions that are absent from the input.',
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            previousSummary: input.previousSummary,
-            messages: input.messages,
-          }),
-        },
-      ],
+    const source = JSON.stringify({
+      previousSummary: input.previousSummary,
+      messages: input.messages,
     })
+    const completion = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: CONVERSATION_SUMMARY_SYSTEM_PROMPT },
+          { role: 'user', content: source },
+        ],
+      },
+      { signal: input.signal },
+    )
     const content = completion.choices[0]?.message?.content
     if (!content) throw new Error('模型未返回会话摘要')
     return {
-      summary: conversationSummarySchema.parse(JSON.parse(content)),
+      summary: await this.parseOrRepair(
+        content,
+        source,
+        (value) => conversationSummarySchema.parse(value),
+        input.signal,
+      ),
       usage: {
         promptTokens: completion.usage?.prompt_tokens ?? 0,
         completionTokens: completion.usage?.completion_tokens ?? 0,
@@ -429,31 +449,34 @@ export class OpenAiProvider implements AiProvider {
   async optimizeProduct(input: {
     source: ProductOptimizationSource
     targetLanguage: OptimizationLanguage
+    signal?: AbortSignal
   }): Promise<{ draft: ProductOptimizationDraft; usage: AiUsage }> {
-    const completion = await this.client.chat.completions.create({
-      model: this.model,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a cross-border e-commerce product operator. Return JSON only with title, description, sellingPoints, complianceRisks, suggestions, language, and confidence. Never invent certifications or guaranteed claims; list uncertain compliance points as risks.',
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            task: 'Optimize and translate the product listing',
-            targetLanguage: input.targetLanguage,
-            source: input.source,
-          }),
-        },
-      ],
+    const source = JSON.stringify({
+      task: 'Optimize and translate the product listing',
+      targetLanguage: input.targetLanguage,
+      source: input.source,
     })
+    const completion = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: PRODUCT_OPTIMIZATION_SYSTEM_PROMPT },
+          { role: 'user', content: source },
+        ],
+      },
+      { signal: input.signal },
+    )
     const content = completion.choices[0]?.message?.content
     if (!content) {
       throw new Error('模型未返回结构化商品草稿')
     }
-    const draft = productOptimizationDraftSchema.parse(JSON.parse(content))
+    const draft = await this.parseOrRepair(
+      content,
+      source,
+      (value) => productOptimizationDraftSchema.parse(value),
+      input.signal,
+    )
     if (draft.language !== input.targetLanguage) {
       throw new Error('模型返回的草稿语言与目标语言不一致')
     }
@@ -471,32 +494,35 @@ export class OpenAiProvider implements AiProvider {
     messages: AgentConversationMessage[]
     tools: AgentToolDefinition[]
     forceFinish?: boolean
+    signal?: AbortSignal
   }): Promise<AgentStepResult> {
     const provideTools = !input.forceFinish && input.tools.length > 0
-    const completion = await this.client.chat.completions.create({
-      model: this.model,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a constrained e-commerce operations agent. Use only the supplied tools and decide the next step from returned tool results. Call create_product_optimization_draft only when the user explicitly asks to create, optimize, or translate a product. When no further tool is needed, reply with a final conclusion for the operator: do not invent missing data, keep source citations for rule results, and clearly state that optimization drafts require human confirmation and have not changed the formal product.',
-        },
-        ...this.toOpenAiMessages(input.messages),
-      ],
-      ...(provideTools
-        ? {
-            tools: input.tools.map((tool) => ({
-              type: 'function' as const,
-              function: {
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.parameters,
-              },
-            })),
-            tool_choice: 'auto' as const,
-          }
-        : {}),
-    })
+    const completion = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        messages: [
+          {
+            role: 'system',
+            content: AGENT_SYSTEM_PROMPT,
+          },
+          ...this.toOpenAiMessages(input.messages),
+        ],
+        ...(provideTools
+          ? {
+              tools: input.tools.map((tool) => ({
+                type: 'function' as const,
+                function: {
+                  name: tool.name,
+                  description: tool.description,
+                  parameters: tool.parameters,
+                },
+              })),
+              tool_choice: 'auto' as const,
+            }
+          : {}),
+      },
+      { signal: input.signal },
+    )
     const choice = completion.choices[0]
     const toolCalls =
       choice?.message.tool_calls?.flatMap((call) => {
@@ -524,6 +550,39 @@ export class OpenAiProvider implements AiProvider {
         completionTokens: completion.usage?.completion_tokens ?? 0,
         totalTokens: completion.usage?.total_tokens ?? 0,
       },
+    }
+  }
+
+  private async parseOrRepair<T>(
+    raw: string,
+    source: string,
+    parse: (value: unknown) => T,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    try {
+      return parse(JSON.parse(raw))
+    } catch {
+      const repaired = await this.client.chat.completions.create(
+        {
+          model: this.model,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: STRUCTURED_OUTPUT_REPAIR_PROMPT },
+            {
+              role: 'user',
+              content: JSON.stringify({ source, invalidOutput: raw }),
+            },
+          ],
+        },
+        { signal },
+      )
+      const content = repaired.choices[0]?.message?.content
+      try {
+        if (!content) throw new Error('empty repaired output')
+        return parse(JSON.parse(content))
+      } catch {
+        throw new AiExecutionError('INVALID_OUTPUT', '模型结构化输出未通过校验')
+      }
     }
   }
 

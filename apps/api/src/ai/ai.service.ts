@@ -31,13 +31,14 @@ export class AiService {
   async getModelContextForLeaf(
     sessionId: string,
     leafMessageId: string,
+    signal?: AbortSignal,
   ): Promise<ContextMessage[]> {
     const messages = await this.prisma.aiMessage.findMany({
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
     })
     const lineage = this.buildLineage(messages, leafMessageId)
-    return this.buildModelContext(sessionId, lineage)
+    return this.buildModelContext(sessionId, lineage, signal)
   }
 
   async generateTitleForConversation(
@@ -307,6 +308,7 @@ export class AiService {
   private async buildModelContext(
     sessionId: string,
     lineage: LineageMessage[],
+    signal?: AbortSignal,
   ): Promise<ContextMessage[]> {
     const raw = lineage.map(({ role, content }) => ({ role, content }))
     if (estimateMessagesTokens(raw) <= CHAT_CONTEXT_TOKEN_BUDGET) return raw
@@ -365,6 +367,7 @@ export class AiService {
       const generated = await this.aiProvider.summarizeConversation({
         previousSummary: previous?.summary,
         messages: source,
+        signal,
       })
       const anchor = lineage[anchorIndex]!
       await this.prisma.aiConversationSummary.upsert({

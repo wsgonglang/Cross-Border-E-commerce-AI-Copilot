@@ -4,7 +4,12 @@ import { API_ENVIRONMENT } from '../config/api-config.constants'
 import { CommerceModule } from '../commerce/commerce.module'
 import { DatabaseModule } from '../database/database.module'
 import { AgentController } from './agent.controller'
+import { AgentFeedbackService } from './agent-feedback.service'
+import { AgentCancellationMonitorService } from './agent-cancellation-monitor.service'
+import { AgentProcessorService } from './agent-processor.service'
+import { AgentQueueService } from './agent-queue.service'
 import { AgentService } from './agent.service'
+import { AgentWorkerRunnerService } from './agent-worker-runner.service'
 import { AgentRunsService } from './agent-runs.service'
 import { AgentToolsService } from './agent-tools.service'
 import { AiQualityController } from './ai-quality.controller'
@@ -44,6 +49,11 @@ import { AiResultsService } from './ai-results.service'
     AiSessionSharesService,
     AiService,
     AgentService,
+    AgentFeedbackService,
+    AgentQueueService,
+    AgentProcessorService,
+    AgentCancellationMonitorService,
+    AgentWorkerRunnerService,
     AgentRunsService,
     AiResultsService,
     AgentToolsService,
@@ -57,18 +67,20 @@ import { AiResultsService } from './ai-results.service'
         OPENAI_API_KEY?: string
         OPENAI_BASE_URL?: string
         AI_MODEL?: string
+        AI_TIMEOUT_MS?: number
       }) => {
         if (environment.OPENAI_API_KEY) {
           return new OpenAiProvider({
             apiKey: environment.OPENAI_API_KEY,
             baseURL: environment.OPENAI_BASE_URL,
             model: environment.AI_MODEL,
+            timeoutMs: environment.AI_TIMEOUT_MS,
           })
         }
         return new MockAiProvider()
       },
     },
   ],
-  exports: [ProductOptimizationsService],
+  exports: [ProductOptimizationsService, AgentWorkerRunnerService],
 })
 export class AiModule {}

@@ -1,4 +1,3 @@
-import { BadGatewayException } from '@nestjs/common'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { MerchantAccessService } from '../commerce/merchant-access.service'
@@ -9,6 +8,7 @@ import type { AgentRunsService } from './agent-runs.service'
 import type { AgentToolsService } from './agent-tools.service'
 import type { AiService } from './ai.service'
 import type { AiSessionsService } from './ai-sessions.service'
+import type { AgentQueueService } from './agent-queue.service'
 
 const operator = {
   id: 'user-1',
@@ -45,6 +45,7 @@ function runs() {
     fail: vi.fn().mockResolvedValue(undefined),
     isCancelled: vi.fn().mockResolvedValue(false),
     cancel: vi.fn(),
+    countActiveForUser: vi.fn().mockResolvedValue(0),
   }
 }
 
@@ -55,6 +56,7 @@ function service(input: {
   assertStore?: ReturnType<typeof vi.fn>
   aiService?: Partial<AiService>
   aiSessions?: Partial<AiSessionsService>
+  queue?: Partial<AgentQueueService>
 }) {
   return new AgentService(
     {
@@ -74,11 +76,26 @@ function service(input: {
       finishAgentTurn: vi.fn(),
       failAgentTurn: vi.fn(),
     }) as unknown as AiSessionsService,
+    (input.queue ?? {
+      enqueue: vi.fn().mockResolvedValue(undefined),
+      cancelWaiting: vi.fn().mockResolvedValue(undefined),
+    }) as unknown as AgentQueueService,
     input.aiProvider,
   )
 }
 
 describe('AgentService', () => {
+  it('limits concurrent Agent runs per user before creating a run', async () => {
+    const agentRuns = runs()
+    agentRuns.countActiveForUser.mockResolvedValue(2)
+    const target = service({ aiProvider: provider(), agentRuns })
+
+    await expect(
+      target.run(operator, 'merchant-1', '再查询一个商品'),
+    ).rejects.toMatchObject({ status: 429 })
+    expect(agentRuns.start).not.toHaveBeenCalled()
+  })
+
   it('persists a session turn and plans from the active branch context', async () => {
     const agentRuns = runs()
     const getModelContextForLeaf = vi.fn().mockResolvedValue([
@@ -120,26 +137,39 @@ describe('AgentService', () => {
       sessionId: 'session-1',
       userMessageId: 'message-user-2',
     })
-    await vi.waitFor(() => expect(finishAgentTurn).toHaveBeenCalledOnce())
+    await target.executeRun({
+      actor: operator,
+      merchantId: 'merchant-1',
+      runId: 'run-1',
+      message: '重点看第一个',
+      days: 7,
+      sessionId: 'session-1',
+      userMessageId: 'message-user-2',
+    })
     expect(getModelContextForLeaf).toHaveBeenCalledWith(
       'session-1',
       'message-user-2',
+      undefined,
     )
     expect(agentRuns.complete).toHaveBeenCalledWith(
       expect.objectContaining({ assistantMessageId: 'message-ai-2' }),
     )
   })
 
-  it('returns the run id immediately and completes in the background', async () => {
+  it('returns the run id immediately and enqueues durable execution', async () => {
     const agentRuns = runs()
-    const target = service({ aiProvider: provider(), agentRuns })
+    const enqueue = vi.fn().mockResolvedValue(undefined)
+    const target = service({
+      aiProvider: provider(),
+      agentRuns,
+      queue: { enqueue },
+    })
 
     const started = await target.run(operator, 'merchant-1', '查询商品')
 
     expect(started).toEqual({ runId: 'run-1', status: 'PLANNING' })
-    await vi.waitFor(() => {
-      expect(agentRuns.complete).toHaveBeenCalledOnce()
-    })
+    expect(enqueue).toHaveBeenCalledWith('run-1')
+    expect(agentRuns.complete).not.toHaveBeenCalled()
   })
 
   it('feeds tool results back to the model and returns draft ids and usage', async () => {
@@ -452,8 +482,15 @@ describe('AgentService', () => {
     })
 
     await target.run(operator, 'merchant-1', '查询经营概览', 'store-1')
-    await vi.waitFor(() => {
-      expect(agentRuns.complete).toHaveBeenCalledOnce()
+    await target.executeRun({
+      actor: operator,
+      merchantId: 'merchant-1',
+      runId: 'run-1',
+      message: '查询经营概览',
+      storeId: 'store-1',
+      storeName: 'Amazon 美国店 / Amazon / US，storeId=store-1',
+      storeContext: { platform: 'Amazon', market: 'US' },
+      days: 7,
     })
 
     expect(assertStore).toHaveBeenCalledWith(operator, 'merchant-1', 'store-1')
@@ -468,6 +505,8 @@ describe('AgentService', () => {
       'store-1',
       7,
       { platform: 'Amazon', market: 'US' },
+      'run-1',
+      undefined,
     )
   })
 
@@ -496,8 +535,12 @@ describe('AgentService', () => {
       30,
       'dashboard',
     )
-    await vi.waitFor(() => {
-      expect(agentRuns.complete).toHaveBeenCalledOnce()
+    await target.executeRun({
+      actor: viewer,
+      merchantId: 'merchant-1',
+      runId: 'run-1',
+      message: '请优化 P-DEMO-001 并分析经营数据',
+      days: 30,
     })
 
     const stepInput = runAgentStep.mock.calls[0]?.[0] as unknown as {
@@ -517,10 +560,12 @@ describe('AgentService', () => {
       undefined,
       'dashboard',
       undefined,
+      30,
+      'agent-system-v2',
     )
   })
 
-  it('marks the run failed with a safe gateway error when the first step fails', async () => {
+  it('surfaces a classified safe error for the worker when the first step fails', async () => {
     const agentRuns = runs()
     const target = service({
       aiProvider: provider({
@@ -537,11 +582,8 @@ describe('AgentService', () => {
         message: '查询商品',
         days: 7,
       }),
-    ).rejects.toBeInstanceOf(BadGatewayException)
-    expect(agentRuns.fail).toHaveBeenCalledWith(
-      'run-1',
-      'AI Agent planning failed',
-    )
+    ).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
+    expect(agentRuns.fail).not.toHaveBeenCalled()
   })
 
   it('falls back to a safe answer when a later step fails after tools ran', async () => {

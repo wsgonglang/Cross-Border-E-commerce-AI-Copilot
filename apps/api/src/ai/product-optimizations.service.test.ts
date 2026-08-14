@@ -167,7 +167,11 @@ describe('ProductOptimizationsService', () => {
     ).rejects.toThrow('AI 商品优化失败')
     expect(prisma.productOptimization.update).toHaveBeenCalledWith({
       where: { id: 'optimization-1' },
-      data: { status: 'ERROR', error: 'provider secret' },
+      data: {
+        status: 'ERROR',
+        error: 'AI 服务暂时不可用',
+        errorCode: 'INTERNAL_ERROR',
+      },
     })
   })
 

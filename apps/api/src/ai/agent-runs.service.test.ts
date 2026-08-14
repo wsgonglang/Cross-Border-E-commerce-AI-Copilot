@@ -61,6 +61,7 @@ describe('AgentRunsService', () => {
         merchantId: 'merchant-1',
         userId: operator.id,
         message: '查询库存',
+        days: 7,
         status: 'PLANNING',
       },
       select: { id: true },

@@ -3,9 +3,9 @@ import {
   productOptimizationDraftSchema,
   type ProductOptimizationSource,
 } from '@cross-border/shared'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { MockAiProvider } from './ai-provider.service'
+import { MockAiProvider, OpenAiProvider } from './ai-provider.service'
 import { AGENT_TOOL_DEFINITIONS } from './agent-tools.contract'
 
 const source: ProductOptimizationSource = {
@@ -158,5 +158,47 @@ describe('MockAiProvider product optimization', () => {
 
     expect(result.toolCalls).toEqual([])
     expect(result.answer).not.toBeNull()
+  })
+})
+
+describe('OpenAiProvider structured output repair', () => {
+  it('performs at most one schema repair without changing the source contract', async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: '{"title":1}' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: 'Portable charger',
+                description: 'Travel charger',
+                sellingPoints: ['Portable'],
+                complianceRisks: ['Verify certification'],
+                suggestions: ['Add voltage'],
+                language: 'en-US',
+                confidence: 0.8,
+              }),
+            },
+          },
+        ],
+      })
+    const provider = new OpenAiProvider({ apiKey: 'test' })
+    ;(
+      provider as unknown as {
+        client: { chat: { completions: { create: typeof create } } }
+      }
+    ).client = { chat: { completions: { create } } }
+
+    const result = await provider.optimizeProduct({
+      source,
+      targetLanguage: 'en-US',
+    })
+
+    expect(result.draft.title).toBe('Portable charger')
+    expect(create).toHaveBeenCalledTimes(2)
   })
 })

@@ -66,6 +66,10 @@ components/<component>/styles.css
 - 查询订单时裁剪客户敏感数据。
 - 写工具只允许创建草稿，不允许直接修改商品、库存和订单。
 - 每次调用保存参数、结果或错误审计。
+- API 只负责校验、创建 `AgentRun` 和入队；独立 BullMQ Worker 从 MySQL 重建用户角色、商家、店铺、会话与时间范围后执行受控循环。
+- `runId` 同时作为 Job ID；瞬时模型错误最多重试一次，草稿以 `agentRunId` 唯一关联，避免重放产生重复草稿。
+- 统一对话通过 `text/event-stream` 接收 MySQL 快照变化；SSE 只负责实时体验，断线后仍可通过 runId 查询最终事实。
+- Prompt 带稳定版本号；工具结果和 RAG 文档被标记为不可信数据，权限与写策略仍由服务端确定性执行。
 
 ### Agent 运营工作台
 
@@ -116,6 +120,7 @@ components/<component>/styles.css
 - 响应回传同一个 ID；Web 错误信息附带该 ID。
 - 请求完成日志为结构化 JSON，只记录 method、path、status 和 duration，不记录查询参数、令牌或请求正文。
 - 商品修改、Agent 工具、批量任务、结构化导入和规则文档有业务审计，Request ID 用于技术排障，两者职责不同。
+- Agent 工具额外记录开始、完成与耗时；质量视图聚合用户有帮助反馈，但不把运行成功率等同于回答正确率。
 
 ## 为什么采用模块化单体
 

@@ -111,6 +111,12 @@ describe('AiQualityService', () => {
       {
         agentRun: { findMany: findRuns },
         productOptimization: { findMany: findOptimizations },
+        agentRunFeedback: {
+          findMany: vi.fn().mockResolvedValue([
+            { rating: 'HELPFUL', reason: null },
+            { rating: 'NOT_HELPFUL', reason: 'WRONG_TOOL' },
+          ]),
+        },
       } as unknown as PrismaService,
       { assertAccess } as unknown as MerchantAccessService,
     )
@@ -133,6 +139,8 @@ describe('AiQualityService', () => {
     })
     expect(report.agentFailures.rate).toBe(0.5)
     expect(report.toolCalls.rate).toBe(0.5)
+    expect(report.helpfulFeedback.rate).toBe(0.5)
+    expect(report.feedbackReasons).toEqual([{ reason: 'WRONG_TOOL', count: 1 }])
     expect(report.averageAgentLatencyMs).toBe(3000)
     expect(report.tokenUsage.totalTokens).toBe(65)
     expect(report.daily).toHaveLength(7)
@@ -154,6 +162,7 @@ describe('AiQualityService', () => {
       {
         agentRun: { findMany: vi.fn().mockResolvedValue([]) },
         productOptimization: { findMany: vi.fn().mockResolvedValue([]) },
+        agentRunFeedback: { findMany: vi.fn().mockResolvedValue([]) },
       } as unknown as PrismaService,
       {
         assertAccess: vi.fn().mockResolvedValue(undefined),
@@ -165,6 +174,7 @@ describe('AiQualityService', () => {
     expect(report.acceptance.rate).toBeNull()
     expect(report.agentFailures.rate).toBeNull()
     expect(report.toolCalls.rate).toBeNull()
+    expect(report.helpfulFeedback.rate).toBeNull()
     expect(report.averageAgentLatencyMs).toBeNull()
     expect(report.daily).toHaveLength(30)
   })

@@ -1,4 +1,10 @@
-import { BadGatewayException, Inject, Injectable } from '@nestjs/common'
+import {
+  BadGatewayException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common'
 import type {
   AgentRunResponse,
   AgentRunStartResponse,
@@ -10,6 +16,9 @@ import type {
 import { MerchantAccessService } from '../commerce/merchant-access.service'
 import { StoresService } from '../commerce/stores.service'
 import { AI_PROVIDER, type AiProvider } from './ai-provider.service'
+import { AiExecutionError, classifyAiError } from './ai-errors'
+import { MAX_ACTIVE_AGENT_RUNS_PER_USER } from './agent-queue.constants'
+import { AgentQueueService } from './agent-queue.service'
 import {
   AGENT_TOOL_DEFINITIONS,
   type AgentConversationMessage,
@@ -20,15 +29,17 @@ import { AiService } from './ai.service'
 import { AiSessionsService } from './ai-sessions.service'
 import { compactAgentToolResult } from './context-budget'
 import { validateRuleCitations } from './rule-citation-validator'
+import { AGENT_PROMPT_VERSION } from './ai-prompts'
 
 const MAX_TOOL_CALLS = 6
 const MAX_AGENT_STEPS = 4
+const MAX_AGENT_TOKENS = 16_000
 const FALLBACK_ANSWER =
   '业务工具已经执行，请根据工具轨迹核对结果。若创建了优化草稿，仍需在商品管理中人工确认。'
 
-class AgentRunCancelledError extends Error {
+class AgentRunCancelledError extends AiExecutionError {
   constructor() {
-    super('Agent run cancelled')
+    super('CANCELLED', 'Agent run cancelled')
     this.name = 'AgentRunCancelledError'
   }
 }
@@ -43,6 +54,8 @@ function addUsage(first: AiUsage, second: AiUsage): AiUsage {
 
 @Injectable()
 export class AgentService {
+  private readonly failedUsage = new Map<string, AiUsage>()
+
   constructor(
     private readonly merchantAccess: MerchantAccessService,
     private readonly agentTools: AgentToolsService,
@@ -50,12 +63,13 @@ export class AgentService {
     private readonly storesService: StoresService,
     private readonly aiService: AiService,
     private readonly aiSessions: AiSessionsService,
+    private readonly agentQueue: AgentQueueService,
     @Inject(AI_PROVIDER) private readonly aiProvider: AiProvider,
   ) {}
 
   /**
-   * 校验访问权并创建运行记录后立即返回 runId，执行过程转入后台；
-   * 前端通过 GET runs/:runId 轮询实时工具轨迹与最终结论。
+   * 校验访问权并创建运行记录后立即返回 runId，执行过程交给 BullMQ Worker；
+   * 前端优先订阅 SSE，连接不可用时通过 GET runId 恢复持久化结果。
    */
   async run(
     actor: AuthenticatedUser,
@@ -71,9 +85,18 @@ export class AgentService {
     },
   ): Promise<AgentRunStartResponse> {
     await this.merchantAccess.assertAccess(actor, merchantId)
-    const store = storeId
-      ? await this.storesService.assertStore(actor, merchantId, storeId)
-      : undefined
+    if (
+      (await this.agentRuns.countActiveForUser(actor.id)) >=
+      MAX_ACTIVE_AGENT_RUNS_PER_USER
+    ) {
+      throw new HttpException(
+        `每位用户最多同时运行 ${MAX_ACTIVE_AGENT_RUNS_PER_USER} 个 Agent`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      )
+    }
+    if (storeId) {
+      await this.storesService.assertStore(actor, merchantId, storeId)
+    }
     const turn = conversation
       ? await this.aiSessions.prepareAgentTurn(actor, merchantId, {
           ...conversation,
@@ -87,37 +110,23 @@ export class AgentService {
       storeId,
       sourcePage,
       turn,
-    )
-    void this.executeRun({
-      actor,
-      merchantId,
-      runId,
-      message,
-      storeName: store
-        ? `${store.name} / ${store.platform} / ${store.market}，storeId=${store.id}`
-        : undefined,
-      storeId,
-      storeContext: store
-        ? { platform: store.platform, market: store.market }
-        : undefined,
       days,
-      sessionId: turn?.sessionId,
-      userMessageId: turn?.userMessageId,
-    }).catch(async () => {
-      // executeRun 内部已按阶段落库失败状态，这里只兜底防止后台任务抛出未处理异常。
-      try {
-        if (await this.agentRuns.isCancelled(runId)) return
-        await this.agentRuns.fail(runId, 'Agent execution failed')
-        if (turn) {
-          await this.aiSessions.failAgentTurn(
-            turn.sessionId,
-            'Agent execution failed',
-          )
-        }
-      } catch {
-        /* 状态已是终态时忽略 */
+      AGENT_PROMPT_VERSION,
+    )
+    try {
+      await this.agentQueue.enqueue(runId)
+    } catch {
+      await this.agentRuns.fail(runId, 'Agent 队列暂时不可用', {
+        code: 'INTERNAL_ERROR',
+      })
+      if (turn) {
+        await this.aiSessions.failAgentTurn(
+          turn.sessionId,
+          'Agent 队列暂时不可用',
+        )
       }
-    })
+      throw new BadGatewayException('Agent 队列暂时不可用，请稍后重试')
+    }
     return {
       runId,
       status: 'PLANNING',
@@ -133,6 +142,7 @@ export class AgentService {
     runId: string,
   ): Promise<{ cancelled: true }> {
     const linked = await this.agentRuns.cancel(actor, merchantId, runId)
+    await this.agentQueue.cancelWaiting(runId).catch(() => undefined)
     if (linked.sessionId && linked.userMessageId) {
       await this.aiSessions.cancelAgentTurn(
         linked.sessionId,
@@ -154,6 +164,7 @@ export class AgentService {
     days: number
     sessionId?: string
     userMessageId?: string
+    signal?: AbortSignal
   }): Promise<AgentRunResponse> {
     const { actor, merchantId, runId, message, storeId, days } = input
     const periodContext = `近 ${days} 天（含上一周期对比）`
@@ -178,6 +189,7 @@ export class AgentService {
         ? await this.aiService.getModelContextForLeaf(
             input.sessionId,
             input.userMessageId,
+            input.signal,
           )
         : []
     const messages: AgentConversationMessage[] = branchContext.flatMap(
@@ -219,33 +231,40 @@ export class AgentService {
     let draftToolExecuted = false
     let answer: string | null = null
 
-    for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
-      if (await this.agentRuns.isCancelled(runId)) {
+    const assertNotCancelled = async () => {
+      if (input.signal?.aborted || (await this.agentRuns.isCancelled(runId))) {
         throw new AgentRunCancelledError()
       }
+    }
+
+    for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
+      await assertNotCancelled()
       const budgetLeft = MAX_TOOL_CALLS - results.length
-      const forceFinish = step === MAX_AGENT_STEPS - 1 || budgetLeft <= 0
+      const forceFinish =
+        step === MAX_AGENT_STEPS - 1 ||
+        budgetLeft <= 0 ||
+        usage.totalTokens >= MAX_AGENT_TOKENS
       let stepResult: Awaited<ReturnType<AiProvider['runAgentStep']>>
       try {
         stepResult = await this.aiProvider.runAgentStep({
           messages,
           tools,
           forceFinish,
+          signal: input.signal,
         })
-      } catch {
+      } catch (error: unknown) {
+        const classified = classifyAiError(error)
         if (results.length === 0) {
-          // 首步失败等价于原“规划失败”：没有任何工具执行过，直接终止运行。
-          await this.agentRuns.fail(runId, 'AI Agent planning failed')
-          throw new BadGatewayException('AI Agent 规划失败，请稍后重试')
+          this.failedUsage.set(runId, usage)
+          throw classified
         }
         // 已有工具结果时降级为兜底结论，不让整次运行报废。
         answer = FALLBACK_ANSWER
         break
       }
       usage = addUsage(usage, stepResult.usage)
-      if (await this.agentRuns.isCancelled(runId)) {
-        throw new AgentRunCancelledError()
-      }
+      this.failedUsage.set(runId, usage)
+      await assertNotCancelled()
 
       if (stepResult.toolCalls.length === 0) {
         answer = stepResult.answer?.trim() || FALLBACK_ANSWER
@@ -262,9 +281,7 @@ export class AgentService {
         toolCalls: calls,
       })
       for (const call of calls) {
-        if (await this.agentRuns.isCancelled(runId)) {
-          throw new AgentRunCancelledError()
-        }
+        await assertNotCancelled()
         let summary: AgentToolCallSummary
         if (
           call.name === 'create_product_optimization_draft' &&
@@ -292,6 +309,8 @@ export class AgentService {
             storeId,
             days,
             input.storeContext,
+            runId,
+            input.signal,
           )
         }
         results.push(summary)
@@ -328,19 +347,16 @@ export class AgentService {
       const id = (result.output as Record<string, unknown>).optimizationId
       return typeof id === 'string' ? [id] : []
     })
+    await assertNotCancelled()
     const assistantMessageId =
-      !(await this.agentRuns.isCancelled(runId)) &&
-      input.sessionId &&
-      input.userMessageId
+      input.sessionId && input.userMessageId
         ? await this.aiSessions.finishAgentTurn(
             input.sessionId,
             input.userMessageId,
             answer,
           )
         : undefined
-    if (await this.agentRuns.isCancelled(runId)) {
-      throw new AgentRunCancelledError()
-    }
+    await assertNotCancelled()
     await this.agentRuns.complete({
       runId,
       answer,
@@ -350,6 +366,7 @@ export class AgentService {
       createdOptimizationIds,
       assistantMessageId,
     })
+    this.failedUsage.delete(runId)
 
     return {
       runId,
@@ -361,5 +378,11 @@ export class AgentService {
       ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
       ...(assistantMessageId ? { assistantMessageId } : {}),
     }
+  }
+
+  takeFailedUsage(runId: string): AiUsage | undefined {
+    const usage = this.failedUsage.get(runId)
+    this.failedUsage.delete(runId)
+    return usage
   }
 }

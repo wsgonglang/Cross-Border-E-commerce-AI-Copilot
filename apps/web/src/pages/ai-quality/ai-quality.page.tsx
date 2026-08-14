@@ -2,6 +2,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExperimentOutlined,
+  LikeOutlined,
   RobotOutlined,
   ThunderboltOutlined,
   WarningOutlined,
@@ -207,6 +208,16 @@ export function AiQualityPage() {
               })}
             />
             <MetricCard
+              accent="success"
+              label={t('aiQuality.helpfulRate')}
+              value={formatRate(report.helpfulFeedback)}
+              icon={<LikeOutlined />}
+              detail={t('aiQuality.helpfulDetail', {
+                helpful: report.helpfulFeedback.numerator,
+                total: report.helpfulFeedback.denominator,
+              })}
+            />
+            <MetricCard
               label={t('aiQuality.latency')}
               value={formatDuration(report.averageAgentLatencyMs)}
               icon={<ClockCircleOutlined />}
@@ -386,6 +397,7 @@ export function AiQualityPage() {
                     <li>{t('aiQuality.methodFailure')}</li>
                     <li>{t('aiQuality.methodLatency')}</li>
                     <li>{t('aiQuality.methodTokens')}</li>
+                    <li>{t('aiQuality.methodFeedback')}</li>
                   </ul>
                 ),
               },

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { downloadAiSession } from '../../api/ai'
+import { submitAgentFeedback } from '../../api/agent'
 import { useBusinessContext } from '../../contexts/business-context'
 import { useAppSelector } from '../../store/hooks'
 import type {
@@ -199,6 +200,12 @@ export function AiChatPage() {
             }
             onFavorite={(item) =>
               runAction(() => chat.favorite(item)).then(() => undefined)
+            }
+            onFeedback={(runId, rating) =>
+              runAction(
+                () => submitAgentFeedback(token, merchantId, runId, { rating }),
+                t('aiChat.feedbackSaved'),
+              ).then(() => undefined)
             }
             onLink={setLinkingMessage}
             onEdit={setEditingMessage}

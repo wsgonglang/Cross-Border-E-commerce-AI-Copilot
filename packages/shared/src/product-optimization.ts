@@ -50,6 +50,8 @@ export interface ProductOptimizationSummary {
   draft?: ProductOptimizationDraft
   providerName?: string
   modelName?: string
+  promptVersion?: string
+  errorCode?: string
   usage: AiUsage
   error?: string
   appliedAt?: string

@@ -41,6 +41,8 @@ docker compose --profile app ps
 - 切换到“Shopee 巴西店”，询问“葡萄牙语卖点翻译时能否扩大功效声明”，展示同一商家下不同店铺返回不同平台和市场的证据。
 - 在规则知识库搜索未知冷链问题，展示明确拒答。
 - 运行 `npm run rag:eval`，展示 Hit@1、Recall@3、MRR 和拒答准确率；强调这是固定回归基线，不是生产准确率承诺。
+- 展示浏览器 Agent 请求的 `text/event-stream` 响应和工具进度；说明 SSE 断开不取消 Worker，MySQL 中的 runId 支持恢复。
+- 对完成回答提交“有帮助/没帮助”，在 AI 质量页展示反馈口径。若本地显式配置真实模型凭证，可运行 `npm run agent:eval:real`；强调它是小型离线比较集，不进入普通 CI。
 
 ### 4. 批量任务与结构化导入（1 分钟）
 
@@ -72,6 +74,8 @@ $response.Headers['X-Request-Id']
 ### 如何避免重复任务和重复写入？
 
 批次使用商家级幂等键，Job 使用任务项 ID，任务项通过乐观领取和唯一草稿关联处理重复消费；正式商品写回还使用版本号和优化记录状态。
+
+Agent 同样使用 runId 作为 BullMQ Job ID，工具轨迹使用 runId + externalCallId 防重，Agent 创建的优化草稿与 agentRunId 唯一关联。API 或 Worker 重启不会把 Redis 当作业务事实，终态仍由 MySQL 保存。
 
 ### Redis 丢数据怎么办？
 

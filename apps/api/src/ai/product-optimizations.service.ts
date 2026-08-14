@@ -16,6 +16,8 @@ import { MerchantAccessService } from '../commerce/merchant-access.service'
 import { ProductsService } from '../commerce/products.service'
 import { PrismaService } from '../database/prisma.service'
 import { AI_PROVIDER, type AiProvider } from './ai-provider.service'
+import { PRODUCT_OPTIMIZATION_PROMPT_VERSION } from './ai-prompts'
+import { classifyAiError } from './ai-errors'
 import type { CreateProductOptimizationDto } from './dto/product-optimization.dto'
 import { toProductOptimizationSummary } from './product-optimization.mapper'
 
@@ -100,6 +102,26 @@ export class ProductOptimizationsService {
     )
   }
 
+  async createFromAgent(
+    actor: AuthenticatedUser,
+    merchantId: string,
+    productId: string,
+    targetLanguage: CreateProductOptimizationDto['targetLanguage'],
+    agentRunId: string,
+    signal?: AbortSignal,
+  ): Promise<ProductOptimizationSummary> {
+    return this.createInternal(
+      actor,
+      merchantId,
+      productId,
+      targetLanguage,
+      undefined,
+      undefined,
+      agentRunId,
+      signal,
+    )
+  }
+
   private async createInternal(
     actor: AuthenticatedUser,
     merchantId: string,
@@ -107,6 +129,8 @@ export class ProductOptimizationsService {
     targetLanguage: CreateProductOptimizationDto['targetLanguage'],
     batchItemId?: string,
     importItemId?: string,
+    agentRunId?: string,
+    signal?: AbortSignal,
   ): Promise<ProductOptimizationSummary> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const product = await this.prisma.product.findFirst({
@@ -131,7 +155,11 @@ export class ProductOptimizationsService {
         ? await this.prisma.productOptimization.findUnique({
             where: { importItemId },
           })
-        : null
+        : agentRunId
+          ? await this.prisma.productOptimization.findUnique({
+              where: { agentRunId },
+            })
+          : null
     if (
       existing &&
       ['DRAFT', 'APPLIED', 'REJECTED'].includes(existing.status)
@@ -149,6 +177,8 @@ export class ProductOptimizationsService {
             sourceData: asJson(source),
             providerName: this.aiProvider.name,
             modelName: this.aiProvider.model,
+            promptVersion: PRODUCT_OPTIMIZATION_PROMPT_VERSION,
+            errorCode: null,
           },
         })
       : await this.prisma.productOptimization.create({
@@ -161,8 +191,10 @@ export class ProductOptimizationsService {
             sourceData: asJson(source),
             providerName: this.aiProvider.name,
             modelName: this.aiProvider.model,
+            promptVersion: PRODUCT_OPTIMIZATION_PROMPT_VERSION,
             batchItemId,
             importItemId,
+            agentRunId,
           },
         })
 
@@ -170,6 +202,7 @@ export class ProductOptimizationsService {
       const result = await this.aiProvider.optimizeProduct({
         source,
         targetLanguage,
+        signal,
       })
       if (result.draft.language !== targetLanguage) {
         throw new Error('模型返回的草稿语言与目标语言不一致')
@@ -205,11 +238,11 @@ export class ProductOptimizationsService {
       })
       return toProductOptimizationSummary(completed)
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message.slice(0, 1000) : '未知模型错误'
+      const classified = classifyAiError(error)
+      const message = classified.message.slice(0, 1000)
       await this.prisma.productOptimization.update({
         where: { id: pending.id },
-        data: { status: 'ERROR', error: message },
+        data: { status: 'ERROR', error: message, errorCode: classified.code },
       })
       throw new BadGatewayException('AI 商品优化失败，请稍后重试')
     }

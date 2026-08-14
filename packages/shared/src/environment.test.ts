@@ -24,6 +24,7 @@ describe('environment validation', () => {
       OPENAI_API_KEY: '',
       OPENAI_BASE_URL: 'https://api.siliconflow.cn/v1',
       AI_MODEL: 'Qwen/Qwen2.5-7B-Instruct',
+      AI_TIMEOUT_MS: 30_000,
     })
     expect(loadWorkerEnvironment({})).toEqual({
       NODE_ENV: 'development',

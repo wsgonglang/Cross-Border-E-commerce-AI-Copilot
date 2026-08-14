@@ -82,3 +82,42 @@ export class AiResultsQueryDto {
   @Max(100)
   pageSize = 20
 }
+
+export class AgentFeedbackDto {
+  @ApiProperty({ enum: ['HELPFUL', 'NOT_HELPFUL'] })
+  @IsIn(['HELPFUL', 'NOT_HELPFUL'])
+  rating!: 'HELPFUL' | 'NOT_HELPFUL'
+
+  @ApiPropertyOptional({
+    enum: [
+      'WRONG_TOOL',
+      'INACCURATE_DATA',
+      'INCOMPLETE_ANSWER',
+      'CITATION_ISSUE',
+      'TOO_SLOW',
+      'OTHER',
+    ],
+  })
+  @IsOptional()
+  @IsIn([
+    'WRONG_TOOL',
+    'INACCURATE_DATA',
+    'INCOMPLETE_ANSWER',
+    'CITATION_ISSUE',
+    'TOO_SLOW',
+    'OTHER',
+  ])
+  reason?:
+    | 'WRONG_TOOL'
+    | 'INACCURATE_DATA'
+    | 'INCOMPLETE_ANSWER'
+    | 'CITATION_ISSUE'
+    | 'TOO_SLOW'
+    | 'OTHER'
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  comment?: string
+}

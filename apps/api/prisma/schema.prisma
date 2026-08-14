@@ -141,6 +141,20 @@ enum AgentRunStatus {
   CANCELLED
 }
 
+enum AgentFeedbackRating {
+  HELPFUL
+  NOT_HELPFUL
+}
+
+enum AgentFeedbackReason {
+  WRONG_TOOL
+  INACCURATE_DATA
+  INCOMPLETE_ANSWER
+  CITATION_ISSUE
+  TOO_SLOW
+  OTHER
+}
+
 enum ImportJobStatus {
   PENDING
   RUNNING
@@ -180,6 +194,7 @@ model User {
   batchTasks             BatchOptimizationTask[]
   ruleDocuments          RuleDocument[]
   agentRuns              AgentRun[]
+  agentRunFeedback       AgentRunFeedback[]
   createdSessionShares   AiSessionShare[]          @relation("SessionShareCreator")
   sessionShareRecipients AiSessionShareRecipient[]
   aiMessageLinks         AiMessageLink[]
@@ -212,6 +227,7 @@ model Merchant {
   batchTasks          BatchOptimizationTask[]
   ruleDocuments       RuleDocument[]
   agentRuns           AgentRun[]
+  agentRunFeedback    AgentRunFeedback[]
   aiSessionShares     AiSessionShare[]
   importJobs          ImportJob[]
   orderSavedViews     OrderSavedView[]
@@ -324,11 +340,14 @@ model ProductOptimization {
   draftData          Json?                     @map("draft_data")
   providerName       String?                   @map("provider_name") @db.VarChar(64)
   modelName          String?                   @map("model_name") @db.VarChar(128)
+  promptVersion      String?                   @map("prompt_version") @db.VarChar(64)
+  errorCode          String?                   @map("error_code") @db.VarChar(40)
   promptTokens       Int                       @default(0) @map("prompt_tokens")
   completionTokens   Int                       @default(0) @map("completion_tokens")
   totalTokens        Int                       @default(0) @map("total_tokens")
   batchItemId        String?                   @unique @map("batch_item_id") @db.VarChar(30)
   importItemId       String?                   @unique @map("import_item_id") @db.VarChar(30)
+  agentRunId         String?                   @unique @map("agent_run_id") @db.VarChar(30)
   error              String?                   @db.VarChar(1000)
   appliedAt          DateTime?                 @map("applied_at")
   merchant           Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
@@ -801,31 +820,36 @@ model AiSessionShareRecipient {
 }
 
 model AgentRun {
-  id                     String          @id @default(cuid()) @db.VarChar(30)
-  merchantId             String          @map("merchant_id") @db.VarChar(30)
-  storeId                String?         @map("store_id") @db.VarChar(30)
-  userId                 String          @map("user_id") @db.VarChar(30)
-  sessionId              String?         @map("session_id") @db.VarChar(30)
-  userMessageId          String?         @map("user_message_id") @db.VarChar(30)
-  assistantMessageId     String?         @unique @map("assistant_message_id") @db.VarChar(30)
-  message                String          @db.VarChar(1000)
-  answer                 String?         @db.MediumText
-  status                 AgentRunStatus  @default(PLANNING)
-  sourcePage             String?         @map("source_page") @db.VarChar(120)
-  providerName           String?         @map("provider_name") @db.VarChar(64)
-  modelName              String?         @map("model_name") @db.VarChar(128)
-  promptTokens           Int             @default(0) @map("prompt_tokens")
-  completionTokens       Int             @default(0) @map("completion_tokens")
-  totalTokens            Int             @default(0) @map("total_tokens")
-  createdOptimizationIds Json            @default("[]") @map("created_optimization_ids")
-  error                  String?         @db.VarChar(1000)
-  completedAt            DateTime?       @map("completed_at")
-  merchant               Merchant        @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  store                  Store?          @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
-  user                   User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id                     String             @id @default(cuid()) @db.VarChar(30)
+  merchantId             String             @map("merchant_id") @db.VarChar(30)
+  storeId                String?            @map("store_id") @db.VarChar(30)
+  userId                 String             @map("user_id") @db.VarChar(30)
+  sessionId              String?            @map("session_id") @db.VarChar(30)
+  userMessageId          String?            @map("user_message_id") @db.VarChar(30)
+  assistantMessageId     String?            @unique @map("assistant_message_id") @db.VarChar(30)
+  message                String             @db.VarChar(1000)
+  answer                 String?            @db.MediumText
+  status                 AgentRunStatus     @default(PLANNING)
+  sourcePage             String?            @map("source_page") @db.VarChar(120)
+  days                   Int                @default(7)
+  providerName           String?            @map("provider_name") @db.VarChar(64)
+  modelName              String?            @map("model_name") @db.VarChar(128)
+  promptVersion          String?            @map("prompt_version") @db.VarChar(64)
+  errorCode              String?            @map("error_code") @db.VarChar(40)
+  promptTokens           Int                @default(0) @map("prompt_tokens")
+  completionTokens       Int                @default(0) @map("completion_tokens")
+  totalTokens            Int                @default(0) @map("total_tokens")
+  createdOptimizationIds Json               @default("[]") @map("created_optimization_ids")
+  error                  String?            @db.VarChar(1000)
+  startedAt              DateTime?          @map("started_at")
+  completedAt            DateTime?          @map("completed_at")
+  merchant               Merchant           @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  store                  Store?             @relation(fields: [storeId, merchantId], references: [id, merchantId], onDelete: Restrict)
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   toolCalls              AgentToolCall[]
-  createdAt              DateTime        @default(now()) @map("created_at")
-  updatedAt              DateTime        @updatedAt @map("updated_at")
+  feedback               AgentRunFeedback[]
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
 
   @@index([merchantId, createdAt])
   @@index([merchantId, status, createdAt])
@@ -837,21 +861,44 @@ model AgentRun {
 }
 
 model AgentToolCall {
-  id             String   @id @default(cuid()) @db.VarChar(30)
-  runId          String   @map("run_id") @db.VarChar(30)
-  externalCallId String   @map("external_call_id") @db.VarChar(120)
-  name           String   @db.VarChar(80)
-  status         String   @db.VarChar(16)
+  id             String    @id @default(cuid()) @db.VarChar(30)
+  runId          String    @map("run_id") @db.VarChar(30)
+  externalCallId String    @map("external_call_id") @db.VarChar(120)
+  name           String    @db.VarChar(80)
+  status         String    @db.VarChar(16)
   sequence       Int
   input          Json
   output         Json?
-  error          String?  @db.VarChar(1000)
-  run            AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now()) @map("created_at")
+  error          String?   @db.VarChar(1000)
+  startedAt      DateTime? @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  durationMs     Int?      @map("duration_ms")
+  run            AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   @@unique([runId, externalCallId])
   @@index([runId, sequence])
   @@map("agent_tool_calls")
+}
+
+model AgentRunFeedback {
+  id         String               @id @default(cuid()) @db.VarChar(30)
+  runId      String               @map("run_id") @db.VarChar(30)
+  merchantId String               @map("merchant_id") @db.VarChar(30)
+  userId     String               @map("user_id") @db.VarChar(30)
+  rating     AgentFeedbackRating
+  reason     AgentFeedbackReason?
+  comment    String?              @db.VarChar(500)
+  run        AgentRun             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  merchant   Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  @@unique([runId, userId])
+  @@index([merchantId, createdAt])
+  @@index([userId, createdAt])
+  @@map("agent_run_feedback")
 }
 
 model AuditLog {

@@ -17,6 +17,8 @@ interface OptimizationSource {
   draftData: unknown
   providerName: string | null
   modelName: string | null
+  promptVersion: string | null
+  errorCode: string | null
   promptTokens: number
   completionTokens: number
   totalTokens: number
@@ -67,6 +69,8 @@ export function toProductOptimizationSummary(
       : undefined,
     providerName: source.providerName ?? undefined,
     modelName: source.modelName ?? undefined,
+    promptVersion: source.promptVersion ?? undefined,
+    errorCode: source.errorCode ?? undefined,
     usage: {
       promptTokens: source.promptTokens,
       completionTokens: source.completionTokens,

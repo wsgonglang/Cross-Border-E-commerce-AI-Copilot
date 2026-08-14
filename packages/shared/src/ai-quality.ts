@@ -66,6 +66,8 @@ export interface AiQualityReport {
   agentRuns: number
   agentFailures: AiQualityRateMetric
   toolCalls: AiQualityRateMetric
+  helpfulFeedback: AiQualityRateMetric
+  feedbackReasons: Array<{ reason: string; count: number }>
   averageAgentLatencyMs: number | null
   tokenUsage: AiQualityTokenUsage
   tools: AiQualityToolMetric[]
@@ -77,5 +79,6 @@ export interface AiQualityReport {
     failure: string
     latency: string
     tokens: string
+    feedback: string
   }
 }

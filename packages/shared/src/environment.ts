@@ -37,6 +37,12 @@ const apiEnvironmentSchema = z.object({
   OPENAI_API_KEY: z.string().default(''),
   OPENAI_BASE_URL: z.string().default('https://api.siliconflow.cn/v1'),
   AI_MODEL: z.string().default('Qwen/Qwen2.5-7B-Instruct'),
+  AI_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(120_000)
+    .default(30_000),
 })
 
 const workerEnvironmentSchema = z.object({

@@ -1,4 +1,5 @@
 import type {
+  AgentRunSummary,
   AiMessage,
   AiMessageLinkType,
   AiSessionDetail,
@@ -13,7 +14,11 @@ import {
   linkAiMessage,
   selectAiSessionBranch,
 } from '../../../api/ai'
-import { cancelAgentRun, runAgent } from '../../../api/agent'
+import {
+  cancelAgentRun,
+  runAgent,
+  streamAgentRunEvents,
+} from '../../../api/agent'
 import { getAgentRun } from '../../../api/ai-results'
 import { getActiveLineage } from '../branching'
 
@@ -91,12 +96,7 @@ function streamMessage(input: StreamInput): AbortController {
   })
     .then(async (started) => {
       input.onRunStarted(started.runId)
-      while (!controller.signal.aborted) {
-        const run = await getAgentRun(
-          input.token,
-          input.merchantId,
-          started.runId,
-        )
+      const applyRun = (run: AgentRunSummary) => {
         const progressText = run.toolCalls.length
           ? input.progressWithTools(run.toolCalls.map((call) => call.name))
           : input.planningText
@@ -119,10 +119,40 @@ function streamMessage(input: StreamInput): AbortController {
               : item,
           ),
         )
+        if (run.status === 'FAILED') {
+          throw new Error(run.error || input.runFailedText)
+        }
+      }
+      try {
+        const streamed = await streamAgentRunEvents(
+          input.token,
+          input.merchantId,
+          started.runId,
+          controller.signal,
+          (_event, run) => applyRun(run),
+        )
+        if (
+          streamed &&
+          ['COMPLETED', 'FAILED', 'CANCELLED'].includes(streamed.status)
+        ) {
+          return
+        }
+      } catch {
+        if (controller.signal.aborted) return
+        // A proxy may block SSE. The persisted GET endpoint remains a recovery path.
+      }
+      while (!controller.signal.aborted) {
+        const run = await getAgentRun(
+          input.token,
+          input.merchantId,
+          started.runId,
+        )
+        applyRun(run)
         if (run.status === 'COMPLETED') return
         if (run.status === 'FAILED') {
           throw new Error(run.error || input.runFailedText)
         }
+        if (run.status === 'CANCELLED') return
         await new Promise<void>((resolve) => {
           const timer = window.setTimeout(resolve, 600)
           controller.signal.addEventListener(

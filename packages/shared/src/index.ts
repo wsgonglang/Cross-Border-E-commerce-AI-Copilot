@@ -98,6 +98,12 @@ export {
   type AgentToolCallSummary,
   type AgentToolName,
   type AgentToolStatus,
+  type AiErrorCode,
+  type AgentFeedbackRating,
+  type AgentFeedbackReason,
+  type AgentRunFeedbackSummary,
+  type AgentRunEventName,
+  type AgentRunEvent,
 } from './agent'
 export {
   type AiQualityDailyPoint,

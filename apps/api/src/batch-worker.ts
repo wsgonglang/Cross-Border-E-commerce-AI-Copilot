@@ -3,6 +3,7 @@ import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 
 import { AppModule } from './app.module'
+import { AgentWorkerRunnerService } from './ai/agent-worker-runner.service'
 import { BatchWorkerRunnerService } from './batch/batch-worker-runner.service'
 import { ImportWorkerRunnerService } from './imports/import-worker-runner.service'
 
@@ -13,4 +14,5 @@ export async function startBatchWorker(workerName: string): Promise<void> {
   application.enableShutdownHooks()
   application.get(BatchWorkerRunnerService).start(workerName)
   application.get(ImportWorkerRunnerService).start(workerName)
+  application.get(AgentWorkerRunnerService).start(workerName)
 }

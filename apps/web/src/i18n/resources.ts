@@ -136,6 +136,7 @@ export const resources = {
         actionFailed: '操作失败',
         sessionUpdated: '会话信息已更新',
         messageLinked: '消息已关联业务对象',
+        feedbackSaved: '感谢反馈，已计入 AI 质量度量',
         shareCreated: '内部只读分享已创建',
         archived: '会话已归档',
         restored: '会话已恢复',
@@ -195,6 +196,8 @@ export const resources = {
           editLabel: '编辑并分叉',
           regenerate: '重新生成',
           regenerateLabel: '重新生成回答',
+          helpful: '这条回答有帮助',
+          notHelpful: '这条回答没有帮助',
           previousBranch: '上一个分支',
           nextBranch: '下一个分支',
         },
@@ -479,6 +482,8 @@ export const resources = {
         failureRate: 'Agent 失败率',
         failureDetail:
           '{{failed}} / {{terminal}} 次终态运行失败，共记录 {{all}} 次运行',
+        helpfulRate: '回答有帮助率',
+        helpfulDetail: '{{helpful}} / {{total}} 条用户反馈认为回答有帮助',
         latency: '平均 Agent 时延',
         latencyShort: '时延',
         latencyDetail: '仅统计具有完成时间的终态 Agent 运行',
@@ -513,6 +518,8 @@ export const resources = {
           '平均时延使用 Agent 的创建时间与完成时间计算，不代表单独模型首 Token 时延。',
         methodTokens:
           'Token 为 Agent 运行与商品优化生成记录中已保存用量之和，不等同于费用。',
+        methodFeedback:
+          '回答有帮助率 = 有帮助反馈 / 已完成 Agent 的全部用户反馈；未评价运行不进入分母。',
         types: {
           AGENT_RUN: '业务 Agent',
           PRODUCT_OPTIMIZATION: '商品优化草稿',
@@ -816,6 +823,8 @@ export const resources = {
         actionFailed: 'Action failed',
         sessionUpdated: 'Conversation updated',
         messageLinked: 'Message linked to business object',
+        feedbackSaved:
+          'Thanks. This feedback is now included in AI quality metrics.',
         shareCreated: 'Internal read-only share created',
         archived: 'Conversation archived',
         restored: 'Conversation restored',
@@ -878,6 +887,8 @@ export const resources = {
           editLabel: 'Edit and branch',
           regenerate: 'Regenerate',
           regenerateLabel: 'Regenerate response',
+          helpful: 'This answer was helpful',
+          notHelpful: 'This answer was not helpful',
           previousBranch: 'Previous branch',
           nextBranch: 'Next branch',
         },
@@ -1192,6 +1203,8 @@ export const resources = {
         failureRate: 'Agent failure rate',
         failureDetail:
           '{{failed}} of {{terminal}} terminal runs failed; {{all}} runs recorded',
+        helpfulRate: 'Helpful answer rate',
+        helpfulDetail: '{{helpful}} of {{total}} user ratings marked helpful',
         latency: 'Average Agent latency',
         latencyShort: 'Latency',
         latencyDetail: 'Only terminal Agent runs with completion timestamps',
@@ -1227,6 +1240,8 @@ export const resources = {
           'Average latency uses Agent created and completed timestamps; it is not model time-to-first-token.',
         methodTokens:
           'Tokens sum persisted usage for Agent runs and product optimization generations; they are not cost.',
+        methodFeedback:
+          'Helpful rate = helpful ratings / all user ratings on completed Agent runs; unrated runs are excluded.',
         types: {
           AGENT_RUN: 'Business Agent',
           PRODUCT_OPTIMIZATION: 'Product optimization',

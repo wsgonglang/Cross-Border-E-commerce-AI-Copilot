@@ -39,9 +39,19 @@ export class AgentToolsService {
     storeId?: string,
     days: number = 7,
     ruleContext?: { platform: string; market: string },
+    runId?: string,
+    signal?: AbortSignal,
   ): Promise<AgentToolCallSummary> {
+    const startedAt = new Date()
     if (!isAgentToolName(call.name)) {
-      return this.failedCall(actor, merchantId, call, '模型请求了未授权工具')
+      return this.failedCall(
+        actor,
+        merchantId,
+        call,
+        '模型请求了未授权工具',
+        undefined,
+        startedAt,
+      )
     }
     const parsed = agentToolInputSchemas[call.name].safeParse(call.arguments)
     if (!parsed.success) {
@@ -50,6 +60,8 @@ export class AgentToolsService {
         merchantId,
         call,
         '工具参数未通过服务端校验',
+        undefined,
+        startedAt,
       )
     }
     const input = parsed.data as Record<string, unknown>
@@ -62,6 +74,8 @@ export class AgentToolsService {
         storeId,
         days,
         ruleContext,
+        runId,
+        signal,
       )
       const output =
         call.name === 'search_platform_rules'
@@ -73,6 +87,9 @@ export class AgentToolsService {
         status: 'success',
         input,
         output,
+        startedAt: startedAt.toISOString(),
+        completedAt: new Date().toISOString(),
+        durationMs: Math.max(0, Date.now() - startedAt.getTime()),
       }
       await this.auditLogsService.recordAgentToolCall({
         actor,
@@ -87,7 +104,7 @@ export class AgentToolsService {
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : '业务工具执行失败'
-      return this.failedCall(actor, merchantId, call, message, input)
+      return this.failedCall(actor, merchantId, call, message, input, startedAt)
     }
   }
 
@@ -99,6 +116,8 @@ export class AgentToolsService {
     storeId?: string,
     days: number = 7,
     ruleContext?: { platform: string; market: string },
+    runId?: string,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     switch (name) {
       case 'search_products': {
@@ -212,14 +231,23 @@ export class AgentToolsService {
           input.productCode as string,
           storeId,
         )
-        const optimization = await this.optimizationsService.create(
-          actor,
-          merchantId,
-          product.id,
-          {
-            targetLanguage: input.targetLanguage as OptimizationLanguage,
-          },
-        )
+        const optimization = runId
+          ? await this.optimizationsService.createFromAgent(
+              actor,
+              merchantId,
+              product.id,
+              input.targetLanguage as OptimizationLanguage,
+              runId,
+              signal,
+            )
+          : await this.optimizationsService.create(
+              actor,
+              merchantId,
+              product.id,
+              {
+                targetLanguage: input.targetLanguage as OptimizationLanguage,
+              },
+            )
         return {
           optimizationId: optimization.id,
           productId: product.id,
@@ -255,6 +283,7 @@ export class AgentToolsService {
     call: PlannedAgentToolCall,
     error: string,
     validatedInput?: Record<string, unknown>,
+    startedAt: Date = new Date(),
   ): Promise<AgentToolCallSummary> {
     const input =
       validatedInput ??
@@ -277,6 +306,9 @@ export class AgentToolsService {
       status: 'error',
       input,
       error,
+      startedAt: startedAt.toISOString(),
+      completedAt: new Date().toISOString(),
+      durationMs: Math.max(0, Date.now() - startedAt.getTime()),
     }
   }
 }

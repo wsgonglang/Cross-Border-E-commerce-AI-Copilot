@@ -9,6 +9,7 @@ import type {
   AgentToolCallSummary,
   AiUsage,
   AuthenticatedUser,
+  RoleCode,
 } from '@cross-border/shared'
 
 import { asJson, toStringArray } from '../commerce/commerce.utils'
@@ -25,10 +26,13 @@ interface AgentRunRecord {
   assistantMessageId: string | null
   message: string
   sourcePage: string | null
+  days: number
   answer: string | null
   status: 'PLANNING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
   providerName: string | null
   modelName: string | null
+  promptVersion: string | null
+  errorCode: string | null
   promptTokens: number
   completionTokens: number
   totalTokens: number
@@ -37,6 +41,7 @@ interface AgentRunRecord {
   createdAt: Date
   updatedAt: Date
   completedAt: Date | null
+  startedAt: Date | null
   toolCalls: Array<{
     externalCallId: string
     name: string
@@ -44,7 +49,15 @@ interface AgentRunRecord {
     input: unknown
     output: unknown
     error: string | null
+    startedAt: Date | null
+    completedAt: Date | null
+    durationMs: number | null
   }>
+}
+
+interface FailureMetadata {
+  code?: string
+  usage?: AiUsage
 }
 
 @Injectable()
@@ -96,6 +109,8 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     storeId?: string,
     sourcePage?: string,
     conversation?: { sessionId: string; userMessageId: string },
+    days: number = 7,
+    promptVersion?: string,
   ): Promise<string> {
     const run = await this.prisma.agentRun.create({
       data: {
@@ -104,6 +119,8 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         userId: actor.id,
         message,
         ...(sourcePage ? { sourcePage } : {}),
+        days,
+        ...(promptVersion ? { promptVersion } : {}),
         ...(conversation
           ? {
               sessionId: conversation.sessionId,
@@ -117,10 +134,61 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     return run.id
   }
 
+  async countActiveForUser(userId: string): Promise<number> {
+    return this.prisma.agentRun.count({
+      where: { userId, status: { in: ['PLANNING', 'RUNNING'] } },
+    })
+  }
+
+  async getExecutionContext(runId: string) {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { id: runId },
+      include: {
+        store: true,
+        user: {
+          include: {
+            userRoles: { include: { role: true } },
+            merchantUsers: true,
+          },
+        },
+      },
+    })
+    if (!run) return null
+    const actor: AuthenticatedUser = {
+      id: run.user.id,
+      email: run.user.email,
+      name: run.user.name,
+      roles: run.user.userRoles.map((record) => record.role.code as RoleCode),
+      merchantIds: run.user.merchantUsers.map((record) => record.merchantId),
+    }
+    return {
+      actor,
+      runId: run.id,
+      merchantId: run.merchantId,
+      message: run.message,
+      storeId: run.storeId ?? undefined,
+      storeName: run.store
+        ? `${run.store.name} / ${run.store.platform} / ${run.store.market}，storeId=${run.store.id}`
+        : undefined,
+      storeContext: run.store
+        ? { platform: run.store.platform, market: run.store.market }
+        : undefined,
+      days: run.days,
+      sessionId: run.sessionId ?? undefined,
+      userMessageId: run.userMessageId ?? undefined,
+      status: run.status,
+    }
+  }
+
   async markRunning(runId: string): Promise<void> {
     await this.prisma.agentRun.updateMany({
       where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
-      data: { status: 'RUNNING' },
+      data: {
+        status: 'RUNNING',
+        startedAt: new Date(),
+        error: null,
+        errorCode: null,
+      },
     })
   }
 
@@ -139,6 +207,9 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
       input: asJson(call.input),
       ...(call.output !== undefined ? { output: asJson(call.output) } : {}),
       error: call.error ?? null,
+      startedAt: call.startedAt ? new Date(call.startedAt) : null,
+      completedAt: call.completedAt ? new Date(call.completedAt) : null,
+      durationMs: call.durationMs ?? null,
     }
     await this.prisma.$transaction([
       this.prisma.agentToolCall.upsert({
@@ -185,13 +256,36 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     })
   }
 
-  async fail(runId: string, error: string): Promise<void> {
+  async fail(
+    runId: string,
+    error: string,
+    metadata: FailureMetadata = {},
+  ): Promise<void> {
     await this.prisma.agentRun.updateMany({
       where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
       data: {
         status: 'FAILED',
         error: error.slice(0, 1000),
+        errorCode: metadata.code,
+        ...(metadata.usage
+          ? {
+              promptTokens: metadata.usage.promptTokens,
+              completionTokens: metadata.usage.completionTokens,
+              totalTokens: metadata.usage.totalTokens,
+            }
+          : {}),
         completedAt: new Date(),
+      },
+    })
+  }
+
+  async prepareRetry(runId: string, errorCode: string): Promise<void> {
+    await this.prisma.agentRun.updateMany({
+      where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
+      data: {
+        status: 'PLANNING',
+        errorCode,
+        error: '模型服务暂时不可用，正在重试',
       },
     })
   }
@@ -250,6 +344,11 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
           : {},
       ...(call.output !== null ? { output: call.output } : {}),
       ...(call.error ? { error: call.error } : {}),
+      ...(call.startedAt ? { startedAt: call.startedAt.toISOString() } : {}),
+      ...(call.completedAt
+        ? { completedAt: call.completedAt.toISOString() }
+        : {}),
+      ...(call.durationMs !== null ? { durationMs: call.durationMs } : {}),
     }))
     return {
       id: record.id,
@@ -275,9 +374,16 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
       createdOptimizationIds: toStringArray(record.createdOptimizationIds),
       ...(record.providerName ? { providerName: record.providerName } : {}),
       ...(record.modelName ? { modelName: record.modelName } : {}),
+      ...(record.promptVersion ? { promptVersion: record.promptVersion } : {}),
+      ...(record.errorCode
+        ? { errorCode: record.errorCode as AgentRunSummary['errorCode'] }
+        : {}),
       ...(record.error ? { error: record.error } : {}),
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
+      ...(record.startedAt
+        ? { startedAt: record.startedAt.toISOString() }
+        : {}),
       ...(record.completedAt
         ? { completedAt: record.completedAt.toISOString() }
         : {}),

@@ -50,7 +50,7 @@ export class AiQualityService {
 
     const now = new Date()
     const from = startOfWindow(now, days)
-    const [runs, optimizations] = await Promise.all([
+    const [runs, optimizations, feedback] = await Promise.all([
       this.prisma.agentRun.findMany({
         where: { merchantId, createdAt: { gte: from, lte: now } },
         include: {
@@ -67,6 +67,10 @@ export class AiQualityService {
           product: { select: { id: true, code: true, title: true } },
         },
         orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.agentRunFeedback.findMany({
+        where: { merchantId, createdAt: { gte: from, lte: now } },
+        select: { rating: true, reason: true },
       }),
     ])
 
@@ -87,6 +91,18 @@ export class AiQualityService {
     const successfulToolCalls = toolCalls.filter(
       (call) => call.status === 'success',
     ).length
+    const helpfulFeedback = feedback.filter(
+      (item) => item.rating === 'HELPFUL',
+    ).length
+    const feedbackReasons = new Map<string, number>()
+    for (const item of feedback) {
+      if (item.reason) {
+        feedbackReasons.set(
+          item.reason,
+          (feedbackReasons.get(item.reason) ?? 0) + 1,
+        )
+      }
+    }
     const latencies = completedRuns
       .filter((run) => run.completedAt)
       .map((run) => run.completedAt!.getTime() - run.createdAt.getTime())
@@ -189,6 +205,10 @@ export class AiQualityService {
       agentRuns: runs.length,
       agentFailures: rate(failedRuns, completedRuns.length),
       toolCalls: rate(successfulToolCalls, toolCalls.length),
+      helpfulFeedback: rate(helpfulFeedback, feedback.length),
+      feedbackReasons: [...feedbackReasons.entries()]
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((first, second) => second.count - first.count),
       averageAgentLatencyMs:
         latencies.length === 0
           ? null
@@ -216,6 +236,8 @@ export class AiQualityService {
           'Average completedAt - createdAt for terminal Agent runs with valid timestamps.',
         tokens:
           'Sum of persisted model usage for Agent runs and product optimization generations.',
+        feedback:
+          'HELPFUL / all user feedback submitted for completed Agent runs in the window.',
       },
     }
   }
