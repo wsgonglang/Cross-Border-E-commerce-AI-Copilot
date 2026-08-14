@@ -98,6 +98,12 @@ function streamMessage(input: StreamInput): AbortController {
   })
     .then(async (started) => {
       input.onRunStarted(started.runId)
+      // Stop may happen before the create request returns. Cancel the persisted
+      // run once its id arrives so aborting the browser subscription is sufficient.
+      if (controller.signal.aborted) {
+        await cancelAgentRun(input.token, input.merchantId, started.runId)
+        return
+      }
       const applyRun = (run: AgentRunSummary) => {
         const progressText = run.toolCalls.length
           ? input.progressWithTools(run.toolCalls.map((call) => call.name))
@@ -469,14 +475,14 @@ export function useAiMessages({
   const stop = useCallback(() => {
     if (currentSessionId) {
       const runId = runIdsRef.current.get(currentSessionId)
-      if (runId) {
-        void cancelAgentRun(token, merchantId, runId).catch((error: Error) =>
-          onError(error.message),
-        )
-      }
       abortControllersRef.current.get(currentSessionId)?.abort()
+      if (runId) {
+        void cancelAgentRun(token, merchantId, runId)
+          .then(() => loadCurrentSession(currentSessionId, true))
+          .catch((error: Error) => onError(error.message))
+      }
     }
-  }, [currentSessionId, merchantId, onError, token])
+  }, [currentSessionId, loadCurrentSession, merchantId, onError, token])
 
   const favorite = useCallback(
     async (item: AiMessage) => {

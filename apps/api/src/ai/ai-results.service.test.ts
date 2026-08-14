@@ -145,4 +145,31 @@ describe('AiResultsService', () => {
       }),
     )
   })
+
+  it('filters cancelled Agent runs as a first-class terminal result', async () => {
+    const agentFindMany = vi.fn().mockResolvedValue([])
+    const service = new AiResultsService(
+      {
+        agentRun: { findMany: agentFindMany },
+        productOptimization: { findMany: vi.fn() },
+        importJob: { findMany: vi.fn() },
+      } as unknown as PrismaService,
+      {
+        assertAccess: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MerchantAccessService,
+    )
+
+    await service.list(operator, 'merchant-1', {
+      type: 'AGENT_RUN',
+      status: 'CANCELLED',
+      page: 1,
+      pageSize: 20,
+    })
+
+    expect(agentFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { merchantId: 'merchant-1', status: 'CANCELLED' },
+      }),
+    )
+  })
 })

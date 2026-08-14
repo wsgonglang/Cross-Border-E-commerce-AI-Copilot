@@ -69,7 +69,7 @@ components/<component>/styles.css
 - API 只负责校验、创建 `AgentRun` 和入队；独立 BullMQ Worker 从 MySQL 重建用户角色、商家、店铺、会话与时间范围后执行受控循环。
 - `runId` 同时作为 Job ID；瞬时模型错误最多重试一次，草稿以 `agentRunId` 唯一关联，避免重放产生重复草稿。
 - 创建草稿不能仅依赖自然语言关键词：Web 必须发送本次显式授权，`AgentRun` 将授权持久化，Worker 从 MySQL 恢复；只有授权与 admin/operator 角色同时满足时才向模型暴露草稿工具。
-- 统一对话、工作台和订单页 Agent 通过同一 `text/event-stream` 策略接收 MySQL 快照变化；SSE 只负责实时体验，断线后仍可通过有界 runId 查询恢复最终事实。
+- 统一对话、工作台和订单页 Agent 通过同一 `text/event-stream` 策略接收 MySQL 快照变化；SSE 只负责实时体验，断线后仍可通过有界 runId 查询恢复最终事实。运行完成状态与最终会话消息在同一 MySQL 事务提交，取消使用条件更新竞争唯一终态；Web 在停止早于 runId 返回时会于 runId 到达后补发取消。
 - Prompt 带稳定版本号；工具结果和 RAG 文档被标记为不可信数据，权限与写策略仍由服务端确定性执行。
 
 ### Agent 运营工作台

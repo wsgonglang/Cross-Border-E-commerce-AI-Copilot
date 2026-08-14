@@ -7,7 +7,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getAiSession } from '../../../api/ai'
-import { runAgent } from '../../../api/agent'
+import { cancelAgentRun, runAgent } from '../../../api/agent'
 import { getAgentRun } from '../../../api/ai-results'
 import { useAiMessages } from './use-ai-messages'
 
@@ -24,6 +24,7 @@ vi.mock('../../../api/agent', () => ({
 vi.mock('../../../api/ai-results', () => ({ getAgentRun: vi.fn() }))
 
 const mockedGetAiSession = vi.mocked(getAiSession)
+const mockedCancelAgentRun = vi.mocked(cancelAgentRun)
 const mockedRunAgent = vi.mocked(runAgent)
 const mockedGetAgentRun = vi.mocked(getAgentRun)
 
@@ -168,5 +169,31 @@ describe('useAiMessages unified Agent conversations', () => {
     expect(result.current.messages.map((item) => item.content)).toEqual([
       'B history',
     ])
+  })
+
+  it('cancels the server run when stop happens before runId arrives', async () => {
+    let resolveStart!: (value: { runId: string; status: 'PLANNING' }) => void
+    mockedGetAiSession.mockResolvedValue(session('session-a', []))
+    mockedRunAgent.mockImplementation(
+      () => new Promise((resolve) => (resolveStart = resolve)),
+    )
+    mockedCancelAgentRun.mockResolvedValue({ cancelled: true })
+    const props = hookProps('session-a')
+    const { result } = renderHook(() => useAiMessages(props))
+    await waitFor(() => expect(mockedGetAiSession).toHaveBeenCalled())
+
+    act(() => result.current.setInputValue('分析库存'))
+    await act(async () => result.current.send())
+    act(() => result.current.stop())
+    resolveStart({ runId: 'run-late', status: 'PLANNING' })
+
+    await waitFor(() =>
+      expect(mockedCancelAgentRun).toHaveBeenCalledWith(
+        'token',
+        'merchant-1',
+        'run-late',
+      ),
+    )
+    await waitFor(() => expect(result.current.streaming).toBe(false))
   })
 })

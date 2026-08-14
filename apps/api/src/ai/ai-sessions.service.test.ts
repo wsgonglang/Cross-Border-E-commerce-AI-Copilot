@@ -397,4 +397,43 @@ describe('AiSessionsService', () => {
     expect(json.content).toContain('[邮箱已脱敏]')
     expect(json.content).toContain('[地址已脱敏]')
   })
+
+  it('does not persist a final assistant message when cancellation wins', async () => {
+    const transaction = {
+      agentRun: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        update: vi.fn(),
+      },
+      aiMessage: {
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+      },
+      aiSession: { update: vi.fn() },
+    }
+    const service = new AiSessionsService(
+      {
+        $transaction: vi.fn(
+          (callback: (client: typeof transaction) => Promise<unknown>) =>
+            callback(transaction),
+        ),
+      } as unknown as PrismaService,
+      {} as MerchantAccessService,
+    )
+
+    await expect(
+      service.finishAgentTurnAndCompleteRun({
+        runId: 'run-1',
+        sessionId: 'session-1',
+        userMessageId: 'message-user-1',
+        content: '不应写入的最终回答',
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        providerName: 'mock',
+        modelName: 'mock-agent',
+        createdOptimizationIds: [],
+      }),
+    ).resolves.toBeUndefined()
+    expect(transaction.aiMessage.create).not.toHaveBeenCalled()
+    expect(transaction.aiSession.update).not.toHaveBeenCalled()
+  })
 })

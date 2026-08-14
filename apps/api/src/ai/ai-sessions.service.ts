@@ -8,6 +8,7 @@ import type {
   AiMessageLink,
   AiSessionDetail,
   AiSessionSummary,
+  AiUsage,
 } from '@cross-border/shared'
 
 import { PrismaService } from '../database/prisma.service'
@@ -238,30 +239,56 @@ export class AiSessionsService {
     })
   }
 
-  async finishAgentTurn(
-    sessionId: string,
-    userMessageId: string,
-    content: string,
-  ): Promise<string> {
+  async finishAgentTurnAndCompleteRun(input: {
+    runId: string
+    sessionId: string
+    userMessageId: string
+    content: string
+    usage: AiUsage
+    providerName: string
+    modelName: string
+    createdOptimizationIds: string[]
+  }): Promise<string | undefined> {
     return this.prisma.$transaction(async (transaction) => {
+      const completed = await transaction.agentRun.updateMany({
+        where: {
+          id: input.runId,
+          status: { in: ['PLANNING', 'RUNNING'] },
+        },
+        data: {
+          status: 'COMPLETED',
+          answer: input.content,
+          providerName: input.providerName,
+          modelName: input.modelName,
+          promptTokens: input.usage.promptTokens,
+          completionTokens: input.usage.completionTokens,
+          totalTokens: input.usage.totalTokens,
+          createdOptimizationIds: asJson(input.createdOptimizationIds),
+          completedAt: new Date(),
+        },
+      })
+      if (completed.count !== 1) return undefined
+
       const parent = await transaction.aiMessage.findFirst({
-        where: { id: userMessageId, sessionId },
+        where: { id: input.userMessageId, sessionId: input.sessionId },
         select: { childrenIds: true },
       })
       if (!parent) throw new NotFoundException('Agent 用户消息不存在')
       const assistant = await transaction.aiMessage.create({
         data: {
-          sessionId,
+          sessionId: input.sessionId,
           role: 'assistant',
-          content,
-          parentId: userMessageId,
+          content: input.content,
+          parentId: input.userMessageId,
           childrenIds: [],
-          revisionJson: [{ id: '', content, createdAt: Date.now() }],
+          revisionJson: [
+            { id: '', content: input.content, createdAt: Date.now() },
+          ],
           revisionIdx: 0,
         },
       })
       await transaction.aiMessage.update({
-        where: { id: userMessageId },
+        where: { id: input.userMessageId },
         data: {
           childrenIds: [
             ...this.toStringArray(parent.childrenIds),
@@ -270,12 +297,16 @@ export class AiSessionsService {
         },
       })
       await transaction.aiSession.update({
-        where: { id: sessionId },
+        where: { id: input.sessionId },
         data: {
           status: 'DONE',
           error: null,
           activeLeafMessageId: assistant.id,
         },
+      })
+      await transaction.agentRun.update({
+        where: { id: input.runId },
+        data: { assistantMessageId: assistant.id },
       })
       return assistant.id
     })

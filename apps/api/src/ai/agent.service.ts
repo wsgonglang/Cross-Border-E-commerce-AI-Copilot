@@ -145,7 +145,7 @@ export class AgentService {
   ): Promise<{ cancelled: true }> {
     const linked = await this.agentRuns.cancel(actor, merchantId, runId)
     await this.agentQueue.cancelWaiting(runId).catch(() => undefined)
-    if (linked.sessionId && linked.userMessageId) {
+    if (linked.cancelled && linked.sessionId && linked.userMessageId) {
       await this.aiSessions.cancelAgentTurn(
         linked.sessionId,
         linked.userMessageId,
@@ -350,24 +350,30 @@ export class AgentService {
       return typeof id === 'string' ? [id] : []
     })
     await assertNotCancelled()
-    const assistantMessageId =
-      input.sessionId && input.userMessageId
-        ? await this.aiSessions.finishAgentTurn(
-            input.sessionId,
-            input.userMessageId,
-            answer,
-          )
-        : undefined
-    await assertNotCancelled()
-    await this.agentRuns.complete({
-      runId,
-      answer,
-      usage,
-      providerName: this.aiProvider.name,
-      modelName: this.aiProvider.model,
-      createdOptimizationIds,
-      assistantMessageId,
-    })
+    let assistantMessageId: string | undefined
+    if (input.sessionId && input.userMessageId) {
+      assistantMessageId = await this.aiSessions.finishAgentTurnAndCompleteRun({
+        runId,
+        sessionId: input.sessionId,
+        userMessageId: input.userMessageId,
+        content: answer,
+        usage,
+        providerName: this.aiProvider.name,
+        modelName: this.aiProvider.model,
+        createdOptimizationIds,
+      })
+      if (!assistantMessageId) throw new AgentRunCancelledError()
+    } else {
+      const completed = await this.agentRuns.complete({
+        runId,
+        answer,
+        usage,
+        providerName: this.aiProvider.name,
+        modelName: this.aiProvider.model,
+        createdOptimizationIds,
+      })
+      if (!completed) throw new AgentRunCancelledError()
+    }
     this.failedUsage.delete(runId)
 
     return {

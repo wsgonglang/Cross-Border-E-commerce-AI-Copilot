@@ -237,8 +237,8 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     modelName: string
     createdOptimizationIds: string[]
     assistantMessageId?: string
-  }): Promise<void> {
-    await this.prisma.agentRun.updateMany({
+  }): Promise<boolean> {
+    const completed = await this.prisma.agentRun.updateMany({
       where: {
         id: input.runId,
         status: { in: ['PLANNING', 'RUNNING'] },
@@ -258,6 +258,7 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
         completedAt: new Date(),
       },
     })
+    return completed.count === 1
   }
 
   async fail(
@@ -306,18 +307,23 @@ export class AgentRunsService implements OnModuleInit, OnModuleDestroy {
     actor: AuthenticatedUser,
     merchantId: string,
     runId: string,
-  ): Promise<{ sessionId?: string; userMessageId?: string }> {
+  ): Promise<{
+    cancelled: boolean
+    sessionId?: string
+    userMessageId?: string
+  }> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const run = await this.prisma.agentRun.findFirst({
       where: { id: runId, merchantId, userId: actor.id },
       select: { id: true, sessionId: true, userMessageId: true },
     })
     if (!run) throw new NotFoundException('Agent 运行记录不存在')
-    await this.prisma.agentRun.updateMany({
+    const cancelled = await this.prisma.agentRun.updateMany({
       where: { id: runId, status: { in: ['PLANNING', 'RUNNING'] } },
       data: { status: 'CANCELLED', completedAt: new Date() },
     })
     return {
+      cancelled: cancelled.count === 1,
       ...(run.sessionId ? { sessionId: run.sessionId } : {}),
       ...(run.userMessageId ? { userMessageId: run.userMessageId } : {}),
     }

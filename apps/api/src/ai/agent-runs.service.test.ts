@@ -46,7 +46,7 @@ describe('AgentRunsService', () => {
       },
       0,
     )
-    await service.complete({
+    const completed = await service.complete({
       runId,
       answer: '已完成',
       providerName: 'mock',
@@ -56,6 +56,7 @@ describe('AgentRunsService', () => {
     })
 
     expect(runId).toBe('run-1')
+    expect(completed).toBe(true)
     expect(prisma.agentRun.create).toHaveBeenCalledWith({
       data: {
         merchantId: 'merchant-1',
@@ -159,6 +160,7 @@ describe('AgentRunsService', () => {
     await expect(
       service.cancel(operator, 'merchant-1', 'run-1'),
     ).resolves.toEqual({
+      cancelled: true,
       sessionId: 'session-1',
       userMessageId: 'message-1',
     })

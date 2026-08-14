@@ -41,7 +41,7 @@ function runs() {
     start: vi.fn().mockResolvedValue('run-1'),
     markRunning: vi.fn().mockResolvedValue(undefined),
     appendToolCall: vi.fn().mockResolvedValue(undefined),
-    complete: vi.fn().mockResolvedValue(undefined),
+    complete: vi.fn().mockResolvedValue(true),
     fail: vi.fn().mockResolvedValue(undefined),
     isCancelled: vi.fn().mockResolvedValue(false),
     cancel: vi.fn(),
@@ -73,7 +73,7 @@ function service(input: {
     }) as unknown as AiService,
     (input.aiSessions ?? {
       prepareAgentTurn: vi.fn(),
-      finishAgentTurn: vi.fn(),
+      finishAgentTurnAndCompleteRun: vi.fn(),
       failAgentTurn: vi.fn(),
     }) as unknown as AiSessionsService,
     (input.queue ?? {
@@ -107,7 +107,9 @@ describe('AgentService', () => {
       sessionId: 'session-1',
       userMessageId: 'message-user-2',
     })
-    const finishAgentTurn = vi.fn().mockResolvedValue('message-ai-2')
+    const finishAgentTurnAndCompleteRun = vi
+      .fn()
+      .mockResolvedValue('message-ai-2')
     const target = service({
       aiProvider: provider(),
       agentRuns,
@@ -117,7 +119,7 @@ describe('AgentService', () => {
       },
       aiSessions: {
         prepareAgentTurn,
-        finishAgentTurn,
+        finishAgentTurnAndCompleteRun,
         failAgentTurn: vi.fn(),
       },
     })
@@ -151,9 +153,14 @@ describe('AgentService', () => {
       'message-user-2',
       undefined,
     )
-    expect(agentRuns.complete).toHaveBeenCalledWith(
-      expect.objectContaining({ assistantMessageId: 'message-ai-2' }),
+    expect(finishAgentTurnAndCompleteRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-1',
+        sessionId: 'session-1',
+        userMessageId: 'message-user-2',
+      }),
     )
+    expect(agentRuns.complete).not.toHaveBeenCalled()
   })
 
   it('returns the run id immediately and enqueues durable execution', async () => {
@@ -170,6 +177,26 @@ describe('AgentService', () => {
     expect(started).toEqual({ runId: 'run-1', status: 'PLANNING' })
     expect(enqueue).toHaveBeenCalledWith('run-1')
     expect(agentRuns.complete).not.toHaveBeenCalled()
+  })
+
+  it('does not rewind a completed session when a late cancel request loses', async () => {
+    const agentRuns = runs()
+    agentRuns.cancel.mockResolvedValue({
+      cancelled: false,
+      sessionId: 'session-1',
+      userMessageId: 'message-user-1',
+    })
+    const cancelAgentTurn = vi.fn()
+    const target = service({
+      aiProvider: provider(),
+      agentRuns,
+      aiSessions: { cancelAgentTurn },
+    })
+
+    await expect(
+      target.cancel(operator, 'merchant-1', 'run-1'),
+    ).resolves.toEqual({ cancelled: true })
+    expect(cancelAgentTurn).not.toHaveBeenCalled()
   })
 
   it('persists explicit draft authorization for worker-side policy checks', async () => {

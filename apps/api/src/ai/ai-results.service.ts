@@ -23,7 +23,7 @@ export class AiResultsService {
   ): Promise<PaginatedAiResults> {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const agentStatus = (
-      ['PLANNING', 'RUNNING', 'COMPLETED', 'FAILED'] as const
+      ['PLANNING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const
     ).find((status) => status === query.status)
     const optimizationStatus = (
       ['GENERATING', 'DRAFT', 'APPLIED', 'REJECTED', 'ERROR'] as const
