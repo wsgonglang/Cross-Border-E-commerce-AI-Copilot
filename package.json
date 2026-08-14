@@ -17,6 +17,7 @@
     "typecheck": "npm run build:workspace-deps && npm run typecheck:check",
     "typecheck:check": "npm run typecheck --workspaces --if-present",
     "test": "npm run build:workspace-deps && npm run test:check",
+    "rag:eval": "npm run rag:eval --workspace @cross-border/api",
     "test:check": "npm run test --workspaces --if-present",
     "i18n:check": "node scripts/check-i18n.mjs",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,html,json}\" \"packages/**/*.{ts,tsx,json}\" \"docs/**/*.md\" \".github/**/*.{yml,yaml}\" \"*.{md,json,mjs,yml,yaml}\"",

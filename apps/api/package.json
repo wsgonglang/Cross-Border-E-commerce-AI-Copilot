@@ -15,6 +15,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
     "test": "vitest run --dir src --pool=threads --maxWorkers=1",
+    "rag:eval": "node --import tsx src/ai/rule-retrieval.report.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
