@@ -23,7 +23,7 @@ describe('DashboardAiEntry', () => {
     const onOpen = vi.fn()
     render(
       <DashboardAiEntry
-        canWrite
+        canUseAssistant
         days={7}
         loadingSessions={false}
         onOpen={onOpen}
@@ -47,7 +47,7 @@ describe('DashboardAiEntry', () => {
     const onOpen = vi.fn()
     render(
       <DashboardAiEntry
-        canWrite={false}
+        canUseAssistant
         days={30}
         loadingSessions={false}
         onOpen={onOpen}
@@ -64,7 +64,7 @@ describe('DashboardAiEntry', () => {
     const onOpen = vi.fn()
     render(
       <DashboardAiEntry
-        canWrite
+        canUseAssistant
         days={7}
         loadingSessions={false}
         onOpen={onOpen}
@@ -78,5 +78,24 @@ describe('DashboardAiEntry', () => {
     ).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '打开助手' }))
     expect(onOpen).toHaveBeenCalledWith()
+  })
+
+  it('does not expose an unusable assistant action to viewers', () => {
+    const onOpen = vi.fn()
+    render(
+      <DashboardAiEntry
+        canUseAssistant={false}
+        days={7}
+        loadingSessions={false}
+        onOpen={onOpen}
+        sessions={[session('1')]}
+      />,
+    )
+
+    expect(screen.getByText('当前角色无法使用 AI 运营助手')).toBeVisible()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByText('会话 1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(onOpen).not.toHaveBeenCalled()
   })
 })

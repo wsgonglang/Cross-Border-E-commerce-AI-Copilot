@@ -108,11 +108,15 @@ export function useAiResultsQuery(
   })
 }
 
-export function useRecentAiSessionsQuery(token: string, merchantId: string) {
+export function useRecentAiSessionsQuery(
+  token: string,
+  merchantId: string,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.aiSessions(merchantId),
     queryFn: () => listAiSessions(token, merchantId),
-    enabled: Boolean(token && merchantId),
+    enabled: Boolean(enabled && token && merchantId),
     staleTime: 15_000,
     refetchInterval: (query) =>
       query.state.data?.items.some((session) => session.status === 'streaming')
@@ -133,12 +137,15 @@ export function useAgentRunQuery(
     enabled: Boolean(token && merchantId && runId),
     // 轮询模式：运行未终态时持续刷新，实时展示工具轨迹；终态后停止。
     refetchInterval: options?.poll
-      ? (query) => {
-          const status = query.state.data?.status
-          return status === 'COMPLETED' || status === 'FAILED' ? false : 1200
-        }
+      ? (query) => agentRunRefetchInterval(query.state.data?.status)
       : false,
   })
+}
+
+export function agentRunRefetchInterval(status?: string): false | number {
+  return status && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status)
+    ? false
+    : 1200
 }
 
 export function useAiQualityQuery(

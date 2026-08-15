@@ -25,6 +25,11 @@ export const resources = {
         forbiddenDescription:
           '当前账号角色无法访问该页面。服务端也会拒绝对应接口请求。',
         backToDashboard: '返回工作台',
+        renderErrorTitle: '页面暂时无法显示',
+        renderErrorDescription:
+          '页面渲染或资源加载出现异常。你可以重试当前页面，或返回工作台继续操作。',
+        retryPage: '重试当前页面',
+        errorDetails: '开发调试信息：{{message}}',
       },
       login: {
         stage: '安全运营工作台',
@@ -357,6 +362,9 @@ export const resources = {
           'Agent 会继承当前商家、店铺和时间范围；所有结论均可在工具轨迹中核对。',
         writeHint: '创建商品草稿后仍需人工确认。',
         viewerHint: '当前 viewer 身份仅可使用只读业务工具。',
+        assistantRestrictedTitle: '当前角色无法使用 AI 运营助手',
+        assistantRestrictedDescription:
+          '只读用户可继续查看经营数据、商品与订单；AI 会话由运营人员或管理员发起。',
         noData: '暂无可展示的经营数据',
         loadFailed: '运营工作台加载失败',
         resultStatus: {
@@ -778,6 +786,11 @@ export const resources = {
         forbiddenDescription:
           'The current account role cannot access this page. The server also rejects the corresponding API requests.',
         backToDashboard: 'Back to dashboard',
+        renderErrorTitle: 'This page could not be displayed',
+        renderErrorDescription:
+          'The page failed to render or load a resource. Retry this page or return to the dashboard.',
+        retryPage: 'Retry this page',
+        errorDetails: 'Development details: {{message}}',
       },
       login: {
         stage: 'Secure operations workspace',
@@ -1150,6 +1163,10 @@ export const resources = {
           'The Agent inherits the current merchant, store, and date range. Every conclusion can be checked in its tool trace.',
         writeHint: 'Product drafts still require human confirmation.',
         viewerHint: 'The viewer role can only use read-only business tools.',
+        assistantRestrictedTitle:
+          'Your role cannot use the AI operations assistant',
+        assistantRestrictedDescription:
+          'Read-only users can continue reviewing metrics, products, and orders. AI conversations are started by operators or administrators.',
         noData: 'No operating data to display',
         loadFailed: 'Failed to load operations dashboard',
         resultStatus: {

@@ -1,0 +1,35 @@
+.route-error-page {
+  display: grid;
+  width: min(560px, calc(100% - 32px));
+  min-height: 70vh;
+  margin: 0 auto;
+  place-content: center;
+  justify-items: start;
+  gap: 16px;
+}
+
+.route-error-page h1,
+.route-error-page p {
+  margin: 0;
+}
+
+.route-error-page p {
+  color: #667085;
+  line-height: 1.7;
+}
+
+.route-error-page code {
+  max-width: 100%;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  background: #fff7ed;
+}
+
+.route-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

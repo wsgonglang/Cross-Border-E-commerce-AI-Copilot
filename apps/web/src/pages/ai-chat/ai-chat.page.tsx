@@ -190,7 +190,7 @@ export function AiChatPage() {
         }
       />
 
-      <div className="ai-chat-main">
+      <main className="ai-chat-main">
         <div className="ai-assistant-mode">
           <div>
             <strong>{t('aiChat.title')}</strong>
@@ -246,7 +246,7 @@ export function AiChatPage() {
             onStop={chat.stop}
           />
         </>
-      </div>
+      </main>
 
       <SessionEditModal
         session={editingSession}

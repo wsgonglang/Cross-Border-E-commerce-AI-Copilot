@@ -344,7 +344,9 @@ export function AiQualityPage() {
                   width: 125,
                   render: (status: string) => (
                     <Tag color={statusColors[status] ?? 'default'}>
-                      {status}
+                      {t(`aiResults.statuses.${status}`, {
+                        defaultValue: status,
+                      })}
                     </Tag>
                   ),
                 },
@@ -420,7 +422,9 @@ export function AiQualityPage() {
             <Descriptions bordered size="small" column={2}>
               <Descriptions.Item label={t('common.status')}>
                 <Tag color={statusColors[runQuery.data.status]}>
-                  {runQuery.data.status}
+                  {t(`aiResults.statuses.${runQuery.data.status}`, {
+                    defaultValue: runQuery.data.status,
+                  })}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label={t('aiQuality.tokens')}>
@@ -451,7 +455,9 @@ export function AiQualityPage() {
                     {t(`agent.tools.${call.name}`)}
                   </Typography.Text>
                   <Tag color={call.status === 'success' ? 'green' : 'red'}>
-                    {call.status}
+                    {t(`aiResults.toolStatuses.${call.status}`, {
+                      defaultValue: call.status,
+                    })}
                   </Tag>
                 </Space>
                 <pre>

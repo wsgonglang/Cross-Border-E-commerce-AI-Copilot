@@ -9,7 +9,7 @@ import type { AppLanguage } from '../../i18n/i18n'
 import type { AiChatNavigationState } from '../ai-chat/navigation'
 
 interface DashboardAiEntryProps {
-  canWrite: boolean
+  canUseAssistant: boolean
   days: number
   loadingSessions: boolean
   onOpen: (state?: AiChatNavigationState) => void
@@ -19,7 +19,7 @@ interface DashboardAiEntryProps {
 }
 
 export function DashboardAiEntry({
-  canWrite,
+  canUseAssistant,
   days,
   loadingSessions,
   onOpen,
@@ -47,6 +47,22 @@ export function DashboardAiEntry({
     if (prefill) onOpen({ prefill })
   }
 
+  if (!canUseAssistant) {
+    return (
+      <Card
+        title={t('dashboard.aiAssistant')}
+        className="dashboard-full-card dashboard-ai-entry"
+      >
+        <Alert
+          type="info"
+          showIcon
+          title={t('dashboard.assistantRestrictedTitle')}
+          description={t('dashboard.assistantRestrictedDescription')}
+        />
+      </Card>
+    )
+  }
+
   return (
     <Card
       title={t('dashboard.aiAssistant')}
@@ -62,7 +78,7 @@ export function DashboardAiEntry({
           store: storeName ?? t('common.allStores'),
           days,
         })}{' '}
-        {canWrite ? t('dashboard.writeHint') : t('dashboard.viewerHint')}
+        {t('dashboard.writeHint')}
       </Typography.Paragraph>
 
       <Space wrap className="dashboard-ai-prompts">

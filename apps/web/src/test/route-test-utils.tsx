@@ -6,7 +6,6 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 
 import { authReducer } from '../store/auth.slice'
-import { chatReducer } from '../store/chat.slice'
 
 interface RenderRouteOptions {
   authenticated?: boolean
@@ -25,7 +24,6 @@ export function renderRoute(
   const store = configureStore({
     reducer: {
       auth: authReducer,
-      chat: chatReducer,
     },
     preloadedState: {
       auth: {

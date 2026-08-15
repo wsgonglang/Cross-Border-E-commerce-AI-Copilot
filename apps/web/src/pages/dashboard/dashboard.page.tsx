@@ -174,11 +174,17 @@ export function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user)
   const { merchantId, storeId, currentStore } = useBusinessContext()
   const navigate = useNavigate()
+  const canUseAssistant =
+    user?.roles.some((role) => ['admin', 'operator'].includes(role)) ?? false
   const [days, setDays] = useState(7)
   const [dashboard, setDashboard] = useState<OperationsDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const recentSessionsQuery = useRecentAiSessionsQuery(token, merchantId)
+  const recentSessionsQuery = useRecentAiSessionsQuery(
+    token,
+    merchantId,
+    canUseAssistant,
+  )
 
   useEffect(() => {
     if (!token || !merchantId) return
@@ -266,9 +272,6 @@ export function DashboardPage() {
         : null,
     ].filter((item): item is NonNullable<typeof item> => item !== null)
   }, [dashboard, days, t])
-
-  const canWrite =
-    user?.roles.some((role) => ['admin', 'operator'].includes(role)) ?? false
 
   const openAiAssistant = (state?: {
     prefill?: string
@@ -381,27 +384,32 @@ export function DashboardPage() {
                       t('dashboard.actionableOrders'),
                       dashboard.todos.actionableOrders,
                       '/orders?statuses=PENDING,CONFIRMED,REFUNDING',
+                      true,
                     ],
                     [
                       t('dashboard.pendingDrafts'),
                       dashboard.todos.pendingDrafts,
                       '/ai-results',
+                      canUseAssistant,
                     ],
                     [
                       t('dashboard.failedTasks'),
                       dashboard.todos.failedTasks,
                       '/batch-tasks',
+                      canUseAssistant,
                     ],
                     [
                       t('dashboard.lowStockSku'),
                       dashboard.todos.lowStockItems,
                       '/products',
+                      true,
                     ],
-                  ].map(([title, value, path]) => (
+                  ].map(([title, value, path, canOpen]) => (
                     <Col xs={12} lg={6} key={String(title)}>
                       <button
                         type="button"
                         className="dashboard-todo"
+                        disabled={!canOpen}
                         onClick={() => void navigate(String(path))}
                       >
                         <span>{title}</span>
@@ -414,42 +422,56 @@ export function DashboardPage() {
                   className="dashboard-suggestions"
                   locale={{ emptyText: t('dashboard.noPriorityIssue') }}
                   dataSource={suggestions}
-                  renderItem={(item) => (
-                    <List.Item
-                      actions={[
-                        <Button
-                          key="business"
-                          type="link"
-                          onClick={() => void navigate(item.path)}
-                        >
-                          {item.action}
-                        </Button>,
-                        <Button
-                          key="assistant"
-                          type="link"
-                          onClick={() =>
-                            openAiAssistant({ prefill: item.aiPrompt })
-                          }
-                        >
-                          {t('dashboard.askAssistant')}
-                        </Button>,
-                      ]}
-                    >
-                      <List.Item.Meta
-                        avatar={<BulbOutlined className="suggestion-icon" />}
-                        title={item.title}
-                        description={t('dashboard.evidence', {
-                          evidence: item.evidence,
-                        })}
-                      />
-                    </List.Item>
-                  )}
+                  renderItem={(item) => {
+                    const canOpenBusinessTarget =
+                      canUseAssistant ||
+                      item.path === '/orders' ||
+                      item.path === '/products'
+                    return (
+                      <List.Item
+                        actions={[
+                          ...(canOpenBusinessTarget
+                            ? [
+                                <Button
+                                  key="business"
+                                  type="link"
+                                  onClick={() => void navigate(item.path)}
+                                >
+                                  {item.action}
+                                </Button>,
+                              ]
+                            : []),
+                          ...(canUseAssistant
+                            ? [
+                                <Button
+                                  key="assistant"
+                                  type="link"
+                                  onClick={() =>
+                                    openAiAssistant({ prefill: item.aiPrompt })
+                                  }
+                                >
+                                  {t('dashboard.askAssistant')}
+                                </Button>,
+                              ]
+                            : []),
+                        ]}
+                      >
+                        <List.Item.Meta
+                          avatar={<BulbOutlined className="suggestion-icon" />}
+                          title={item.title}
+                          description={t('dashboard.evidence', {
+                            evidence: item.evidence,
+                          })}
+                        />
+                      </List.Item>
+                    )
+                  }}
                 />
               </Card>
             </Col>
             <Col xs={24} xl={10}>
               <DashboardAiEntry
-                canWrite={canWrite}
+                canUseAssistant={canUseAssistant}
                 days={days}
                 loadingSessions={recentSessionsQuery.isFetching}
                 onOpen={openAiAssistant}
@@ -611,12 +633,14 @@ export function DashboardPage() {
                   title={t('dashboard.inProgress')}
                   className="dashboard-full-card"
                   extra={
-                    <Button
-                      type="link"
-                      onClick={() => void navigate('/batch-tasks')}
-                    >
-                      {t('dashboard.taskCenter')}
-                    </Button>
+                    canUseAssistant ? (
+                      <Button
+                        type="link"
+                        onClick={() => void navigate('/batch-tasks')}
+                      >
+                        {t('dashboard.taskCenter')}
+                      </Button>
+                    ) : null
                   }
                 >
                   <Space wrap className="dashboard-running-summary">
@@ -637,11 +661,18 @@ export function DashboardPage() {
                     dataSource={dashboard.activeTasks}
                     renderItem={(task) => (
                       <List.Item
-                        className="clickable-list-item dashboard-result-item"
-                        onClick={() =>
-                          void navigate(
-                            `/batch-tasks?merchantId=${merchantId}&taskId=${task.id}`,
-                          )
+                        className={
+                          canUseAssistant
+                            ? 'clickable-list-item dashboard-result-item'
+                            : 'dashboard-result-item'
+                        }
+                        onClick={
+                          canUseAssistant
+                            ? () =>
+                                void navigate(
+                                  `/batch-tasks?merchantId=${merchantId}&taskId=${task.id}`,
+                                )
+                            : undefined
                         }
                       >
                         <Space
@@ -672,12 +703,14 @@ export function DashboardPage() {
                   title={t('dashboard.needsAttention')}
                   className="dashboard-full-card"
                   extra={
-                    <Button
-                      type="link"
-                      onClick={() => void navigate('/ai-results')}
-                    >
-                      {t('dashboard.resultCenter')}
-                    </Button>
+                    canUseAssistant ? (
+                      <Button
+                        type="link"
+                        onClick={() => void navigate('/ai-results')}
+                      >
+                        {t('dashboard.resultCenter')}
+                      </Button>
+                    ) : null
                   }
                 >
                   <List
@@ -686,11 +719,16 @@ export function DashboardPage() {
                     dataSource={dashboard.recentResults}
                     renderItem={(item) => (
                       <List.Item
-                        className="clickable-list-item"
-                        onClick={() =>
-                          void navigate(
-                            getDashboardResultPath(item, merchantId),
-                          )
+                        className={
+                          canUseAssistant ? 'clickable-list-item' : undefined
+                        }
+                        onClick={
+                          canUseAssistant
+                            ? () =>
+                                void navigate(
+                                  getDashboardResultPath(item, merchantId),
+                                )
+                            : undefined
                         }
                       >
                         <List.Item.Meta

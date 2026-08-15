@@ -126,6 +126,17 @@
   transform: translateY(-1px);
 }
 
+.dashboard-todo:disabled {
+  color: #98a2b3;
+  background: #f9fafb;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.dashboard-todo:disabled strong {
+  color: #98a2b3;
+}
+
 .dashboard-todo strong {
   color: #0f766e;
   font-size: 24px;

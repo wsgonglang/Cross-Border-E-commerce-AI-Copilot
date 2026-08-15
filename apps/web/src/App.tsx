@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthenticatedRoute } from './components/authenticated-route/authenticated-route'
 import { RoleRoute } from './components/role-route/role-route'
+import { RouteErrorBoundary } from './components/route-error-boundary/route-error-boundary'
 import { RouteLoading } from './components/route-loading/route-loading'
 import { BusinessContextProvider } from './contexts/business-context'
 import { restoreSession } from './store/auth.slice'
@@ -114,52 +115,57 @@ export function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/login" element={routeElement(<LoginPage />)} />
-      <Route element={<AuthenticatedRoute />}>
-        <Route
-          element={
-            <BusinessContextProvider>
-              {routeElement(<AppLayout />)}
-            </BusinessContextProvider>
-          }
-        >
-          <Route index element={routeElement(<DashboardPage />)} />
-          <Route path="orders" element={routeElement(<OrdersPage />)} />
-          <Route path="products" element={routeElement(<ProductsPage />)} />
-          <Route path="403" element={routeElement(<ForbiddenPage />)} />
+    <RouteErrorBoundary>
+      <Routes>
+        <Route path="/login" element={routeElement(<LoginPage />)} />
+        <Route element={<AuthenticatedRoute />}>
           <Route
-            path="ai-shares/:shareId"
-            element={routeElement(<AiSharePage />)}
-          />
-          <Route element={<RoleRoute allow={['admin', 'operator']} />}>
-            <Route path="ai-chat" element={routeElement(<AiChatPage />)} />
+            element={
+              <BusinessContextProvider>
+                {routeElement(<AppLayout />)}
+              </BusinessContextProvider>
+            }
+          >
+            <Route index element={routeElement(<DashboardPage />)} />
+            <Route path="orders" element={routeElement(<OrdersPage />)} />
+            <Route path="products" element={routeElement(<ProductsPage />)} />
+            <Route path="403" element={routeElement(<ForbiddenPage />)} />
             <Route
-              path="ai-results"
-              element={routeElement(<AiResultsPage />)}
+              path="ai-shares/:shareId"
+              element={routeElement(<AiSharePage />)}
             />
-            <Route
-              path="ai-quality"
-              element={routeElement(<AiQualityPage />)}
-            />
-            <Route
-              path="batch-tasks"
-              element={routeElement(<BatchTasksPage />)}
-            />
-            <Route path="imports" element={routeElement(<ImportsPage />)} />
-            <Route path="stores" element={routeElement(<StoresPage />)} />
-          </Route>
-          <Route element={<RoleRoute allow={['admin']} />}>
-            <Route path="merchants" element={routeElement(<MerchantsPage />)} />
-            <Route
-              path="rule-documents"
-              element={routeElement(<RuleDocumentsPage />)}
-            />
-            <Route path="users" element={routeElement(<UsersPage />)} />
+            <Route element={<RoleRoute allow={['admin', 'operator']} />}>
+              <Route path="ai-chat" element={routeElement(<AiChatPage />)} />
+              <Route
+                path="ai-results"
+                element={routeElement(<AiResultsPage />)}
+              />
+              <Route
+                path="ai-quality"
+                element={routeElement(<AiQualityPage />)}
+              />
+              <Route
+                path="batch-tasks"
+                element={routeElement(<BatchTasksPage />)}
+              />
+              <Route path="imports" element={routeElement(<ImportsPage />)} />
+              <Route path="stores" element={routeElement(<StoresPage />)} />
+            </Route>
+            <Route element={<RoleRoute allow={['admin']} />}>
+              <Route
+                path="merchants"
+                element={routeElement(<MerchantsPage />)}
+              />
+              <Route
+                path="rule-documents"
+                element={routeElement(<RuleDocumentsPage />)}
+              />
+              <Route path="users" element={routeElement(<UsersPage />)} />
+            </Route>
           </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </RouteErrorBoundary>
   )
 }

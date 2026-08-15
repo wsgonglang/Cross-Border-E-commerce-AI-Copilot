@@ -44,6 +44,12 @@ test('viewer can inspect products but has no product write controls', async ({
   page,
 }) => {
   await loginAs(page, '只读访客')
+  await expect(page.getByText('当前角色无法使用 AI 运营助手')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'AI 运营助手' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '打开助手' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '让 AI 分析' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '任务中心' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '成果中心' })).toHaveCount(0)
   await page.getByRole('link', { name: '商品与 SKU' }).click()
   await expect(page.getByRole('heading', { name: '商品与 SKU' })).toBeVisible()
   await expect(page.getByRole('button', { name: '新增商品' })).toHaveCount(0)
