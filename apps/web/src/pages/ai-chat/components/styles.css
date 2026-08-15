@@ -28,8 +28,42 @@
 .ai-chat-session-list .ant-list-item {
   padding: 8px 12px;
   border-radius: 8px;
-  cursor: pointer;
   transition: background 0.15s;
+}
+
+.ai-chat-session-select {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ai-chat-session-select:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid #0f766e;
+  outline-offset: 3px;
+}
+
+.ai-chat-session-title-row,
+.ai-chat-session-meta-row {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-chat-session-meta-row {
+  flex-wrap: wrap;
+  color: #667085;
+  font-size: 12px;
 }
 
 .session-pin,
@@ -42,7 +76,12 @@
 }
 
 .session-title {
+  display: block;
   max-width: 170px;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-chat-session-list .ant-list-item:hover {

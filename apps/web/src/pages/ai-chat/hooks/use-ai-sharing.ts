@@ -11,6 +11,7 @@ import {
   listAiSessionShares,
   revokeAiSessionShare,
 } from '../../../api/ai'
+import { useLatestRequestGuard } from '../../../hooks/use-latest-request-guard'
 
 interface UseAiSharingInput {
   merchantId: string
@@ -21,21 +22,33 @@ export function useAiSharing({ merchantId, token }: UseAiSharingInput) {
   const [session, setSession] = useState<AiSessionSummary | null>(null)
   const [candidates, setCandidates] = useState<AiShareCandidate[]>([])
   const [shares, setShares] = useState<AiSessionShareSummary[]>([])
+  const [loadedSessionId, setLoadedSessionId] = useState('')
+  const requestGuard = useLatestRequestGuard()
 
   const open = useCallback(
     async (target: AiSessionSummary) => {
+      const requestId = requestGuard.begin()
       setSession(target)
-      const [nextCandidates, records] = await Promise.all([
-        getAiShareCandidates(token, merchantId),
-        listAiSessionShares(token, merchantId, target.id),
-      ])
-      setCandidates(nextCandidates)
-      setShares(records)
+      try {
+        const [nextCandidates, records] = await Promise.all([
+          getAiShareCandidates(token, merchantId),
+          listAiSessionShares(token, merchantId, target.id),
+        ])
+        if (!requestGuard.isLatest(requestId)) return
+        setCandidates(nextCandidates)
+        setShares(records)
+        setLoadedSessionId(target.id)
+      } catch (error: unknown) {
+        if (requestGuard.isLatest(requestId)) throw error
+      }
     },
-    [merchantId, token],
+    [merchantId, requestGuard, token],
   )
 
-  const close = useCallback(() => setSession(null), [])
+  const close = useCallback(() => {
+    requestGuard.invalidate()
+    setSession(null)
+  }, [requestGuard])
 
   const create = useCallback(
     async (recipientUserIds: string[], expiresInHours: number) => {
@@ -48,6 +61,7 @@ export function useAiSharing({ merchantId, token }: UseAiSharingInput) {
         expiresInHours,
       )
       setShares((current) => [created, ...current])
+      setLoadedSessionId(session.id)
       return created
     },
     [merchantId, session, token],
@@ -72,13 +86,13 @@ export function useAiSharing({ merchantId, token }: UseAiSharingInput) {
   )
 
   return {
-    candidates,
+    candidates: loadedSessionId === session?.id ? candidates : [],
     close,
     copyLink,
     create,
     open,
     revoke,
     session,
-    shares,
+    shares: loadedSessionId === session?.id ? shares : [],
   }
 }

@@ -24,11 +24,9 @@ import {
   Select,
   Space,
   Tag,
-  Typography,
 } from 'antd'
 import { useTranslation } from 'react-i18next'
 
-import { activateOnKeyboard } from '../../../utils/keyboard'
 import type { AiSessionView } from '../ai-chat.types'
 
 interface ConversationSidebarProps {
@@ -191,15 +189,6 @@ export function ConversationSidebar({
               className={
                 session.id === currentSessionId ? 'ai-chat-session-active' : ''
               }
-              onClick={() => onSelect(session.id)}
-              onKeyDown={(event) =>
-                activateOnKeyboard(event, () => onSelect(session.id))
-              }
-              role="button"
-              tabIndex={0}
-              aria-current={
-                session.id === currentSessionId ? 'true' : undefined
-              }
               actions={[
                 <Dropdown
                   key="more"
@@ -219,37 +208,40 @@ export function ConversationSidebar({
                 </Dropdown>,
               ]}
             >
-              <List.Item.Meta
-                title={
-                  <Space size={4}>
-                    {session.pinned ? (
-                      <PushpinFilled className="session-pin" />
-                    ) : null}
-                    {streamingSessionIds.includes(session.id) ? (
-                      <LoadingOutlined
-                        spin
-                        className="session-streaming"
-                        aria-label={t('aiChat.sidebar.generating', {
-                          title: session.title,
-                        })}
-                      />
-                    ) : null}
-                    <Typography.Text ellipsis className="session-title">
-                      {session.title}
-                    </Typography.Text>
-                  </Space>
+              <button
+                type="button"
+                className="ai-chat-session-select"
+                onClick={() => onSelect(session.id)}
+                aria-current={
+                  session.id === currentSessionId ? 'true' : undefined
                 }
-                description={
-                  <Space size={4} wrap>
-                    <span>
-                      {t('aiChat.sidebar.messageCount', {
-                        count: session.messageCount,
+              >
+                <span className="ai-chat-session-title-row">
+                  {session.pinned ? (
+                    <PushpinFilled className="session-pin" />
+                  ) : null}
+                  {streamingSessionIds.includes(session.id) ? (
+                    <LoadingOutlined
+                      spin
+                      className="session-streaming"
+                      aria-label={t('aiChat.sidebar.generating', {
+                        title: session.title,
                       })}
-                    </span>
-                    {session.groupId ? <Tag>{session.groupId}</Tag> : null}
-                  </Space>
-                }
-              />
+                    />
+                  ) : null}
+                  <span className="session-title" title={session.title}>
+                    {session.title}
+                  </span>
+                </span>
+                <span className="ai-chat-session-meta-row">
+                  <span>
+                    {t('aiChat.sidebar.messageCount', {
+                      count: session.messageCount,
+                    })}
+                  </span>
+                  {session.groupId ? <Tag>{session.groupId}</Tag> : null}
+                </span>
+              </button>
             </List.Item>
           )}
         />

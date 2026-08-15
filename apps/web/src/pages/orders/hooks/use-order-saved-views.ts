@@ -14,6 +14,7 @@ import {
   getOrderSavedViews,
   updateOrderSavedView,
 } from '../../../api/orders'
+import { useLatestRequestGuard } from '../../../hooks/use-latest-request-guard'
 
 export interface OrderViewSnapshot extends OrderFilters {
   columns: OrderViewColumn[]
@@ -35,14 +36,33 @@ export function useOrderSavedViews({
 }: UseOrderSavedViewsInput) {
   const { t } = useTranslation()
   const [views, setViews] = useState<OrderSavedView[]>([])
+  const [viewsMerchantId, setViewsMerchantId] = useState('')
   const [activeViewId, setActiveViewId] = useState<string>()
+  const requestGuard = useLatestRequestGuard()
 
   useEffect(() => {
     if (!token || !merchantId) return
+    const requestId = requestGuard.begin()
     void getOrderSavedViews(token, merchantId)
-      .then(setViews)
-      .catch(() => setViews([]))
-  }, [merchantId, token])
+      .then((records) => {
+        if (!requestGuard.isLatest(requestId)) return
+        setViews(records)
+        setViewsMerchantId(merchantId)
+        setActiveViewId((current) =>
+          records.some((record) => record.id === current) ? current : undefined,
+        )
+      })
+      .catch(() => {
+        if (!requestGuard.isLatest(requestId)) return
+        setViews([])
+        setViewsMerchantId(merchantId)
+        setActiveViewId(undefined)
+      })
+  }, [merchantId, requestGuard, token])
+
+  const visibleViews = viewsMerchantId === merchantId ? views : []
+  const visibleActiveViewId =
+    viewsMerchantId === merchantId ? activeViewId : undefined
 
   const createView = useCallback(
     async (name: string, isDefault: boolean, snapshot: OrderViewSnapshot) => {
@@ -59,6 +79,7 @@ export function useOrderSavedViews({
             created.isDefault ? { ...record, isDefault: false } : record,
           ),
         ])
+        setViewsMerchantId(merchantId)
         setActiveViewId(created.id)
         return true
       } catch (error: unknown) {
@@ -73,7 +94,13 @@ export function useOrderSavedViews({
 
   const overwriteView = useCallback(
     async (snapshot: OrderViewSnapshot) => {
-      if (!token || !merchantId || !activeViewId) return false
+      if (
+        !token ||
+        !merchantId ||
+        viewsMerchantId !== merchantId ||
+        !activeViewId
+      )
+        return false
       try {
         const updated = await updateOrderSavedView(
           token,
@@ -94,11 +121,17 @@ export function useOrderSavedViews({
         return false
       }
     },
-    [activeViewId, merchantId, onError, t, token],
+    [activeViewId, merchantId, onError, t, token, viewsMerchantId],
   )
 
   const removeView = useCallback(async () => {
-    if (!token || !merchantId || !activeViewId) return false
+    if (
+      !token ||
+      !merchantId ||
+      viewsMerchantId !== merchantId ||
+      !activeViewId
+    )
+      return false
     try {
       await deleteOrderSavedView(token, merchantId, activeViewId)
       setViews((records) =>
@@ -112,14 +145,14 @@ export function useOrderSavedViews({
       )
       return false
     }
-  }, [activeViewId, merchantId, onError, t, token])
+  }, [activeViewId, merchantId, onError, t, token, viewsMerchantId])
 
   return {
-    activeViewId,
+    activeViewId: visibleActiveViewId,
     createView,
     overwriteView,
     removeView,
     setActiveViewId,
-    views,
+    views: visibleViews,
   }
 }

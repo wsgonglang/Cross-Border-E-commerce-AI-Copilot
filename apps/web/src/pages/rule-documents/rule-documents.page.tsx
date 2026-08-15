@@ -78,6 +78,8 @@ export function RuleDocumentsPage() {
   )
   const [messageApi, messageContext] = message.useMessage()
   const requestGuard = useLatestRequestGuard()
+  const detailRequestGuard = useLatestRequestGuard()
+  const searchRequestGuard = useLatestRequestGuard()
 
   useEffect(() => {
     if (!token) return
@@ -179,10 +181,14 @@ export function RuleDocumentsPage() {
 
   const showDetail = async (documentId: string) => {
     if (!token || !merchantId) return
+    const requestId = detailRequestGuard.begin()
     try {
-      setDetail(await getRuleDocument(token, merchantId, documentId))
+      const record = await getRuleDocument(token, merchantId, documentId)
+      if (!detailRequestGuard.isLatest(requestId)) return
+      setDetail(record)
       setDetailOpen(true)
     } catch (loadError: unknown) {
+      if (!detailRequestGuard.isLatest(requestId)) return
       void messageApi.error(
         loadError instanceof Error ? loadError.message : '文档加载失败',
       )
@@ -205,21 +211,22 @@ export function RuleDocumentsPage() {
 
   const search = async (query: string) => {
     if (!token || !merchantId || query.trim().length < 2) return
+    const requestId = searchRequestGuard.begin()
     setSearching(true)
     try {
-      setSearchResult(
-        await searchRuleDocuments(token, merchantId, {
-          query: query.trim(),
-          ...(searchPlatform ? { platform: searchPlatform } : {}),
-          ...(searchMarket ? { market: searchMarket } : {}),
-        }),
-      )
+      const result = await searchRuleDocuments(token, merchantId, {
+        query: query.trim(),
+        ...(searchPlatform ? { platform: searchPlatform } : {}),
+        ...(searchMarket ? { market: searchMarket } : {}),
+      })
+      if (searchRequestGuard.isLatest(requestId)) setSearchResult(result)
     } catch (searchError: unknown) {
+      if (!searchRequestGuard.isLatest(requestId)) return
       void messageApi.error(
         searchError instanceof Error ? searchError.message : '规则检索失败',
       )
     } finally {
-      setSearching(false)
+      if (searchRequestGuard.isLatest(requestId)) setSearching(false)
     }
   }
 
@@ -245,8 +252,13 @@ export function RuleDocumentsPage() {
           value={merchantId}
           placeholder="选择检索上下文商家"
           onChange={(value) => {
+            detailRequestGuard.invalidate()
+            searchRequestGuard.invalidate()
             setMerchantId(value)
+            setDetail(null)
+            setDetailOpen(false)
             setSearchResult(null)
+            setSearching(false)
           }}
           options={merchants.map((merchant) => ({
             value: merchant.id,
@@ -499,7 +511,10 @@ export function RuleDocumentsPage() {
         title={detail?.title ?? '规则原文'}
         width={720}
         open={detailOpen}
-        onClose={() => setDetailOpen(false)}
+        onClose={() => {
+          detailRequestGuard.invalidate()
+          setDetailOpen(false)
+        }}
       >
         {detail ? (
           <>
