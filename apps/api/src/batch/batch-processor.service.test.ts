@@ -28,6 +28,7 @@ function claimedItem() {
     id: 'item-1',
     taskId: 'task-1',
     productId: 'product-1',
+    attempts: 1,
     task: {
       id: 'task-1',
       merchantId: 'merchant-1',
@@ -78,6 +79,29 @@ describe('BatchProcessorService', () => {
     expect(optimize).not.toHaveBeenCalled()
   })
 
+  it('does not let a duplicate delivery claim an item that is still processing', async () => {
+    const optimize = vi.fn()
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 })
+    const { processor } = service(
+      {
+        batchOptimizationItem: {
+          findUnique: vi.fn().mockResolvedValue(initialItem('PROCESSING')),
+          updateMany,
+        },
+      },
+      optimize,
+    )
+
+    await processor.process(job())
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'PENDING' }) as object,
+      }),
+    )
+    expect(optimize).not.toHaveBeenCalled()
+  })
+
   it('claims optimistically, creates one draft, and finalizes a completed task', async () => {
     const transaction = {
       batchOptimizationItem: {
@@ -115,12 +139,14 @@ describe('BatchProcessorService', () => {
     const claim = prisma.batchOptimizationItem.updateMany.mock.calls[0]?.[0] as
       { where: { attempts: number } } | undefined
     const completion = transaction.batchOptimizationItem.updateMany.mock
-      .calls[0]?.[0] as { data: { status: string } } | undefined
+      .calls[0]?.[0] as
+      { where: { attempts: number }; data: { status: string } } | undefined
     const finalUpdate = transaction.batchOptimizationTask.update.mock.calls.at(
       -1,
     )?.[0] as { data: { status?: string } } | undefined
     expect(claim?.where.attempts).toBe(0)
     expect(optimize).toHaveBeenCalledOnce()
+    expect(completion?.where.attempts).toBe(1)
     expect(completion?.data.status).toBe('COMPLETED')
     expect(finalUpdate?.data.status).toBe('COMPLETED')
   })
@@ -161,6 +187,7 @@ describe('BatchProcessorService', () => {
     expect(retryUpdate?.data).toMatchObject({
       status: 'PENDING',
       error: 'temporary provider failure',
+      startedAt: null,
     })
     expect(transaction.batchOptimizationTask.update).not.toHaveBeenCalled()
   })

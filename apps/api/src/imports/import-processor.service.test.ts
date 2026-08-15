@@ -55,8 +55,35 @@ function item() {
 }
 
 describe('ImportProcessorService', () => {
+  it('does not let a duplicate delivery claim an item that is still processing', async () => {
+    const record = { ...item(), status: 'PROCESSING' }
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 })
+    const products = { upsertImportedDraft: vi.fn() }
+    const service = new ImportProcessorService(
+      {
+        importItem: {
+          findUnique: vi.fn().mockResolvedValue(record),
+          updateMany,
+        },
+      } as unknown as PrismaService,
+      products as unknown as ProductsService,
+      {} as SkusService,
+      {} as ProductOptimizationsService,
+    )
+
+    await service.process(queueJob())
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'PENDING' }) as object,
+      }),
+    )
+    expect(products.upsertImportedDraft).not.toHaveBeenCalled()
+  })
+
   it('imports through product/SKU services and creates an idempotent AI draft', async () => {
     const record = item()
+    const claimedRecord = { ...record, attempts: 1 }
     const transaction = {
       importItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       importJob: {
@@ -74,7 +101,7 @@ describe('ImportProcessorService', () => {
       importItem: {
         findUnique: vi.fn().mockResolvedValue(record),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: vi.fn().mockResolvedValue(record),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(claimedRecord),
       },
       importJob: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       $transaction: vi.fn(
@@ -120,6 +147,7 @@ describe('ImportProcessorService', () => {
 
   it('marks the item failed only after the final BullMQ attempt', async () => {
     const record = item()
+    const claimedRecord = { ...record, attempts: 1 }
     const transaction = {
       importItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       importJob: {
@@ -137,7 +165,7 @@ describe('ImportProcessorService', () => {
       importItem: {
         findUnique: vi.fn().mockResolvedValue(record),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: vi.fn().mockResolvedValue(record),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(claimedRecord),
       },
       importJob: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       $transaction: vi.fn(
@@ -160,7 +188,8 @@ describe('ImportProcessorService', () => {
       'product failed',
     )
     const failedCall = transaction.importItem.updateMany.mock.calls[0]?.[0] as
-      { data?: { status?: string } } | undefined
+      { where?: { attempts?: number }; data?: { status?: string } } | undefined
     expect(failedCall?.data?.status).toBe('FAILED')
+    expect(failedCall?.where?.attempts).toBe(1)
   })
 })

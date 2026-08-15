@@ -145,7 +145,10 @@ export function ProductsPage() {
     setSaving(true)
     try {
       if (editingProduct) {
-        await updateProduct(token, merchantId, editingProduct.id, values)
+        await updateProduct(token, merchantId, editingProduct.id, {
+          ...values,
+          expectedVersion: editingProduct.version,
+        })
       } else {
         await createProduct(token, merchantId, {
           ...values,

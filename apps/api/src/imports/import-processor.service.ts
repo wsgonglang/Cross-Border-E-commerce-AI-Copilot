@@ -41,13 +41,13 @@ export class ImportProcessorService {
     const claimed = await this.prisma.importItem.updateMany({
       where: {
         id: initial.id,
-        status: { in: ['PENDING', 'PROCESSING'] },
+        status: 'PENDING',
         attempts: initial.attempts,
       },
       data: {
         status: 'PROCESSING',
         attempts: { increment: 1 },
-        startedAt: initial.startedAt ?? new Date(),
+        startedAt: new Date(),
         error: null,
       },
     })
@@ -114,7 +114,11 @@ export class ImportProcessorService {
       }
       await this.prisma.$transaction(async (transaction) => {
         const changed = await transaction.importItem.updateMany({
-          where: { id: item.id, status: 'PROCESSING' },
+          where: {
+            id: item.id,
+            status: 'PROCESSING',
+            attempts: item.attempts,
+          },
           data: {
             status: 'COMPLETED',
             productId: product.id,
@@ -136,10 +140,15 @@ export class ImportProcessorService {
       const finalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1)
       await this.prisma.$transaction(async (transaction) => {
         const changed = await transaction.importItem.updateMany({
-          where: { id: item.id, status: 'PROCESSING' },
+          where: {
+            id: item.id,
+            status: 'PROCESSING',
+            attempts: item.attempts,
+          },
           data: {
             status: finalAttempt ? 'FAILED' : 'PENDING',
             error: message,
+            ...(!finalAttempt ? { startedAt: null } : {}),
             ...(finalAttempt ? { completedAt: new Date() } : {}),
           },
         })

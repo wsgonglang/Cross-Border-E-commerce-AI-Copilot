@@ -190,4 +190,35 @@ describe('ProductsService', () => {
       ),
     ).rejects.toThrow('商品已被修改')
   })
+
+  it('rejects a stale ordinary edit instead of silently overwriting it', async () => {
+    const transaction = {
+      product: {
+        findFirst: vi.fn().mockResolvedValue({ version: 3, skus: [] }),
+        updateMany: vi.fn(),
+        findUniqueOrThrow: vi.fn(),
+      },
+      auditLog: { create: vi.fn() },
+    }
+    const service = new ProductsService(
+      {
+        $transaction: vi.fn(
+          (callback: (client: typeof transaction) => Promise<unknown>) =>
+            callback(transaction),
+        ),
+      } as unknown as PrismaService,
+      {
+        assertAccess: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MerchantAccessService,
+    )
+
+    await expect(
+      service.update(operator, 'merchant-1', 'product-1', {
+        title: '过期编辑',
+        expectedVersion: 2,
+      }),
+    ).rejects.toThrow('商品已被修改')
+    expect(transaction.product.updateMany).not.toHaveBeenCalled()
+    expect(transaction.auditLog.create).not.toHaveBeenCalled()
+  })
 })

@@ -33,13 +33,13 @@ export class BatchProcessorService {
     const claimed = await this.prisma.batchOptimizationItem.updateMany({
       where: {
         id: initial.id,
-        status: { in: ['PENDING', 'PROCESSING'] },
+        status: 'PENDING',
         attempts: initial.attempts,
       },
       data: {
         status: 'PROCESSING',
         attempts: { increment: 1 },
-        startedAt: initial.startedAt ?? new Date(),
+        startedAt: new Date(),
         error: null,
       },
     })
@@ -86,7 +86,11 @@ export class BatchProcessorService {
       )
       await this.prisma.$transaction(async (transaction) => {
         const completed = await transaction.batchOptimizationItem.updateMany({
-          where: { id: item.id, status: 'PROCESSING' },
+          where: {
+            id: item.id,
+            status: 'PROCESSING',
+            attempts: item.attempts,
+          },
           data: {
             status: 'COMPLETED',
             completedAt: new Date(),
@@ -108,10 +112,15 @@ export class BatchProcessorService {
       const finalAttempt = job.attemptsMade + 1 >= maxAttempts
       await this.prisma.$transaction(async (transaction) => {
         const changed = await transaction.batchOptimizationItem.updateMany({
-          where: { id: item.id, status: 'PROCESSING' },
+          where: {
+            id: item.id,
+            status: 'PROCESSING',
+            attempts: item.attempts,
+          },
           data: {
             status: finalAttempt ? 'FAILED' : 'PENDING',
             error: message,
+            ...(!finalAttempt ? { startedAt: null } : {}),
             ...(finalAttempt ? { completedAt: new Date() } : {}),
           },
         })

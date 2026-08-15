@@ -92,7 +92,7 @@ export function updateProduct(
   token: string,
   merchantId: string,
   productId: string,
-  input: ProductInput,
+  input: ProductInput & { expectedVersion: number },
 ): Promise<ProductSummary> {
   return apiRequest(
     token,

@@ -140,7 +140,7 @@ export class ProductsService {
     await this.merchantAccess.assertAccess(actor, merchantId)
     const current = await this.prisma.product.findFirst({
       where: { merchantId, code: dto.code },
-      select: { id: true, status: true },
+      select: { id: true, status: true, version: true },
     })
     if (!current) {
       return this.create(actor, merchantId, { ...dto, status: 'DRAFT' })
@@ -149,6 +149,7 @@ export class ProductsService {
       throw new ConflictException('同编码正式商品已存在，不允许通过导入覆盖')
     }
     return this.update(actor, merchantId, current.id, {
+      expectedVersion: current.version,
       title: dto.title,
       description: dto.description,
       language: dto.language,
@@ -171,13 +172,29 @@ export class ProductsService {
       if (!current) {
         throw new NotFoundException('商品不存在')
       }
-
-      const updated = await transaction.product.update({
-        where: { id: productId },
+      const { expectedVersion, ...changes } = dto
+      if (
+        expectedVersion !== undefined &&
+        current.version !== expectedVersion
+      ) {
+        throw new ConflictException('商品已被修改，请刷新后重试')
+      }
+      const changed = await transaction.product.updateMany({
+        where: {
+          id: productId,
+          merchantId,
+          version: expectedVersion ?? current.version,
+        },
         data: {
-          ...dto,
+          ...changes,
           version: { increment: 1 },
         },
+      })
+      if (changed.count !== 1) {
+        throw new ConflictException('商品已被修改，请刷新后重试')
+      }
+      const updated = await transaction.product.findUniqueOrThrow({
+        where: { id: productId },
         include: productInclude,
       })
       const before = toProductSummary(current)

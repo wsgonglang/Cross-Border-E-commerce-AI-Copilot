@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import {
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -67,6 +68,15 @@ export class CreateProductDto {
 }
 
 export class UpdateProductDto {
+  @ApiPropertyOptional({
+    description: '客户端最后一次读取到的商品版本，用于防止并发编辑覆盖',
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expectedVersion?: number
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsNotEmpty()

@@ -177,6 +177,26 @@ async function run(): Promise<void> {
     const operatorToken = String(
       (operatorLogin.body as { accessToken?: unknown }).accessToken,
     )
+    await request(httpServer)
+      .patch(`/api/merchants/${merchantAId}/products/${productId}`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({ title: 'First concurrent edit', expectedVersion: 1 })
+      .expect(200)
+    await request(httpServer)
+      .patch(`/api/merchants/${merchantAId}/products/${productId}`)
+      .set('Authorization', `Bearer ${operatorToken}`)
+      .send({ title: 'Stale concurrent edit', expectedVersion: 1 })
+      .expect(409)
+    const persistedProduct = await database.product.findUniqueOrThrow({
+      where: { id: productId },
+      select: { title: true, version: true },
+    })
+    assert.deepEqual(persistedProduct, {
+      title: 'First concurrent edit',
+      version: 2,
+    })
+    process.stdout.write('✓ Product optimistic concurrency control\n')
+
     const payload = {
       productIds: [productId],
       targetLanguage: 'es-ES',
