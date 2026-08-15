@@ -13,7 +13,9 @@ docker compose --profile app ps
 
 - Web：`http://localhost:5173`
 - Swagger：`http://localhost:3000/api/docs`
-- 健康检查：`http://localhost:3000/api/health`
+- 存活检查：`http://localhost:3000/api/health/live`
+- 依赖就绪：`http://localhost:3000/api/health/ready`
+- Prometheus 指标：`http://localhost:3000/api/metrics`
 
 默认使用 Mock Provider，不需要模型密钥，也不会产生费用。
 
@@ -81,6 +83,8 @@ $response.Headers['X-Request-Id']
 批次使用商家级幂等键，Job 使用任务项 ID，任务项通过乐观领取和唯一草稿关联处理重复消费；正式商品写回还使用版本号和优化记录状态。
 
 Agent 同样使用 runId 作为 BullMQ Job ID，工具轨迹使用 runId + externalCallId 防重，Agent 创建的优化草稿与 agentRunId 唯一关联。API 或 Worker 重启不会把 Redis 当作业务事实，终态仍由 MySQL 保存。
+
+补充说明 MySQL 与 Redis 不能参与同一个本地事务：Worker 会周期扫描超过安全窗口的持久化 `PENDING/PLANNING` 记录并按业务 ID 补投。重复消息由确定性 Job ID 和数据库条件抢占吸收，因此系统承诺 at-least-once 下的最终恢复，不包装为 exactly-once。
 
 ### Redis 丢数据怎么办？
 

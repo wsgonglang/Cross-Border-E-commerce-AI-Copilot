@@ -14,6 +14,13 @@ export interface BatchOptimizationJobData {
   itemId: string
 }
 
+export interface QueueJobCounts {
+  waiting: number
+  active: number
+  delayed: number
+  failed: number
+}
+
 @Injectable()
 export class BatchQueueService implements OnModuleDestroy {
   private readonly queue: Queue<BatchOptimizationJobData>
@@ -58,6 +65,26 @@ export class BatchQueueService implements OnModuleDestroy {
         }
       }),
     )
+  }
+
+  async ping(): Promise<void> {
+    const client = await this.queue.client
+    await (client as unknown as { ping: () => Promise<string> }).ping()
+  }
+
+  async getJobCounts(): Promise<QueueJobCounts> {
+    const counts = await this.queue.getJobCounts(
+      'waiting',
+      'active',
+      'delayed',
+      'failed',
+    )
+    return {
+      waiting: counts.waiting ?? 0,
+      active: counts.active ?? 0,
+      delayed: counts.delayed ?? 0,
+      failed: counts.failed ?? 0,
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

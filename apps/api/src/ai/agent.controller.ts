@@ -14,6 +14,7 @@ import { AgentRunsService } from './agent-runs.service'
 import { AgentRunDto } from './dto/agent.dto'
 import { AgentFeedbackDto } from './dto/agent.dto'
 import { AgentFeedbackService } from './agent-feedback.service'
+import { RateLimit } from '../security/rate-limit.decorator'
 
 @ApiTags('agent')
 @ApiBearerAuth()
@@ -26,6 +27,7 @@ export class AgentController {
   ) {}
 
   @Post('run')
+  @RateLimit({ limit: 10, windowMs: 60_000, identity: 'user' })
   run(
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,

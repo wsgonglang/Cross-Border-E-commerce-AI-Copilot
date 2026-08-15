@@ -7,6 +7,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { AiService } from './ai.service'
 import { ChatSendDto } from './dto/ai.dto'
+import { RateLimit } from '../security/rate-limit.decorator'
 
 @ApiTags('ai')
 @ApiBearerAuth()
@@ -16,6 +17,7 @@ export class AiChatController {
 
   @Post('chat')
   @Roles('admin', 'operator')
+  @RateLimit({ limit: 20, windowMs: 60_000, identity: 'user' })
   async chat(
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,
@@ -38,6 +40,7 @@ export class AiChatController {
 
   @Post('sessions/:sessionId/messages/:messageId/regenerate')
   @Roles('admin', 'operator')
+  @RateLimit({ limit: 20, windowMs: 60_000, identity: 'user' })
   async regenerate(
     @CurrentUser() user: AuthenticatedUser,
     @Param('merchantId') merchantId: string,

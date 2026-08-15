@@ -94,6 +94,7 @@ components/<component>/styles.css
 - Worker 使用乐观领取和任务项唯一草稿关联避免重复消费。
 - 取消只终止未执行项，正在执行的项目安全收尾。
 - 进度、失败明细和草稿关联最终写入 MySQL。
+- MySQL 提交与 Redis 入队不是原子操作；Worker 启动时和每 30 秒按固定上限扫描超过安全窗口的 `PENDING` 批量项、导入项和 `PLANNING` AgentRun，并用业务记录 ID 重新投递。确定性 Job ID 与数据库条件抢占吸收重复投递，形成 at-least-once + 幂等 + 对账补偿，而不是声称 exactly-once。
 
 ### 结构化导入
 
@@ -123,6 +124,22 @@ components/<component>/styles.css
 - 请求完成日志为结构化 JSON，只记录 method、path、status 和 duration，不记录查询参数、令牌或请求正文。
 - 商品修改、Agent 工具、批量任务、结构化导入和规则文档有业务审计，Request ID 用于技术排障，两者职责不同。
 - Agent 工具额外记录开始、完成与耗时；质量视图聚合用户有帮助反馈，但不把运行成功率等同于回答正确率。
+- `/api/health/live` 与 `/api/health/ready` 分离进程存活和依赖就绪；readiness 对 MySQL、Redis 使用短超时，只返回状态和耗时。
+- 全局异常过滤器统一返回状态码、稳定错误码、安全文案、requestId、时间与路径；未知 5xx 只在服务端记录异常类型。
+- `/api/metrics` 使用低基数标签输出 HTTP 请求、5xx、耗时、Agent 状态/Token 和 BullMQ waiting/active/delayed/failed；不把用户、商家、requestId 或动态 URL ID 作为标签。
+
+## API 安全基线
+
+- Helmet 提供常用安全响应头，JSON 请求体有显式大小限制。
+- 登录按 IP + 归一化邮箱限流，Refresh 按 IP 限流，AI Chat/Agent 按已认证用户限流；已有 Agent 活跃运行数限制继续作为长任务并发边界。
+- 第一版限流存储在单 API 实例内存中，适合当前单实例部署；扩展为多 API 副本时应替换 Redis Store，策略和控制器标注无需改变。
+- Swagger 在开发环境默认开启，在生产环境默认关闭，只有显式 `SWAGGER_ENABLED=true` 才开放。
+
+## 测试分层
+
+- Service 与纯函数测试使用 Mock，快速覆盖业务分支、竞态条件和 AI/RAG 确定性回归。
+- 独立集成脚本先正式编译 Nest 应用，再连接真实 MySQL/Redis，经 HTTP 覆盖 Guard、ValidationPipe、错误过滤器、事务约束、队列与响应契约。
+- 浏览器 E2E 覆盖用户可见核心旅程。三层测试职责不同，不使用单一覆盖率数字替代关键业务不变量。
 
 ## 为什么采用模块化单体
 

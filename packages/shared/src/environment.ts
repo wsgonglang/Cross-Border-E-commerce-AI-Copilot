@@ -43,6 +43,11 @@ const apiEnvironmentSchema = z.object({
     .min(1_000)
     .max(120_000)
     .default(30_000),
+  JSON_BODY_LIMIT: z
+    .string()
+    .regex(/^\d+(?:kb|mb)$/i)
+    .default('1mb'),
+  SWAGGER_ENABLED: environmentBooleanSchema.optional(),
 })
 
 const workerEnvironmentSchema = z.object({
@@ -62,7 +67,11 @@ export type WorkerEnvironment = z.infer<typeof workerEnvironmentSchema>
 export function loadApiEnvironment(
   environment: NodeJS.ProcessEnv,
 ): ApiEnvironment {
-  return apiEnvironmentSchema.parse(environment)
+  const parsed = apiEnvironmentSchema.parse(environment)
+  return {
+    ...parsed,
+    SWAGGER_ENABLED: parsed.SWAGGER_ENABLED ?? parsed.NODE_ENV !== 'production',
+  }
 }
 
 export function loadWorkerEnvironment(

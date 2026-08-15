@@ -3,6 +3,7 @@ import type { NextFunction, Response } from 'express'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  normalizedRoute,
   REQUEST_ID_HEADER,
   RequestContextMiddleware,
   type RequestWithId,
@@ -34,6 +35,18 @@ function createHarness(incomingRequestId?: string) {
 }
 
 describe('RequestContextMiddleware', () => {
+  it('uses route templates and collapses unmatched paths to a low-cardinality label', () => {
+    expect(
+      normalizedRoute({
+        baseUrl: '',
+        route: { path: '/api/merchants/:merchantId/products/:productId' },
+      } as unknown as RequestWithId),
+    ).toBe('/api/merchants/:merchantId/products/:productId')
+    expect(
+      normalizedRoute({ path: '/random-attacker-value' } as RequestWithId),
+    ).toBe('unmatched')
+  })
+
   it('preserves a safe upstream request ID and writes a structured completion log', () => {
     const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => {})
     const harness = createHarness('interview-request-001')

@@ -18,6 +18,6 @@ import { BatchWorkerRunnerService } from './batch-worker-runner.service'
     BatchTasksService,
     BatchWorkerRunnerService,
   ],
-  exports: [BatchWorkerRunnerService],
+  exports: [BatchQueueService, BatchWorkerRunnerService],
 })
 export class BatchModule {}

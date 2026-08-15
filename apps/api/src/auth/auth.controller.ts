@@ -24,6 +24,7 @@ import type { IssuedSession, RequestMetadata } from './auth.types'
 import { CurrentUser } from './decorators/current-user.decorator'
 import { Public } from './decorators/public.decorator'
 import { LoginDto } from './dto/login.dto'
+import { RateLimit } from '../security/rate-limit.decorator'
 
 @Controller('api/auth')
 export class AuthController {
@@ -35,6 +36,7 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @RateLimit({ limit: 5, windowMs: 60_000, identity: 'ip-email' })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
@@ -52,6 +54,7 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
+  @RateLimit({ limit: 20, windowMs: 60_000, identity: 'ip' })
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Req() request: Request,

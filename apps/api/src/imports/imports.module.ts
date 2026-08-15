@@ -20,6 +20,6 @@ import { ImportsController } from './imports.controller'
     ImportProcessorService,
     ImportWorkerRunnerService,
   ],
-  exports: [ImportWorkerRunnerService],
+  exports: [ImportQueueService, ImportWorkerRunnerService],
 })
 export class ImportsModule {}

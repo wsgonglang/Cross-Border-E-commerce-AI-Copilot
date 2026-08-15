@@ -24,6 +24,8 @@ const environment: ApiEnvironment = {
   OPENAI_BASE_URL: 'https://api.siliconflow.cn/v1',
   AI_MODEL: 'Qwen/Qwen2.5-7B-Instruct',
   AI_TIMEOUT_MS: 30_000,
+  JSON_BODY_LIMIT: '1mb',
+  SWAGGER_ENABLED: false,
 }
 
 describe('AuthService', () => {

@@ -81,6 +81,10 @@ import { AiResultsService } from './ai-results.service'
       },
     },
   ],
-  exports: [ProductOptimizationsService, AgentWorkerRunnerService],
+  exports: [
+    ProductOptimizationsService,
+    AgentQueueService,
+    AgentWorkerRunnerService,
+  ],
 })
 export class AiModule {}

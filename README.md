@@ -33,7 +33,7 @@
 | 🧠 **AI 业务闭环** | 单商品优化 → 批量任务 → Agent Tool Calling → 规则 RAG，全链路可演示            |
 | 🔐 **安全第一**    | 服务端 RBAC、商家隔离、人工确认写回、AI 只创建草稿不直接改数据                 |
 | 🌐 **跨境多店铺**  | 一个商家管理多个店铺/渠道，商品刊登、订单、经营数据按店铺隔离                  |
-| 🧪 **工程底线**    | 226 项自动化测试、核心界面双语治理、路由懒加载、Docker Compose 一键启动        |
+| 🧪 **工程底线**    | 单元/组件/E2E + 真实 MySQL/Redis API 集成测试、Docker Compose 一键启动         |
 | 📊 **AI 可度量**   | 草稿接受率、工具成功率、时延、Token — 全部可追溯，按商家隔离                   |
 | 🎯 **面向面试**    | 8 分钟可演示从登录到 AI 优化写回的全闭环（[演示指南](docs/interview-demo.md)） |
 
@@ -141,6 +141,7 @@ npm run dev:web
 - **连续追问与消息资产**：Agent 结论写入原有服务端消息树，后续追问沿当前活动分支携带上下文，并直接复用分叉、收藏、业务关联、导出、内部分享和长上下文摘要
 - **Tool Calling**：商品/SKU/库存查询、订单状态、经营概览、规则检索、创建优化草稿
 - **持久执行与停止**：Agent 提交后立即返回 runId，由独立 BullMQ Worker 执行；Job 以 runId 防重并支持瞬时失败重试。停止状态通过 MySQL 传播到 Worker 的 AbortSignal，Agent 完成状态与最终会话消息在同一事务提交；即使停止早于 runId 返回，Web 也会补发服务端取消，避免后台任务失联
+- **队列对账补偿**：Worker 启动时及运行期间扫描 MySQL 中超过安全窗口的 `PENDING/PLANNING` 记录并按业务 ID 重新投递，覆盖“数据库提交后、Redis 入队前进程退出”的双写窗口；语义明确为 at-least-once + 幂等消费 + 最终恢复
 - **跨会话后台生成**：消息、运行状态和取消控制按会话隔离；切换后原会话继续运行，新会话可立即使用，后台结果不会覆盖当前视图
 - **长上下文治理**：按估算 Token 预算装配“活动分支结构化摘要 + 最近原文”；摘要检查点可增量复用且不跨消息分支，摘要失败时安全退回近期原文
 - **持久化分叉对话**：编辑用户消息或重新生成回答都会创建兄弟分支并保留原历史；活动叶节点由服务端持久化，刷新、切换会话后仍停留在所选血缘，分支导航可随时回看旧答案
@@ -179,6 +180,14 @@ npm run dev:web
 - **商家隔离**：Merchant 是数据隔离租户，复合外键防跨商家错误关联
 - **AI 只写草稿**：Agent 不具备直接修改商品/库存/订单的工具；草稿工具还要求用户对本次运行显式授权
 - **审计日志**：商品、订单、Agent 工具、批量任务、结构化导入、规则文档和用户权限等关键写操作全程记录
+- **入口防护**：Helmet 安全响应头；登录按 IP + 邮箱、Refresh 按 IP、AI/Agent 按用户执行窗口限流；生产环境默认关闭 Swagger，并设置明确 JSON Body 上限
+
+### 🩺 后端可靠性与可观测性
+
+- **健康语义分离**：`/api/health/live` 只检查进程存活，`/api/health/ready` 并行检查 MySQL 与 Redis 并在依赖不可用时返回 503
+- **统一错误契约**：4xx/5xx 均返回稳定 `code`、安全 `message`、`requestId`、时间和路径；5xx 不向客户端泄露堆栈、SQL 或 Provider 原始响应
+- **轻量指标**：`/api/metrics` 暴露 Prometheus 文本格式的 HTTP 请求/5xx/耗时、Agent 状态与 Token、三条 BullMQ 队列状态；动态业务 ID 不进入标签
+- **真实基础设施验证**：独立集成脚本从正式构建产物启动完整 Nest 应用，经 HTTP 验证 JWT、DTO、RBAC、商家隔离、MySQL 幂等、Redis Job、readiness 和 metrics
 
 ### 🌐 跨境多店铺
 
@@ -332,6 +341,8 @@ npm run verify
 
 依次执行：格式化检查 → ESLint → TypeScript 类型检查 → 自动化测试 → 生产构建。
 
+CI 还会在全新 MySQL 8.4 / Redis 7.4 服务上执行迁移和 `npm run test:integration`，该测试不会清空共享数据库，只清理带唯一前缀的自身数据。普通 `npm test` 保持无基础设施、快速且可重复。
+
 核心浏览器旅程使用独立 Playwright 命令，避免没有浏览器或 Compose 的普通 CI/单测环境被误伤：
 
 ```powershell
@@ -342,7 +353,7 @@ npm run test:e2e
 
 三条 E2E 分别覆盖 operator 进入商品 AI 人工审核链路、viewer 无写操作入口，以及界面语言切换。默认演示环境使用 Mock Provider，不调用收费模型。
 
-**226 项单元/组件/集成测试 + 3 条核心浏览器 E2E**覆盖：
+**233 项快速单元/组件测试 + 4 条真实 MySQL/Redis API 集成检查 + 3 条核心浏览器 E2E**覆盖：
 
 - 认证与 RBAC（登录、角色路由、用户 CRUD、当前账号/最后管理员保护、令牌撤销、商家隔离、viewer 403）
 - 商品（分页隔离、负库存、跨商家失败）
@@ -362,10 +373,13 @@ CI（GitHub Actions）在真实 MySQL/Redis 上运行迁移 + 验证，并分别
 
 ## API 端点
 
-| 端点                               | 说明         |
-| ---------------------------------- | ------------ |
-| `http://localhost:3000/api/health` | 健康检查     |
-| `http://localhost:3000/api/docs`   | Swagger 文档 |
+| 端点                                     | 说明                 |
+| ---------------------------------------- | -------------------- |
+| `http://localhost:3000/api/health`       | 健康检查             |
+| `http://localhost:3000/api/health/live`  | 进程存活检查         |
+| `http://localhost:3000/api/health/ready` | MySQL/Redis 就绪检查 |
+| `http://localhost:3000/api/metrics`      | Prometheus 运行指标  |
+| `http://localhost:3000/api/docs`         | Swagger 文档         |
 
 ---
 

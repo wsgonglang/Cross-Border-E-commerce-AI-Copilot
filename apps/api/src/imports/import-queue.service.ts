@@ -3,6 +3,7 @@ import type { ApiEnvironment } from '@cross-border/shared'
 import { Queue } from 'bullmq'
 
 import { redisConnectionFromUrl } from '../batch/redis-connection'
+import type { QueueJobCounts } from '../batch/batch-queue.service'
 import { API_ENVIRONMENT } from '../config/api-config.constants'
 import {
   IMPORT_JOB_ATTEMPTS,
@@ -53,6 +54,21 @@ export class ImportQueueService implements OnModuleDestroy {
         if (state === 'waiting' || state === 'delayed') await job.remove()
       }),
     )
+  }
+
+  async getJobCounts(): Promise<QueueJobCounts> {
+    const counts = await this.queue.getJobCounts(
+      'waiting',
+      'active',
+      'delayed',
+      'failed',
+    )
+    return {
+      waiting: counts.waiting ?? 0,
+      active: counts.active ?? 0,
+      delayed: counts.delayed ?? 0,
+      failed: counts.failed ?? 0,
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

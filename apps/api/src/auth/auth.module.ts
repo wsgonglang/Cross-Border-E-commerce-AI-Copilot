@@ -11,6 +11,7 @@ import { RolesGuard } from './guards/roles.guard'
 import { LoginLogsRepository } from './repositories/login-logs.repository'
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository'
 import { UsersRepository } from './repositories/users.repository'
+import { RateLimitGuard } from '../security/rate-limit.guard'
 
 @Module({
   imports: [
@@ -37,6 +38,10 @@ import { UsersRepository } from './repositories/users.repository'
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
     },
   ],
   exports: [AuthService, UsersRepository],

@@ -15,7 +15,10 @@ import { HealthController } from './health/health.controller'
 import { HealthService } from './health/health.service'
 import { ImportsModule } from './imports/imports.module'
 import { RequestContextMiddleware } from './observability/request-context.middleware'
+import { MetricsController } from './observability/metrics.controller'
+import { MetricsService } from './observability/metrics.service'
 import { UsersModule } from './users/users.module'
+import { TaskRecoveryService } from './reliability/task-recovery.service'
 
 @Module({
   imports: [
@@ -28,8 +31,13 @@ import { UsersModule } from './users/users.module'
     BatchModule,
     ImportsModule,
   ],
-  controllers: [HealthController],
-  providers: [HealthService, RequestContextMiddleware],
+  controllers: [HealthController, MetricsController],
+  providers: [
+    HealthService,
+    MetricsService,
+    RequestContextMiddleware,
+    TaskRecoveryService,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
