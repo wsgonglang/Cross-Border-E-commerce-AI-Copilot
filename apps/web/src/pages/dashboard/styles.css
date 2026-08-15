@@ -82,6 +82,10 @@
   display: flex;
 }
 
+.dashboard-priority-row > .ant-col {
+  display: flex;
+}
+
 .dashboard-equal-row > .ant-col > .ant-card,
 .dashboard-full-card {
   width: 100%;
@@ -131,6 +135,10 @@
   margin-top: 12px;
 }
 
+.dashboard-suggestions .ant-list-item-actions {
+  margin-inline-start: 12px;
+}
+
 .suggestion-icon {
   padding: 9px;
   border-radius: 50%;
@@ -143,17 +151,87 @@
   margin-bottom: 10px;
 }
 
+.dashboard-ai-entry .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 57px);
+}
+
+.dashboard-ai-prompts {
+  margin-bottom: 14px;
+}
+
+.dashboard-ai-input {
+  margin-bottom: 18px;
+}
+
+.dashboard-recent-sessions-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #eaecf0;
+}
+
+.dashboard-session-item {
+  min-width: 0;
+}
+
+.dashboard-session-item .ant-list-item-meta {
+  min-width: 0;
+}
+
+.dashboard-session-item .ant-list-item-meta-title,
+.dashboard-session-item .ant-list-item-meta-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-result-item,
+.dashboard-result-item .ant-list-item-meta,
+.dashboard-result-title {
+  min-width: 0;
+}
+
+.dashboard-result-title {
+  display: flex;
+  width: 100%;
+}
+
+.dashboard-result-title .ant-space-item:last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-result-title .ant-typography {
+  display: block;
+  max-width: 100%;
+}
+
+.dashboard-activity-section {
+  padding-top: 2px;
+}
+
+.dashboard-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.dashboard-section-heading .ant-typography {
+  margin: 0;
+}
+
 .clickable-list-item {
   cursor: pointer;
 }
 
 .clickable-list-item:hover {
   background: #f9fafb;
-}
-
-.dashboard-agent-card .agent-panel {
-  padding: 0;
-  overflow: visible;
 }
 
 @media (max-width: 767px) {
@@ -176,5 +254,40 @@
 
   .dashboard-todo strong {
     font-size: 21px;
+  }
+
+  .dashboard-suggestions .ant-list-item {
+    align-items: flex-start;
+  }
+
+  .dashboard-suggestions .ant-list-item-actions {
+    display: flex;
+    margin-inline-start: 0;
+  }
+
+  .dashboard-ai-input {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dashboard-ai-input > * {
+    width: 100% !important;
+    border-radius: 6px !important;
+  }
+
+  .dashboard-ai-input > .ant-btn {
+    margin-top: 8px;
+  }
+
+  .dashboard-recent-sessions-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dashboard-result-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 }

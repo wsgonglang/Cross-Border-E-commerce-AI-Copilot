@@ -23,14 +23,13 @@ import {
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
-  RobotOutlined,
+  BulbOutlined,
 } from '@ant-design/icons'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { getOperationsDashboard } from '../../api/orders'
-import { AgentPanel } from '../../components/agent-panel/agent-panel'
 import { useBusinessContext } from '../../contexts/business-context'
 import {
   formatCurrency,
@@ -38,7 +37,10 @@ import {
   formatMonthDay,
 } from '../../i18n/formatters'
 import type { AppLanguage } from '../../i18n/i18n'
+import { useRecentAiSessionsQuery } from '../../queries/operations.queries'
 import { useAppSelector } from '../../store/hooks'
+import { DashboardAiEntry } from './dashboard-ai-entry'
+import { getDashboardResultPath } from './dashboard-navigation'
 
 import './styles.css'
 
@@ -176,6 +178,7 @@ export function DashboardPage() {
   const [dashboard, setDashboard] = useState<OperationsDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const recentSessionsQuery = useRecentAiSessionsQuery(token, merchantId)
 
   useEffect(() => {
     if (!token || !merchantId) return
@@ -216,6 +219,10 @@ export function DashboardPage() {
             }),
             action: t('dashboard.viewOrders'),
             path: '/orders',
+            aiPrompt: t('dashboard.aiPromptActionableOrders', {
+              count: dashboard.todos.actionableOrders,
+              days,
+            }),
           }
         : null,
       dashboard.todos.lowStockItems > 0
@@ -226,6 +233,9 @@ export function DashboardPage() {
             }),
             action: t('dashboard.viewProducts'),
             path: '/products',
+            aiPrompt: t('dashboard.aiPromptLowStock', {
+              count: dashboard.todos.lowStockItems,
+            }),
           }
         : null,
       dashboard.todos.pendingDrafts > 0
@@ -236,6 +246,9 @@ export function DashboardPage() {
             }),
             action: t('dashboard.reviewDrafts'),
             path: '/ai-results',
+            aiPrompt: t('dashboard.aiPromptReviewDrafts', {
+              count: dashboard.todos.pendingDrafts,
+            }),
           }
         : null,
       dashboard.todos.failedTasks > 0
@@ -246,13 +259,23 @@ export function DashboardPage() {
             }),
             action: t('dashboard.viewTasks'),
             path: '/batch-tasks',
+            aiPrompt: t('dashboard.aiPromptFailedTasks', {
+              count: dashboard.todos.failedTasks,
+            }),
           }
         : null,
     ].filter((item): item is NonNullable<typeof item> => item !== null)
-  }, [dashboard, t])
+  }, [dashboard, days, t])
 
   const canWrite =
     user?.roles.some((role) => ['admin', 'operator'].includes(role)) ?? false
+
+  const openAiAssistant = (state?: {
+    prefill?: string
+    sessionId?: string
+  }) => {
+    void navigate('/ai-chat', state ? { state } : undefined)
+  }
 
   return (
     <main className="workspace-page dashboard-workspace">
@@ -340,6 +363,104 @@ export function DashboardPage() {
                 />
                 <Comparison metric={dashboard.metrics.refunds} />
               </Card>
+            </Col>
+          </Row>
+
+          <Row
+            gutter={[16, 16]}
+            className="dashboard-section dashboard-priority-row"
+          >
+            <Col xs={24} xl={14}>
+              <Card
+                title={t('dashboard.todoTitle')}
+                className="dashboard-full-card"
+              >
+                <Row gutter={[12, 12]}>
+                  {[
+                    [
+                      t('dashboard.actionableOrders'),
+                      dashboard.todos.actionableOrders,
+                      '/orders?statuses=PENDING,CONFIRMED,REFUNDING',
+                    ],
+                    [
+                      t('dashboard.pendingDrafts'),
+                      dashboard.todos.pendingDrafts,
+                      '/ai-results',
+                    ],
+                    [
+                      t('dashboard.failedTasks'),
+                      dashboard.todos.failedTasks,
+                      '/batch-tasks',
+                    ],
+                    [
+                      t('dashboard.lowStockSku'),
+                      dashboard.todos.lowStockItems,
+                      '/products',
+                    ],
+                  ].map(([title, value, path]) => (
+                    <Col xs={12} lg={6} key={String(title)}>
+                      <button
+                        type="button"
+                        className="dashboard-todo"
+                        onClick={() => void navigate(String(path))}
+                      >
+                        <span>{title}</span>
+                        <strong>{value}</strong>
+                      </button>
+                    </Col>
+                  ))}
+                </Row>
+                <List
+                  className="dashboard-suggestions"
+                  locale={{ emptyText: t('dashboard.noPriorityIssue') }}
+                  dataSource={suggestions}
+                  renderItem={(item) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          key="business"
+                          type="link"
+                          onClick={() => void navigate(item.path)}
+                        >
+                          {item.action}
+                        </Button>,
+                        <Button
+                          key="assistant"
+                          type="link"
+                          onClick={() =>
+                            openAiAssistant({ prefill: item.aiPrompt })
+                          }
+                        >
+                          {t('dashboard.askAssistant')}
+                        </Button>,
+                      ]}
+                    >
+                      <List.Item.Meta
+                        avatar={<BulbOutlined className="suggestion-icon" />}
+                        title={item.title}
+                        description={t('dashboard.evidence', {
+                          evidence: item.evidence,
+                        })}
+                      />
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} xl={10}>
+              <DashboardAiEntry
+                canWrite={canWrite}
+                days={days}
+                loadingSessions={recentSessionsQuery.isFetching}
+                onOpen={openAiAssistant}
+                sessionError={
+                  recentSessionsQuery.error instanceof Error
+                    ? recentSessionsQuery.error.message
+                    : undefined
+                }
+                sessions={recentSessionsQuery.data?.items ?? []}
+                storeName={currentStore?.name}
+              />
             </Col>
           </Row>
 
@@ -473,203 +594,132 @@ export function DashboardPage() {
             </Col>
           </Row>
 
-          <Card title={t('dashboard.todoTitle')} className="dashboard-section">
-            <Row gutter={[16, 16]}>
-              {[
-                [
-                  t('dashboard.actionableOrders'),
-                  dashboard.todos.actionableOrders,
-                  '/orders?statuses=PENDING,CONFIRMED,REFUNDING',
-                ],
-                [
-                  t('dashboard.pendingDrafts'),
-                  dashboard.todos.pendingDrafts,
-                  '/ai-results',
-                ],
-                [
-                  t('dashboard.failedTasks'),
-                  dashboard.todos.failedTasks,
-                  '/batch-tasks',
-                ],
-                [
-                  t('dashboard.lowStockSku'),
-                  dashboard.todos.lowStockItems,
-                  '/products',
-                ],
-              ].map(([title, value, path]) => (
-                <Col xs={12} lg={6} key={String(title)}>
-                  <button
-                    type="button"
-                    className="dashboard-todo"
-                    onClick={() => void navigate(String(path))}
-                  >
-                    <span>{title}</span>
-                    <strong>{value}</strong>
-                  </button>
-                </Col>
-              ))}
-            </Row>
-            <List
-              className="dashboard-suggestions"
-              locale={{ emptyText: t('dashboard.noPriorityIssue') }}
-              dataSource={suggestions}
-              renderItem={(item) => (
-                <List.Item
-                  actions={[
+          <section className="dashboard-section dashboard-activity-section">
+            <div className="dashboard-section-heading">
+              <div>
+                <Typography.Title level={3}>
+                  {t('dashboard.activityTitle')}
+                </Typography.Title>
+                <Typography.Text type="secondary">
+                  {t('dashboard.activityDescription')}
+                </Typography.Text>
+              </div>
+            </div>
+            <Row gutter={[16, 16]} className="dashboard-equal-row">
+              <Col xs={24} xl={12}>
+                <Card
+                  title={t('dashboard.inProgress')}
+                  className="dashboard-full-card"
+                  extra={
                     <Button
-                      key={item.path}
                       type="link"
-                      onClick={() => void navigate(item.path)}
+                      onClick={() => void navigate('/batch-tasks')}
                     >
-                      {item.action}
-                    </Button>,
-                  ]}
+                      {t('dashboard.taskCenter')}
+                    </Button>
+                  }
                 >
-                  <List.Item.Meta
-                    avatar={<RobotOutlined className="suggestion-icon" />}
-                    title={item.title}
-                    description={t('dashboard.evidence', {
-                      evidence: item.evidence,
-                    })}
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-
-          <Row
-            gutter={[16, 16]}
-            className="dashboard-section dashboard-equal-row"
-          >
-            <Col xs={24} xl={12}>
-              <Card
-                title={t('dashboard.runningTasks')}
-                className="dashboard-full-card"
-                extra={
-                  <Button
-                    type="link"
-                    onClick={() => void navigate('/batch-tasks')}
-                  >
-                    {t('dashboard.taskCenter')}
-                  </Button>
-                }
-              >
-                <Space wrap className="dashboard-running-summary">
-                  <Tag color="processing">
-                    {t('dashboard.runningAgents', {
-                      count: dashboard.runningAgentCount,
-                    })}
-                  </Tag>
-                  <Tag color="cyan">
-                    {t('dashboard.batchCount', {
-                      count: dashboard.activeTasks.length,
-                    })}
-                  </Tag>
-                </Space>
-                <List
-                  size="small"
-                  locale={{ emptyText: t('dashboard.noRunningTasks') }}
-                  dataSource={dashboard.activeTasks}
-                  renderItem={(task) => (
-                    <List.Item>
-                      <Space
-                        direction="vertical"
-                        className="dashboard-list-row"
+                  <Space wrap className="dashboard-running-summary">
+                    <Tag color="processing">
+                      {t('dashboard.runningAgents', {
+                        count: dashboard.runningAgentCount,
+                      })}
+                    </Tag>
+                    <Tag color="cyan">
+                      {t('dashboard.batchCount', {
+                        count: dashboard.activeTasks.length,
+                      })}
+                    </Tag>
+                  </Space>
+                  <List
+                    size="small"
+                    locale={{ emptyText: t('dashboard.noRunningTasks') }}
+                    dataSource={dashboard.activeTasks}
+                    renderItem={(task) => (
+                      <List.Item
+                        className="clickable-list-item dashboard-result-item"
+                        onClick={() =>
+                          void navigate(
+                            `/batch-tasks?merchantId=${merchantId}&taskId=${task.id}`,
+                          )
+                        }
                       >
-                        <Space>
-                          <Tag color="processing">
-                            {t(`dashboard.taskStatus.${task.status}`, {
-                              defaultValue: task.status,
-                            })}
-                          </Tag>
-                          <span>
-                            {t('dashboard.batchForLanguage', {
-                              language: task.targetLanguage,
-                            })}
-                          </span>
+                        <Space
+                          direction="vertical"
+                          className="dashboard-list-row"
+                        >
+                          <Space>
+                            <Tag color="processing">
+                              {t(`dashboard.taskStatus.${task.status}`, {
+                                defaultValue: task.status,
+                              })}
+                            </Tag>
+                            <span>
+                              {t('dashboard.batchForLanguage', {
+                                language: task.targetLanguage,
+                              })}
+                            </span>
+                          </Space>
+                          <Progress percent={task.progress} size="small" />
                         </Space>
-                        <Progress percent={task.progress} size="small" />
-                      </Space>
-                    </List.Item>
-                  )}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} xl={12}>
-              <Card
-                title={t('dashboard.recentResults')}
-                className="dashboard-full-card"
-                extra={
-                  <Button
-                    type="link"
-                    onClick={() => void navigate('/ai-results')}
-                  >
-                    {t('dashboard.resultCenter')}
-                  </Button>
-                }
-              >
-                <List
-                  size="small"
-                  locale={{ emptyText: t('dashboard.noResults') }}
-                  dataSource={dashboard.recentResults}
-                  renderItem={(item) => (
-                    <List.Item
-                      className="clickable-list-item"
+                      </List.Item>
+                    )}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} xl={12}>
+                <Card
+                  title={t('dashboard.needsAttention')}
+                  className="dashboard-full-card"
+                  extra={
+                    <Button
+                      type="link"
                       onClick={() => void navigate('/ai-results')}
                     >
-                      <List.Item.Meta
-                        title={
-                          <Space>
-                            <Tag>
-                              {item.type === 'AGENT_RUN'
-                                ? t('dashboard.agentResult')
-                                : t('dashboard.productDraft')}
-                            </Tag>
-                            <Typography.Text ellipsis>
-                              {item.title}
-                            </Typography.Text>
-                          </Space>
+                      {t('dashboard.resultCenter')}
+                    </Button>
+                  }
+                >
+                  <List
+                    size="small"
+                    locale={{ emptyText: t('dashboard.noResults') }}
+                    dataSource={dashboard.recentResults}
+                    renderItem={(item) => (
+                      <List.Item
+                        className="clickable-list-item"
+                        onClick={() =>
+                          void navigate(
+                            getDashboardResultPath(item, merchantId),
+                          )
                         }
-                        description={item.description}
-                      />
-                      <Tag>
-                        {t(`dashboard.resultStatus.${item.status}`, {
-                          defaultValue: item.status,
-                        })}
-                      </Tag>
-                    </List.Item>
-                  )}
-                />
-              </Card>
-            </Col>
-          </Row>
-
-          <Card
-            title={t('dashboard.contextAgent')}
-            className="dashboard-section dashboard-agent-card"
-            extra={
-              <Tag color="cyan">
-                {t('dashboard.contextTag', {
-                  store: currentStore?.name ?? t('common.allStores'),
-                  days,
-                })}
-              </Tag>
-            }
-          >
-            <Typography.Paragraph type="secondary">
-              {t('dashboard.agentDescription')}{' '}
-              {canWrite ? t('dashboard.writeHint') : t('dashboard.viewerHint')}
-            </Typography.Paragraph>
-            <AgentPanel
-              token={token}
-              merchantId={merchantId}
-              storeId={storeId || undefined}
-              storeName={currentStore?.name}
-              days={days}
-              sourcePage="dashboard"
-              canWrite={canWrite}
-            />
-          </Card>
+                      >
+                        <List.Item.Meta
+                          title={
+                            <Space className="dashboard-result-title">
+                              <Tag>
+                                {item.type === 'AGENT_RUN'
+                                  ? t('dashboard.agentResult')
+                                  : t('dashboard.productDraft')}
+                              </Tag>
+                              <Typography.Text ellipsis>
+                                {item.title}
+                              </Typography.Text>
+                            </Space>
+                          }
+                          description={item.description}
+                        />
+                        <Tag>
+                          {t(`dashboard.resultStatus.${item.status}`, {
+                            defaultValue: item.status,
+                          })}
+                        </Tag>
+                      </List.Item>
+                    )}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          </section>
         </>
       ) : (
         <Empty description={t('dashboard.noData')} />

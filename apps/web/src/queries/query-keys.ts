@@ -52,6 +52,7 @@ export const queryKeys = {
   aiResultsRoot: (merchantId: string) => ['ai-results', merchantId] as const,
   aiResults: (merchantId: string, input: AiResultsQueryInput) =>
     [...queryKeys.aiResultsRoot(merchantId), input] as const,
+  aiSessions: (merchantId: string) => ['ai-sessions', merchantId] as const,
   agentRun: (merchantId: string, runId: string) =>
     ['agent-run', merchantId, runId] as const,
   aiQuality: (merchantId: string, days: AiQualityWindowDays) =>

@@ -267,7 +267,7 @@ export const resources = {
         },
       },
       dashboard: {
-        kicker: 'Agent 运营工作台',
+        kicker: '运营工作台',
         welcome: '{{name}}，欢迎回来',
         allStores: '当前商家全部店铺',
         verified: '指标来自真实业务数据',
@@ -292,7 +292,7 @@ export const resources = {
         productManagement: '商品管理',
         productSku: '商品 / SKU',
         stock: '库存',
-        todoTitle: '运营待办与可解释建议',
+        todoTitle: '今日优先处理',
         actionableOrders: '待处理订单',
         pendingDrafts: '待确认草稿',
         failedTasks: '失败任务',
@@ -312,6 +312,34 @@ export const resources = {
         viewProducts: '查看商品',
         reviewDrafts: '审核草稿',
         viewTasks: '查看任务',
+        askAssistant: '让 AI 分析',
+        aiAssistant: 'AI 运营助手',
+        openAssistant: '打开助手',
+        aiAssistantDescription:
+          '问题会带入 {{store}} 和近 {{days}} 天的当前经营上下文，进入统一会话后可继续追问并核对工具轨迹。',
+        aiInput: '输入希望 AI 协助分析的问题',
+        continueInAssistant: '去助手处理',
+        aiPromptPerformance: '分析近 {{days}} 天经营数据的主要变化',
+        aiPromptInventory: '检查 {{store}} 的低库存风险',
+        aiPromptDrafts: '汇总当前待审核商品草稿的修改重点',
+        aiPromptActionableOrders:
+          '分析近 {{days}} 天 {{count}} 笔待处理订单的主要状态和处理优先级',
+        aiPromptLowStock: '分析当前 {{count}} 个低库存 SKU 的补货优先级',
+        aiPromptReviewDrafts:
+          '汇总当前 {{count}} 份待确认商品草稿的修改重点和风险',
+        aiPromptFailedTasks:
+          '分析当前 {{count}} 个失败批量任务的失败原因和后续处理建议',
+        recentSessions: '最近会话',
+        sessionHint: '继续上次协作',
+        sessionMeta: '{{count}} 条消息 · 更新于 {{date}}',
+        sessionStreaming: '后台生成中',
+        noSessions: '暂无会话，可从上方开始第一次协作',
+        sessionLoadFailed: '最近会话暂时无法加载，不影响经营数据和快捷入口',
+        activityTitle: '执行与处理',
+        activityDescription:
+          '这里只展示进度和下一步，完整轨迹、审核与失败明细由对应工作空间承接。',
+        inProgress: '正在进行',
+        needsAttention: '待处理与近期成果',
         runningTasks: '运行中任务',
         taskCenter: '任务中心',
         runningAgents: 'Agent 运行中 {{count}}',
@@ -1006,7 +1034,7 @@ export const resources = {
         },
       },
       dashboard: {
-        kicker: 'Agent operations dashboard',
+        kicker: 'Operations dashboard',
         welcome: 'Welcome back, {{name}}',
         allStores: 'All stores for current merchant',
         verified: 'Metrics use live business data',
@@ -1032,7 +1060,7 @@ export const resources = {
         productManagement: 'Manage products',
         productSku: 'Product / SKU',
         stock: 'Stock',
-        todoTitle: 'Operational tasks and explainable suggestions',
+        todoTitle: "Today's priorities",
         actionableOrders: 'Actionable orders',
         pendingDrafts: 'Drafts to review',
         failedTasks: 'Failed tasks',
@@ -1070,6 +1098,37 @@ export const resources = {
         viewProducts: 'View products',
         reviewDrafts: 'Review drafts',
         viewTasks: 'View tasks',
+        askAssistant: 'Ask AI to analyze',
+        aiAssistant: 'AI operations assistant',
+        openAssistant: 'Open assistant',
+        aiAssistantDescription:
+          'Questions carry the current {{store}} and {{days}}-day operating context into one persistent conversation, where tool traces remain available for review.',
+        aiInput: 'Ask AI to analyze an operational question',
+        continueInAssistant: 'Continue in AI',
+        aiPromptPerformance:
+          'Analyze the main operating changes over the last {{days}} days',
+        aiPromptInventory: 'Review low-stock risks for {{store}}',
+        aiPromptDrafts: 'Summarize the key changes in drafts awaiting review',
+        aiPromptActionableOrders:
+          'Analyze the status and priority of {{count}} actionable orders over the last {{days}} days',
+        aiPromptLowStock:
+          'Prioritize replenishment for the current {{count}} low-stock SKUs',
+        aiPromptReviewDrafts:
+          'Summarize the changes and risks in {{count}} product drafts awaiting review',
+        aiPromptFailedTasks:
+          'Analyze the causes and next steps for {{count}} failed batch tasks',
+        recentSessions: 'Recent conversations',
+        sessionHint: 'Continue previous work',
+        sessionMeta: '{{count}} messages · Updated {{date}}',
+        sessionStreaming: 'Generating in background',
+        noSessions: 'No conversations yet. Start the first one above.',
+        sessionLoadFailed:
+          'Recent conversations are temporarily unavailable. Metrics and shortcuts still work.',
+        activityTitle: 'Execution and follow-up',
+        activityDescription:
+          'This overview only shows progress and next actions. Detailed traces, reviews, and failures stay in their dedicated workspaces.',
+        inProgress: 'In progress',
+        needsAttention: 'Needs attention and recent results',
         runningTasks: 'Running tasks',
         taskCenter: 'Task center',
         runningAgents: '{{count}} agents running',

@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { getAgentRun, getAiResults } from '../api/ai-results'
 import { getAiQualityReport } from '../api/ai-quality'
+import { listAiSessions } from '../api/ai'
 import { getBatchTask, getBatchTasks } from '../api/batch-tasks'
 import { getImportJob, listImportJobs } from '../api/imports'
 import { getOrders } from '../api/orders'
@@ -104,6 +105,19 @@ export function useAiResultsQuery(
     queryFn: () => getAiResults(token, merchantId, input),
     enabled: Boolean(token && merchantId),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useRecentAiSessionsQuery(token: string, merchantId: string) {
+  return useQuery({
+    queryKey: queryKeys.aiSessions(merchantId),
+    queryFn: () => listAiSessions(token, merchantId),
+    enabled: Boolean(token && merchantId),
+    staleTime: 15_000,
+    refetchInterval: (query) =>
+      query.state.data?.items.some((session) => session.status === 'streaming')
+        ? 2_000
+        : false,
   })
 }
 

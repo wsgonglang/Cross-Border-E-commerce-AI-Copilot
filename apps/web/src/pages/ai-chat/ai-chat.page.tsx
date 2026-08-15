@@ -29,6 +29,7 @@ import { MessageEditModal } from './components/message-edit-modal'
 import { SessionEditModal } from './components/session-edit-modal'
 import { SessionShareModal } from './components/session-share-modal'
 import { useAiConversations } from './hooks/use-ai-conversations'
+import { useAiChatNavigation } from './hooks/use-ai-chat-navigation'
 import { useAiMessages } from './hooks/use-ai-messages'
 import { useAiSharing } from './hooks/use-ai-sharing'
 
@@ -70,6 +71,11 @@ export function AiChatPage() {
     storeId: storeId || undefined,
   })
   const sharing = useAiSharing({ token, merchantId })
+  useAiChatNavigation({
+    inputValue: chat.inputValue,
+    selectSession: conversations.selectSession,
+    setInputValue: chat.setInputValue,
+  })
 
   const groupOptions = useMemo(
     () => conversations.knownGroups.map((value) => ({ label: value, value })),

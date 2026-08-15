@@ -13,7 +13,7 @@ import {
 } from 'antd'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useMerchantsQuery } from '../../queries/commerce.queries'
 import {
@@ -41,11 +41,16 @@ export function AiResultsPage() {
   const locale = i18n.resolvedLanguage === 'en-US' ? 'en-US' : 'zh-CN'
   const token = useAppSelector((state) => state.auth.accessToken) ?? ''
   const navigate = useNavigate()
-  const [selectedMerchantId, setSelectedMerchantId] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedMerchantId, setSelectedMerchantId] = useState(
+    () => searchParams.get('merchantId') ?? '',
+  )
   const [type, setType] = useState<AiResultType>()
   const [status, setStatus] = useState<string>()
   const [page, setPage] = useState(1)
-  const [agentRunId, setAgentRunId] = useState<string>()
+  const [agentRunId, setAgentRunId] = useState<string | undefined>(
+    () => searchParams.get('agentRunId') ?? undefined,
+  )
   const merchantsQuery = useMerchantsQuery(token)
   const merchants = merchantsQuery.data ?? []
   const merchantId =
@@ -76,6 +81,13 @@ export function AiResultsPage() {
       keyword: item.product.code,
     })
     void navigate(`/products?${params.toString()}`)
+  }
+
+  const closeAgentRun = () => {
+    setAgentRunId(undefined)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('agentRunId')
+    setSearchParams(nextParams, { replace: true })
   }
 
   return (
@@ -264,7 +276,7 @@ export function AiResultsPage() {
         title={t('aiResults.runDetails')}
         width={760}
         open={Boolean(agentRun)}
-        onClose={() => setAgentRunId(undefined)}
+        onClose={closeAgentRun}
       >
         {agentRun ? (
           <>
