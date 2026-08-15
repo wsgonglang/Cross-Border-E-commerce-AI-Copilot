@@ -28,6 +28,7 @@ import {
 } from 'antd'
 import { useTranslation } from 'react-i18next'
 
+import { activateOnKeyboard } from '../../../utils/keyboard'
 import type { AiSessionView } from '../ai-chat.types'
 
 interface ConversationSidebarProps {
@@ -191,6 +192,14 @@ export function ConversationSidebar({
                 session.id === currentSessionId ? 'ai-chat-session-active' : ''
               }
               onClick={() => onSelect(session.id)}
+              onKeyDown={(event) =>
+                activateOnKeyboard(event, () => onSelect(session.id))
+              }
+              role="button"
+              tabIndex={0}
+              aria-current={
+                session.id === currentSessionId ? 'true' : undefined
+              }
               actions={[
                 <Dropdown
                   key="more"
@@ -205,6 +214,7 @@ export function ConversationSidebar({
                       title: session.title,
                     })}
                     onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
                   />
                 </Dropdown>,
               ]}

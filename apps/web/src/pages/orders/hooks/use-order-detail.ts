@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { getOrder, updateOrderStatus } from '../../../api/orders'
+import { useLatestRequestGuard } from '../../../hooks/use-latest-request-guard'
 
 interface UseOrderDetailInput {
   initialOrderId: string | null
@@ -25,24 +26,38 @@ export function useOrderDetail({
   const [orderId, setOrderId] = useState<string | null>(initialOrderId)
   const [data, setData] = useState<OrderSummary | null>(null)
   const [loading, setLoading] = useState(false)
+  const requestGuard = useLatestRequestGuard()
 
   useEffect(() => {
-    if (!orderId || !token || !merchantId) return
+    const requestId = requestGuard.begin()
     const timer = window.setTimeout(() => {
+      if (!orderId || !token || !merchantId) {
+        setLoading(false)
+        setData(null)
+        return
+      }
       setLoading(true)
       setData(null)
       void getOrder(token, merchantId, orderId, storeId)
-        .then(setData)
-        .catch(() => setData(null))
-        .finally(() => setLoading(false))
+        .then((result) => {
+          if (requestGuard.isLatest(requestId)) setData(result)
+        })
+        .catch(() => {
+          if (requestGuard.isLatest(requestId)) setData(null)
+        })
+        .finally(() => {
+          if (requestGuard.isLatest(requestId)) setLoading(false)
+        })
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [merchantId, orderId, storeId, token])
+  }, [merchantId, orderId, requestGuard, storeId, token])
 
   const close = useCallback(() => {
+    requestGuard.invalidate()
     setOrderId(null)
     setData(null)
-  }, [])
+    setLoading(false)
+  }, [requestGuard])
 
   const updateStatus = useCallback(
     async (targetOrderId: string, targetStatus: OrderStatus) => {

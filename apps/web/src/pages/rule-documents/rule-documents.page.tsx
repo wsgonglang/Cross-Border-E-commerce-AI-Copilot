@@ -34,6 +34,7 @@ import {
   searchRuleDocuments,
 } from '../../api/rule-documents'
 import { useAppSelector } from '../../store/hooks'
+import { useLatestRequestGuard } from '../../hooks/use-latest-request-guard'
 
 import './styles.css'
 
@@ -76,6 +77,7 @@ export function RuleDocumentsPage() {
     null,
   )
   const [messageApi, messageContext] = message.useMessage()
+  const requestGuard = useLatestRequestGuard()
 
   useEffect(() => {
     if (!token) return
@@ -92,27 +94,37 @@ export function RuleDocumentsPage() {
   }, [token])
 
   const load = useCallback(async () => {
+    const requestId = requestGuard.begin()
     if (!token || !merchantId) {
-      setLoading(false)
+      if (requestGuard.isLatest(requestId)) {
+        setDocuments([])
+        setLoading(false)
+      }
       return
     }
     setLoading(true)
     try {
-      setDocuments(await getRuleDocuments(token, merchantId))
-      setError(null)
+      const result = await getRuleDocuments(token, merchantId)
+      if (requestGuard.isLatest(requestId)) {
+        setDocuments(result)
+        setError(null)
+      }
     } catch (loadError: unknown) {
-      setError(
-        loadError instanceof Error ? loadError.message : '规则文档加载失败',
-      )
+      if (requestGuard.isLatest(requestId)) {
+        setError(
+          loadError instanceof Error ? loadError.message : '规则文档加载失败',
+        )
+      }
     } finally {
-      setLoading(false)
+      if (requestGuard.isLatest(requestId)) setLoading(false)
     }
-  }, [merchantId, token])
+  }, [merchantId, requestGuard, token])
 
   useEffect(() => {
+    requestGuard.invalidate()
     const timer = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timer)
-  }, [load])
+  }, [load, requestGuard])
 
   const openImport = () => {
     form.setFieldsValue({

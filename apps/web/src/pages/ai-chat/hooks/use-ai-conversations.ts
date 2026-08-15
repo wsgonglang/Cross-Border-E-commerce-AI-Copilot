@@ -9,6 +9,7 @@ import {
   setAiSessionArchived,
   updateAiSession,
 } from '../../../api/ai'
+import { useLatestRequestGuard } from '../../../hooks/use-latest-request-guard'
 import type { AiSessionView } from '../ai-chat.types'
 
 interface UseAiConversationsInput {
@@ -24,42 +25,53 @@ export function useAiConversations({
 }: UseAiConversationsInput) {
   const { t } = useTranslation()
   const [sessions, setSessions] = useState<AiSessionSummary[]>([])
+  const [sessionsMerchantId, setSessionsMerchantId] = useState('')
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [sessionView, setSessionView] = useState<AiSessionView>('active')
   const [keyword, setKeyword] = useState('')
   const [groupId, setGroupId] = useState<string>()
   const [knownGroups, setKnownGroups] = useState<string[]>([])
+  const requestGuard = useLatestRequestGuard()
 
   const loadSessions = useCallback(async () => {
     if (!token || !merchantId) return
-    const result = await listAiSessions(token, merchantId, {
-      keyword: keyword.trim() || undefined,
-      archived: sessionView === 'archived',
-      groupId,
-    })
+    const requestId = requestGuard.begin()
+    let result: Awaited<ReturnType<typeof listAiSessions>>
+    try {
+      result = await listAiSessions(token, merchantId, {
+        keyword: keyword.trim() || undefined,
+        archived: sessionView === 'archived',
+        groupId,
+      })
+    } catch (error: unknown) {
+      if (requestGuard.isLatest(requestId)) throw error
+      return
+    }
+    if (!requestGuard.isLatest(requestId)) return
     setSessions(result.items)
-    setKnownGroups((current) =>
+    setSessionsMerchantId(merchantId)
+    setKnownGroups(
       Array.from(
-        new Set([
-          ...current,
-          ...result.items.flatMap((session) =>
+        new Set(
+          result.items.flatMap((session) =>
             session.groupId ? [session.groupId] : [],
           ),
-        ]),
+        ),
       ).sort(),
     )
     setCurrentSessionId((current) => {
       if (result.items.some((session) => session.id === current)) return current
       return result.items[0]?.id ?? null
     })
-  }, [groupId, keyword, merchantId, sessionView, token])
+  }, [groupId, keyword, merchantId, requestGuard, sessionView, token])
 
   useEffect(() => {
+    requestGuard.invalidate()
     const timer = window.setTimeout(() => {
       void loadSessions().catch((error: Error) => onError(error.message))
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [loadSessions, onError])
+  }, [loadSessions, onError, requestGuard])
 
   const createSession = useCallback(async () => {
     if (!token || !merchantId) return null
@@ -71,6 +83,7 @@ export function useAiConversations({
       )
       setSessionView('active')
       setSessions((previous) => [session, ...previous])
+      setSessionsMerchantId(merchantId)
       setCurrentSessionId(session.id)
       return session
     } catch (error: unknown) {
@@ -137,9 +150,18 @@ export function useAiConversations({
     setCurrentSessionId(sessionId)
   }, [])
 
+  const visibleSessions = useMemo(
+    () => (sessionsMerchantId === merchantId ? sessions : []),
+    [merchantId, sessions, sessionsMerchantId],
+  )
+  const visibleCurrentSessionId =
+    sessionsMerchantId === merchantId ? currentSessionId : null
+  const visibleKnownGroups =
+    sessionsMerchantId === merchantId ? knownGroups : []
   const currentSession = useMemo(
-    () => sessions.find((session) => session.id === currentSessionId),
-    [currentSessionId, sessions],
+    () =>
+      visibleSessions.find((session) => session.id === visibleCurrentSessionId),
+    [visibleCurrentSessionId, visibleSessions],
   )
 
   return {
@@ -147,15 +169,15 @@ export function useAiConversations({
     archiveSession,
     createSession,
     currentSession,
-    currentSessionId,
+    currentSessionId: visibleCurrentSessionId,
     groupId,
     keyword,
-    knownGroups,
+    knownGroups: visibleKnownGroups,
     loadSessions,
     removeSession,
     selectSession,
     sessionView,
-    sessions,
+    sessions: visibleSessions,
     setGroupId,
     setKeyword,
     setSessionView,

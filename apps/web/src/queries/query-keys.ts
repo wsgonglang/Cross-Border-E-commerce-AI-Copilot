@@ -30,6 +30,11 @@ export interface AiResultsQueryInput {
   type?: AiResultType
 }
 
+export interface OperationsDashboardQueryInput {
+  days: number
+  storeId?: string
+}
+
 export const queryKeys = {
   merchants: ['merchants'] as const,
   stores: (merchantId: string) => ['stores', merchantId] as const,
@@ -39,6 +44,10 @@ export const queryKeys = {
   ordersRoot: (merchantId: string) => ['orders', merchantId] as const,
   orders: (merchantId: string, input: OrderQueryInput) =>
     [...queryKeys.ordersRoot(merchantId), input] as const,
+  operationsDashboard: (
+    merchantId: string,
+    input: OperationsDashboardQueryInput,
+  ) => ['operations-dashboard', merchantId, input] as const,
   batchTasksRoot: (merchantId: string) => ['batch-tasks', merchantId] as const,
   batchTasks: (merchantId: string, page: number) =>
     [...queryKeys.batchTasksRoot(merchantId), { page }] as const,

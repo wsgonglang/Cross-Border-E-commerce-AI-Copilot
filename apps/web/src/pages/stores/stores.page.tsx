@@ -28,6 +28,7 @@ import {
   updateStore,
 } from '../../api/stores'
 import { useBusinessContext } from '../../contexts/business-context'
+import { useLatestRequestGuard } from '../../hooks/use-latest-request-guard'
 import { useAppSelector } from '../../store/hooks'
 
 import './styles.css'
@@ -72,10 +73,16 @@ export function StoresPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string>()
   const [messageApi, messageContext] = message.useMessage()
+  const requestGuard = useLatestRequestGuard()
 
   const loadListings = useCallback(async () => {
+    const requestId = requestGuard.begin()
     if (!token || !merchantId || !storeId) {
-      setListings([])
+      if (requestGuard.isLatest(requestId)) {
+        setListings([])
+        setProducts([])
+        setLoading(false)
+      }
       return
     }
     setLoading(true)
@@ -84,22 +91,27 @@ export function StoresPage() {
         getProductListings(token, merchantId, storeId),
         getProducts(token, merchantId, { page: 1, pageSize: 100 }),
       ])
-      setListings(listingRecords)
-      setProducts(productResult.items)
-      setError(undefined)
+      if (requestGuard.isLatest(requestId)) {
+        setListings(listingRecords)
+        setProducts(productResult.items)
+        setError(undefined)
+      }
     } catch (loadError: unknown) {
-      setError(
-        loadError instanceof Error ? loadError.message : '店铺刊登加载失败',
-      )
+      if (requestGuard.isLatest(requestId)) {
+        setError(
+          loadError instanceof Error ? loadError.message : '店铺刊登加载失败',
+        )
+      }
     } finally {
-      setLoading(false)
+      if (requestGuard.isLatest(requestId)) setLoading(false)
     }
-  }, [merchantId, storeId, token])
+  }, [merchantId, requestGuard, storeId, token])
 
   useEffect(() => {
+    requestGuard.invalidate()
     const timer = window.setTimeout(() => void loadListings(), 0)
     return () => window.clearTimeout(timer)
-  }, [loadListings])
+  }, [loadListings, requestGuard])
 
   const openCreateStore = () => {
     setEditingStore(undefined)

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { formatDateTime } from '../../i18n/formatters'
 import type { AppLanguage } from '../../i18n/i18n'
+import { activateOnKeyboard } from '../../utils/keyboard'
 import type { AiChatNavigationState } from '../ai-chat/navigation'
 
 interface DashboardAiEntryProps {
@@ -131,7 +132,14 @@ export function DashboardAiEntry({
           renderItem={(session) => (
             <List.Item
               className="clickable-list-item dashboard-session-item"
+              role="button"
+              tabIndex={0}
               onClick={() => onOpen({ sessionId: session.id })}
+              onKeyDown={(event) =>
+                activateOnKeyboard(event, () =>
+                  onOpen({ sessionId: session.id }),
+                )
+              }
             >
               <List.Item.Meta
                 avatar={<MessageOutlined />}

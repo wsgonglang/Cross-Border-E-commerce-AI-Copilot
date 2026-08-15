@@ -5,10 +5,11 @@ import { getAiQualityReport } from '../api/ai-quality'
 import { listAiSessions } from '../api/ai'
 import { getBatchTask, getBatchTasks } from '../api/batch-tasks'
 import { getImportJob, listImportJobs } from '../api/imports'
-import { getOrders } from '../api/orders'
+import { getOperationsDashboard, getOrders } from '../api/orders'
 import {
   queryKeys,
   type AiResultsQueryInput,
+  type OperationsDashboardQueryInput,
   type OrderQueryInput,
 } from './query-keys'
 import type { AiQualityWindowDays } from '@cross-border/shared'
@@ -23,6 +24,18 @@ export function useOrdersQuery(
     queryFn: () => getOrders(token, merchantId, input),
     enabled: Boolean(token && merchantId),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useOperationsDashboardQuery(
+  token: string,
+  merchantId: string,
+  input: OperationsDashboardQueryInput,
+) {
+  return useQuery({
+    queryKey: queryKeys.operationsDashboard(merchantId, input),
+    queryFn: () => getOperationsDashboard(token, merchantId, input),
+    enabled: Boolean(token && merchantId),
   })
 }
 

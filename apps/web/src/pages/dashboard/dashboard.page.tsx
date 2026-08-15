@@ -25,11 +25,10 @@ import {
   ArrowUpOutlined,
   BulbOutlined,
 } from '@ant-design/icons'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
-import { getOperationsDashboard } from '../../api/orders'
 import { useBusinessContext } from '../../contexts/business-context'
 import {
   formatCurrency,
@@ -37,8 +36,12 @@ import {
   formatMonthDay,
 } from '../../i18n/formatters'
 import type { AppLanguage } from '../../i18n/i18n'
-import { useRecentAiSessionsQuery } from '../../queries/operations.queries'
+import {
+  useOperationsDashboardQuery,
+  useRecentAiSessionsQuery,
+} from '../../queries/operations.queries'
 import { useAppSelector } from '../../store/hooks'
+import { activateOnKeyboard } from '../../utils/keyboard'
 import { DashboardAiEntry } from './dashboard-ai-entry'
 import { getDashboardResultPath } from './dashboard-navigation'
 
@@ -177,42 +180,22 @@ export function DashboardPage() {
   const canUseAssistant =
     user?.roles.some((role) => ['admin', 'operator'].includes(role)) ?? false
   const [days, setDays] = useState(7)
-  const [dashboard, setDashboard] = useState<OperationsDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const dashboardQuery = useOperationsDashboardQuery(token, merchantId, {
+    days,
+    storeId: storeId || undefined,
+  })
+  const dashboard = dashboardQuery.data
+  const error =
+    dashboardQuery.error instanceof Error
+      ? dashboardQuery.error.message
+      : dashboardQuery.error
+        ? t('dashboard.loadFailed')
+        : null
   const recentSessionsQuery = useRecentAiSessionsQuery(
     token,
     merchantId,
     canUseAssistant,
   )
-
-  useEffect(() => {
-    if (!token || !merchantId) return
-    let active = true
-    void getOperationsDashboard(token, merchantId, {
-      days,
-      storeId: storeId || undefined,
-    })
-      .then((result) => {
-        if (!active) return
-        setDashboard(result)
-        setError(null)
-      })
-      .catch((loadError: unknown) => {
-        if (!active) return
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : t('dashboard.loadFailed'),
-        )
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [days, merchantId, storeId, t, token])
 
   const suggestions = useMemo(() => {
     if (!dashboard) return []
@@ -307,7 +290,7 @@ export function DashboardPage() {
       </header>
 
       {error ? <Alert type="error" showIcon title={error} /> : null}
-      {loading ? (
+      {dashboardQuery.isLoading ? (
         <div className="dashboard-loading">
           <Spin size="large" />
         </div>
@@ -674,6 +657,20 @@ export function DashboardPage() {
                                 )
                             : undefined
                         }
+                        onKeyDown={
+                          canUseAssistant
+                            ? (event) =>
+                                activateOnKeyboard(
+                                  event,
+                                  () =>
+                                    void navigate(
+                                      `/batch-tasks?merchantId=${merchantId}&taskId=${task.id}`,
+                                    ),
+                                )
+                            : undefined
+                        }
+                        role={canUseAssistant ? 'link' : undefined}
+                        tabIndex={canUseAssistant ? 0 : undefined}
                       >
                         <Space
                           direction="vertical"
@@ -730,6 +727,20 @@ export function DashboardPage() {
                                 )
                             : undefined
                         }
+                        onKeyDown={
+                          canUseAssistant
+                            ? (event) =>
+                                activateOnKeyboard(
+                                  event,
+                                  () =>
+                                    void navigate(
+                                      getDashboardResultPath(item, merchantId),
+                                    ),
+                                )
+                            : undefined
+                        }
+                        role={canUseAssistant ? 'link' : undefined}
+                        tabIndex={canUseAssistant ? 0 : undefined}
                       >
                         <List.Item.Meta
                           title={

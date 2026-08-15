@@ -71,4 +71,32 @@ describe('server state query policy', () => {
       queryKeys.aiQuality('merchant-a', 90),
     )
   })
+
+  it('isolates operations dashboards by merchant, store and period', () => {
+    expect(
+      queryKeys.operationsDashboard('merchant-a', {
+        days: 7,
+        storeId: 'store-a',
+      }),
+    ).not.toEqual(
+      queryKeys.operationsDashboard('merchant-a', {
+        days: 30,
+        storeId: 'store-a',
+      }),
+    )
+    expect(
+      queryKeys.operationsDashboard('merchant-a', {
+        days: 7,
+        storeId: 'store-a',
+      }),
+    ).not.toEqual(
+      queryKeys.operationsDashboard('merchant-a', {
+        days: 7,
+        storeId: 'store-b',
+      }),
+    )
+    expect(
+      queryKeys.operationsDashboard('merchant-a', { days: 7 }),
+    ).not.toEqual(queryKeys.operationsDashboard('merchant-b', { days: 7 }))
+  })
 })

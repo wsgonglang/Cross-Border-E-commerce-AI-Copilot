@@ -58,6 +58,16 @@ describe('DashboardAiEntry', () => {
     expect(screen.queryByText('会话 4')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('会话 2'))
     expect(onOpen).toHaveBeenCalledWith({ sessionId: '2' })
+
+    fireEvent.keyDown(screen.getByText('会话 3').closest('[role="button"]')!, {
+      key: 'Enter',
+    })
+    expect(onOpen).toHaveBeenLastCalledWith({ sessionId: '3' })
+
+    fireEvent.keyDown(screen.getByText('会话 1').closest('[role="button"]')!, {
+      key: ' ',
+    })
+    expect(onOpen).toHaveBeenLastCalledWith({ sessionId: '1' })
   })
 
   it('keeps the assistant entry usable when recent sessions fail', () => {
