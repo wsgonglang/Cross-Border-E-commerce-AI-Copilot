@@ -17,6 +17,8 @@ docker compose --profile app ps
 
 默认使用 Mock Provider，不需要模型密钥，也不会产生费用。
 
+演示前建议执行 `npm run test:e2e`，确认 operator 商品优化入口、viewer 只读边界和中英文切换三条核心浏览器旅程。AI 对话截图必须同时展示 `get_inventory` 等工具轨迹和来自业务 Service 的结果；不要继续使用“无法连接内部系统”的旧回答截图证明 Tool Calling。
+
 ## 8 分钟演示顺序
 
 ### 1. 登录与权限（1 分钟）

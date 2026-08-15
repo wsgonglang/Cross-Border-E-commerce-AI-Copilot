@@ -32,6 +32,7 @@ COPY --from=build /workspace/packages/shared/dist ./packages/shared/dist
 COPY --from=build /workspace/apps/api/package.json ./apps/api/package.json
 COPY --from=build /workspace/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 COPY --from=build /workspace/apps/api/prisma ./apps/api/prisma
+COPY --from=build /workspace/apps/api/src/ai/rule-document-fingerprint.ts ./apps/api/src/ai/rule-document-fingerprint.ts
 COPY --from=build /workspace/apps/api/src/ai/rule-retrieval.ts ./apps/api/src/ai/rule-retrieval.ts
 COPY --from=build /workspace/apps/api/src/generated/prisma ./apps/api/src/generated/prisma
 COPY --from=build /workspace/apps/api/dist ./apps/api/dist

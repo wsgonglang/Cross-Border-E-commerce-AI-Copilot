@@ -137,7 +137,10 @@ export function AiResultsPage() {
             'PENDING',
             'PARTIAL_FAILED',
             'CANCELLED',
-          ].map((value) => ({ value, label: value }))}
+          ].map((value) => ({
+            value,
+            label: t(`aiResults.statuses.${value}`, { defaultValue: value }),
+          }))}
           onChange={(value) => {
             setStatus(value)
             setPage(1)
@@ -187,7 +190,9 @@ export function AiResultsPage() {
               dataIndex: 'status',
               width: 120,
               render: (value: string) => (
-                <Tag color={statusColors[value] ?? 'default'}>{value}</Tag>
+                <Tag color={statusColors[value] ?? 'default'}>
+                  {t(`aiResults.statuses.${value}`, { defaultValue: value })}
+                </Tag>
               ),
             },
             {
@@ -266,7 +271,9 @@ export function AiResultsPage() {
             <Descriptions bordered size="small" column={2}>
               <Descriptions.Item label={t('common.status')}>
                 <Tag color={statusColors[agentRun.status]}>
-                  {agentRun.status}
+                  {t(`aiResults.statuses.${agentRun.status}`, {
+                    defaultValue: agentRun.status,
+                  })}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label={t('aiResults.token')}>
@@ -289,7 +296,11 @@ export function AiResultsPage() {
                   <div>
                     <Space>
                       <Typography.Text strong>{call.name}</Typography.Text>
-                      <Tag>{call.status}</Tag>
+                      <Tag>
+                        {t(`aiResults.toolStatuses.${call.status}`, {
+                          defaultValue: call.status,
+                        })}
+                      </Tag>
                     </Space>
                     <pre className="agent-tool-result">
                       {JSON.stringify(call.output ?? call.error, null, 2)}

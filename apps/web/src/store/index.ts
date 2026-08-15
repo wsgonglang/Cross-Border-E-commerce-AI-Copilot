@@ -1,12 +1,25 @@
 import { configureStore } from '@reduxjs/toolkit'
 
-import { authReducer } from './auth.slice'
+import * as authApi from '../api/auth'
+import { configureApiAuthRecovery } from '../api/client'
+import { authReducer, sessionExpired, sessionRecovered } from './auth.slice'
 import { chatReducer } from './chat.slice'
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     chat: chatReducer,
+  },
+})
+
+configureApiAuthRecovery({
+  refreshAccessToken: async () => {
+    const session = await authApi.refreshSession()
+    store.dispatch(sessionRecovered(session))
+    return session.accessToken
+  },
+  onSessionExpired: () => {
+    store.dispatch(sessionExpired())
   },
 })
 

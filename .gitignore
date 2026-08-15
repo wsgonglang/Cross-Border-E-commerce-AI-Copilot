@@ -6,6 +6,8 @@
 node_modules/
 dist/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 /apps/api/src/generated/prisma/
 /.local/

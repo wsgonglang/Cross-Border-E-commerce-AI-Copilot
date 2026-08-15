@@ -5,22 +5,7 @@ import type {
   SkuSummary,
 } from '@cross-border/shared'
 import { useQueryClient } from '@tanstack/react-query'
-import {
-  Alert,
-  Button,
-  Descriptions,
-  Drawer,
-  Empty,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Select,
-  Space,
-  Table,
-  Tag,
-  message,
-} from 'antd'
+import { Alert, Button, Form, Input, Select, Space, message } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -38,18 +23,18 @@ import {
 } from '../../api/commerce'
 import { ProductOptimizationDrawer } from '../../components/product-optimization-drawer/product-optimization-drawer'
 import { useBusinessContext } from '../../contexts/business-context'
-import { formatDateTime } from '../../i18n/formatters'
 import type { AppLanguage } from '../../i18n/i18n'
 import { useProductsQuery } from '../../queries/commerce.queries'
 import { queryKeys } from '../../queries/query-keys'
 import { useAppSelector } from '../../store/hooks'
+import { ProductAuditDrawer } from './components/product-audit-drawer'
+import { ProductCatalogTable } from './components/product-catalog-table'
+import {
+  ProductEditModals,
+  type StockFormInput,
+} from './components/product-edit-modals'
 
 import './styles.css'
-
-interface StockForm {
-  delta: number
-  reason: string
-}
 
 const emptyProducts: ProductSummary[] = []
 
@@ -71,7 +56,7 @@ export function ProductsPage() {
     user?.roles.some((role) => role === 'admin' || role === 'operator') ?? false
   const [productForm] = Form.useForm<ProductInput>()
   const [skuForm] = Form.useForm<SkuInput>()
-  const [stockForm] = Form.useForm<StockForm>()
+  const [stockForm] = Form.useForm<StockFormInput>()
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -353,309 +338,53 @@ export function ProductsPage() {
       {error ? <Alert type="error" showIcon message={error} /> : null}
 
       <div className="table-card">
-        <Table<ProductSummary>
-          rowKey="id"
+        <ProductCatalogTable
           loading={loading}
-          dataSource={products}
-          pagination={{
-            current: page,
-            pageSize,
-            total,
-            showSizeChanger: true,
-            onChange: (nextPage, nextPageSize) => {
-              setPage(nextPage)
-              setPageSize(nextPageSize)
-            },
+          products={products}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          canWrite={canWrite}
+          statusLabels={productStatusLabels}
+          onPageChange={(nextPage, nextPageSize) => {
+            setPage(nextPage)
+            setPageSize(nextPageSize)
           }}
-          expandable={{
-            expandedRowRender: (product) =>
-              product.skus.length ? (
-                <Table<SkuSummary>
-                  rowKey="id"
-                  size="small"
-                  pagination={false}
-                  dataSource={product.skus}
-                  columns={[
-                    { title: 'SKU', dataIndex: 'code' },
-                    { title: t('products.specification'), dataIndex: 'name' },
-                    {
-                      title: t('products.price'),
-                      render: (_, sku) => `${sku.currency} ${sku.price}`,
-                    },
-                    { title: t('products.stock'), dataIndex: 'stock' },
-                    {
-                      title: t('common.status'),
-                      render: (_, sku) => (
-                        <Tag
-                          color={sku.status === 'ACTIVE' ? 'green' : 'default'}
-                        >
-                          {sku.status === 'ACTIVE'
-                            ? t('common.active')
-                            : t('common.disabled')}
-                        </Tag>
-                      ),
-                    },
-                    {
-                      title: t('common.actions'),
-                      render: (_, sku) =>
-                        canWrite ? (
-                          <Space>
-                            <Button
-                              type="link"
-                              onClick={() => openSku(product, sku)}
-                            >
-                              {t('common.edit')}
-                            </Button>
-                            <Button
-                              type="link"
-                              onClick={() => openStock(sku)}
-                              disabled={sku.status !== 'ACTIVE'}
-                            >
-                              {t('products.adjustStock')}
-                            </Button>
-                            <Button
-                              type="link"
-                              danger
-                              disabled={sku.status !== 'ACTIVE'}
-                              onClick={() => void setSkuDisabled(sku)}
-                            >
-                              {t('products.disable')}
-                            </Button>
-                          </Space>
-                        ) : null,
-                    },
-                  ]}
-                />
-              ) : (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={t('products.emptySku')}
-                />
-              ),
-          }}
-          columns={[
-            { title: t('products.code'), dataIndex: 'code' },
-            { title: t('products.titleField'), dataIndex: 'title' },
-            {
-              title: t('common.language'),
-              dataIndex: 'language',
-              width: 100,
-            },
-            {
-              title: t('products.version'),
-              dataIndex: 'version',
-              width: 72,
-              render: (value: number) => `v${value}`,
-            },
-            {
-              title: t('common.status'),
-              dataIndex: 'status',
-              width: 100,
-              render: (value: ProductStatus) => (
-                <Tag color={value === 'ACTIVE' ? 'green' : 'default'}>
-                  {productStatusLabels[value]}
-                </Tag>
-              ),
-            },
-            {
-              title: 'SKU',
-              width: 80,
-              render: (_, product) => product.skus.length,
-            },
-            {
-              title: t('common.actions'),
-              width: 260,
-              render: (_, product) =>
-                canWrite ? (
-                  <Space>
-                    <Button type="link" onClick={() => openProduct(product)}>
-                      {t('common.edit')}
-                    </Button>
-                    <Button
-                      type="link"
-                      onClick={() => setOptimizationProduct(product)}
-                      disabled={product.status === 'ARCHIVED'}
-                    >
-                      {t('products.aiOptimize')}
-                    </Button>
-                    <Button
-                      type="link"
-                      onClick={() => openSku(product)}
-                      disabled={product.status === 'ARCHIVED'}
-                    >
-                      {t('products.addSku')}
-                    </Button>
-                  </Space>
-                ) : null,
-            },
-          ]}
+          onEditProduct={openProduct}
+          onOptimizeProduct={setOptimizationProduct}
+          onAddSku={openSku}
+          onEditSku={openSku}
+          onAdjustStock={openStock}
+          onDisableSku={setSkuDisabled}
         />
       </div>
 
-      <Modal
-        title={
-          editingProduct ? t('products.editProduct') : t('products.create')
-        }
-        open={productModalOpen}
-        confirmLoading={saving}
-        onOk={() => void saveProduct()}
-        onCancel={() => setProductModalOpen(false)}
-        width={680}
-      >
-        <Form form={productForm} layout="vertical">
-          <Form.Item
-            name="code"
-            label={t('products.code')}
-            rules={[{ required: true }, { pattern: /^[A-Z0-9][A-Z0-9_-]+$/ }]}
-          >
-            <Input disabled={Boolean(editingProduct)} />
-          </Form.Item>
-          <Form.Item
-            name="title"
-            label={t('products.titleField')}
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="description" label={t('products.descriptionField')}>
-            <Input.TextArea rows={5} />
-          </Form.Item>
-          <div className="form-grid">
-            <Form.Item
-              name="language"
-              label={t('common.language')}
-              rules={[{ required: true }]}
-            >
-              <Select
-                options={['zh-CN', 'en-US', 'es-ES', 'pt-BR'].map((value) => ({
-                  value,
-                  label: value,
-                }))}
-              />
-            </Form.Item>
-            <Form.Item
-              name="status"
-              label={t('common.status')}
-              rules={[{ required: true }]}
-            >
-              <Select
-                options={Object.entries(productStatusLabels).map(
-                  ([value, label]) => ({ value, label }),
-                )}
-              />
-            </Form.Item>
-          </div>
-        </Form>
-      </Modal>
+      <ProductEditModals
+        productForm={productForm}
+        skuForm={skuForm}
+        stockForm={stockForm}
+        editingProduct={editingProduct}
+        editingSku={editingSku}
+        stockSku={stockSku}
+        productOpen={productModalOpen}
+        skuOpen={skuModalOpen}
+        stockOpen={stockModalOpen}
+        saving={saving}
+        statusLabels={productStatusLabels}
+        onSaveProduct={saveProduct}
+        onSaveSku={saveSku}
+        onSaveStock={saveStock}
+        onCloseProduct={() => setProductModalOpen(false)}
+        onCloseSku={() => setSkuModalOpen(false)}
+        onCloseStock={() => setStockModalOpen(false)}
+      />
 
-      <Modal
-        title={editingSku ? t('products.editSku') : t('products.addSku')}
-        open={skuModalOpen}
-        confirmLoading={saving}
-        onOk={() => void saveSku()}
-        onCancel={() => setSkuModalOpen(false)}
-      >
-        <Form form={skuForm} layout="vertical">
-          <Form.Item
-            name="code"
-            label={t('products.skuCode')}
-            rules={[{ required: true }, { pattern: /^[A-Z0-9][A-Z0-9_-]+$/ }]}
-          >
-            <Input disabled={Boolean(editingSku)} />
-          </Form.Item>
-          <Form.Item
-            name="name"
-            label={t('products.skuName')}
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <div className="form-grid">
-            <Form.Item
-              name="price"
-              label={t('products.price')}
-              rules={[{ required: true }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="currency"
-              label={t('products.currency')}
-              rules={[{ required: true }]}
-            >
-              <Select
-                disabled={Boolean(editingSku)}
-                options={['USD', 'EUR', 'GBP', 'CNY'].map((value) => ({
-                  value,
-                  label: value,
-                }))}
-              />
-            </Form.Item>
-          </div>
-          <Form.Item
-            name="stock"
-            label={t('products.initialStock')}
-            rules={[{ required: true }]}
-          >
-            <InputNumber disabled={Boolean(editingSku)} min={0} precision={0} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        title={t('products.adjustStockTitle', {
-          code: stockSku?.code ?? '',
-        })}
-        open={stockModalOpen}
-        confirmLoading={saving}
-        onOk={() => void saveStock()}
-        onCancel={() => setStockModalOpen(false)}
-      >
-        <Form form={stockForm} layout="vertical">
-          <Form.Item
-            name="delta"
-            label={t('products.delta')}
-            extra={t('products.deltaHelp')}
-            rules={[{ required: true }]}
-          >
-            <InputNumber precision={0} />
-          </Form.Item>
-          <Form.Item
-            name="reason"
-            label={t('products.reason')}
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Drawer
-        title={t('products.auditTitle')}
-        width={560}
+      <ProductAuditDrawer
         open={auditOpen}
+        logs={auditLogs}
+        language={language}
         onClose={() => setAuditOpen(false)}
-      >
-        {auditLogs.map((log) => (
-          <Descriptions
-            key={log.id}
-            className="audit-entry"
-            size="small"
-            column={1}
-            bordered
-          >
-            <Descriptions.Item label={t('products.time')}>
-              {formatDateTime(log.createdAt, language)}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('common.actions')}>
-              {log.entityType} · {log.action}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('products.object')}>
-              {log.entityId}
-            </Descriptions.Item>
-          </Descriptions>
-        ))}
-      </Drawer>
+      />
 
       {token && merchantId ? (
         <ProductOptimizationDrawer

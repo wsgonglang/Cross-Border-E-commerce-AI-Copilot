@@ -59,7 +59,20 @@ export const logout = createAsyncThunk('auth/logout', async () => {
 const authSlice = createSlice({
   name: 'auth',
   initialState,
-  reducers: {},
+  reducers: {
+    sessionRecovered: (state, action: { payload: AuthSession }) => {
+      state.status = 'authenticated'
+      state.accessToken = action.payload.accessToken
+      state.user = action.payload.user
+      state.error = null
+    },
+    sessionExpired: (state) => {
+      state.status = 'anonymous'
+      state.accessToken = null
+      state.user = null
+      state.error = null
+    },
+  },
   extraReducers: (builder) => {
     const applySession = (state: AuthState, session: AuthSession) => {
       state.status = 'authenticated'
@@ -99,4 +112,5 @@ const authSlice = createSlice({
   },
 })
 
+export const { sessionExpired, sessionRecovered } = authSlice.actions
 export const authReducer = authSlice.reducer
