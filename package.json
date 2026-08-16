@@ -18,7 +18,7 @@
     "typecheck:check": "npm run typecheck --workspaces --if-present",
     "test": "npm run build:workspace-deps && npm run test:check",
     "test:e2e": "npm run test:e2e --workspace @cross-border/web",
-    "test:integration": "npm run test:integration --workspace @cross-border/api",
+    "test:integration": "npm run build:workspace-deps && npm run test:integration --workspace @cross-border/api",
     "rag:eval": "npm run rag:eval --workspace @cross-border/api",
     "agent:eval:real": "npm run agent:eval:real --workspace @cross-border/api",
     "test:check": "npm run test --workspaces --if-present",

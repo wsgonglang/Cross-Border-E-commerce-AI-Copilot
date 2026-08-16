@@ -54,7 +54,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run prisma:deploy --workspace @cross-border/api
-      - run: npm run test:integration --workspace @cross-border/api
+      - run: npm run test:integration
         env:
           RUN_INTEGRATION_TESTS: 'true'
       - run: npm run verify
