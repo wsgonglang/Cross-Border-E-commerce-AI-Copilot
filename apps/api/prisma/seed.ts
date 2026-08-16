@@ -207,7 +207,7 @@ async function seed(): Promise<void> {
 无法确认电池参数或运输资料时，不得向买家保证该商品可以通过所有航空渠道运输。`,
     },
     {
-      id: 'rule_demo_amazon_us_electronics_2025',
+      id: 'rule_demo_amz_us_elec_2025',
       merchantId: null,
       title: 'Amazon 美国站电器商品演示规则（2025 版）',
       platform: 'AMAZON',
@@ -230,7 +230,7 @@ async function seed(): Promise<void> {
 旅行充电器发布前应记录输入电压、输出功率、插头制式和已有安全测试资料。缺少证明材料时不得使用“完全安全”或“适用于所有国家”等绝对化表述。`,
     },
     {
-      id: 'rule_demo_amazon_us_electronics_2026',
+      id: 'rule_demo_amz_us_elec_2026',
       merchantId: null,
       title: 'Amazon 美国站电器商品演示规则（2026 版）',
       platform: 'AMAZON',
@@ -240,7 +240,7 @@ async function seed(): Promise<void> {
       effectiveFrom: new Date('2026-07-01T00:00:00.000Z'),
       effectiveTo: null,
       version: '2026.2',
-      supersedesDocumentId: 'rule_demo_amazon_us_electronics_2025',
+      supersedesDocumentId: 'rule_demo_amz_us_elec_2025',
       scope: 'GLOBAL' as const,
       status: 'ACTIVE' as const,
       sourceUrl: 'https://example.invalid/amazon/us/electronics/2026',
@@ -257,7 +257,7 @@ async function seed(): Promise<void> {
 标题和详情不得使用无法证明的“美国第一”“百分百安全”或“全球通用”等保证性表述。资料不完整时，运营人员必须停止发布并补充证据。`,
     },
     {
-      id: 'rule_demo_amazon_us_merchant_review',
+      id: 'rule_demo_amz_us_review',
       merchantId: merchant.id,
       title: 'Demo 商家 Amazon 美国站合规复核补充规则',
       platform: 'AMAZON',
@@ -280,7 +280,7 @@ Demo 商家的 Amazon 美国站电器商品在提交发布前，必须由运营�
 复核未通过时只能保存为修改草稿，不得写入正式商品刊登；复核结论和证据链接需要进入审计记录。`,
     },
     {
-      id: 'rule_demo_shopee_br_claims_2026',
+      id: 'rule_demo_shopee_br_2026',
       merchantId: null,
       title: 'Shopee 巴西站商品声明演示规则（2026 版）',
       platform: 'SHOPEE',
